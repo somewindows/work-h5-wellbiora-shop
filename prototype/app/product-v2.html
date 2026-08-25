@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>产品详情 · WELLBIORA</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style-v2.css">
+</head>
+<body>
+<div class="page">
+
+  <!-- 悬浮返回条 -->
+  <div class="backbar">
+    <a href="products-v2.html" aria-label="返回">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#033B3C" stroke-width="2"><path d="M15 5l-7 7 7 7"/></svg>
+    </a>
+    <img src="assets/logo-h.jpg" alt="WELLBIORA" style="height:22px;width:auto;mix-blend-mode:multiply">
+    <span class="ico"></span>
+  </div>
+
+  <main id="detail"></main>
+
+  <div style="height:96px"></div>
+</div>
+
+<!-- 底部购买栏 -->
+<div class="buybar">
+  <a class="ic" href="index-v2.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>
+    首页
+  </a>
+  <a class="ic" href="#" onclick="toast('购物车为演示占位');return false;">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3h2l2.4 12.2A2 2 0 0 0 9.36 17H18a2 2 0 0 0 1.95-1.55L21.5 8H6"/><circle cx="9.5" cy="20.5" r="1.3"/><circle cx="17.5" cy="20.5" r="1.3"/></svg>
+    购物车
+  </a>
+  <button class="btn cart" onclick="toast('已加入购物袋（演示）')">加入购物袋</button>
+  <button class="btn buy" onclick="toast('结算流程开发中（演示）')">立即购买</button>
+</div>
+
+<a class="v-switch" id="v1link" href="#">回看 V1</a>
+<div class="toast" id="toast"></div>
+
+<script src="data.js"></script>
+<script src="data-v2.js"></script>
+<script>
+const id = new URLSearchParams(location.search).get('id') || 'p1';
+const p = PRODUCTS2.find(x => x.id === id) || PRODUCTS2[0];
+document.getElementById('v1link').href = 'product.html?id=' + p.id;
+document.title = p.name + ' · WELLBIORA';
+
+/* ============================================================
+ * 内容块渲染器 v2 —— 对应 data-v2.js 的 type 定义
+ * 新增类型：info_rows / stats / scenario
+ * 复用类型：gallery / badges / image / nutrition / nutrition_image
+ * ============================================================ */
+const R2 = {
+  /* 图廊：产品浅底色 + 白底产品图 multiply 融合 */
+  gallery: b => `
+    <div class="gwrap">
+      <div class="gallery gallery-v2" style="background:${p.themeLight}">
+        ${b.images.map(i => `<img src="${i}" alt="${p.name}">`).join('')}
+      </div>
+      ${b.images.length > 1 ? `<div class="g-dots">${b.images.map((_,i)=>`<i class="${i===0?'on':''}"></i>`).join('')}</div>` : ''}
+    </div>`,
+
+  /* 商品信息行 */
+  info_rows: b => `
+    <section class="blk">
+      <div class="blk-h">
+        <div class="kick">Product Info</div>
+        <div class="cn">产品档案</div>
+      </div>
+      ${b.rows.map(r => `<div class="inforow"><span class="k">${r.k}</span><span class="v">${r.v}</span></div>`).join('')}
+    </section>`,
+
+  /* 核心数据网格 */
+  stats: b => `
+    <section class="blk">
+      <div class="blk-h">
+        <div class="kick">Key Numbers</div>
+        <div class="cn">核心数据</div>
+      </div>
+      <div class="stats-in">
+        ${b.items.map(s => `
+          <div class="stat">
+            <div class="n">${s.n}<small>${s.unit || ''}</small></div>
+            <div class="l">${s.l}</div>
+            <div class="d">${s.d || ''}</div>
+          </div>`).join('')}
+      </div>
+      <p class="nutri-note">* 数据来源于品牌方提供的吸收对比研究文献，个体存在差异。</p>
+    </section>`,
+
+  /* 适用场景 */
+  scenario: b => `
+    <section class="blk">
+      <div class="blk-h">
+        <div class="kick">For You If</div>
+        <div class="cn">${b.title || '适合这样的你'}</div>
+      </div>
+      <div class="scen">
+        ${b.items.map(s => `<div class="s"><i>✓</i><span>${s}</span></div>`).join('')}
+      </div>
+    </section>`,
+
+  /* 配方特点徽章 */
+  badges: b => `
+    <section class="blk">
+      <div class="blk-h">
+        <div class="kick">Clean Label</div>
+        <div class="cn">${b.title || '配方特点'}</div>
+      </div>
+      <div class="badges">${b.items.map(t => `<span class="badge">${t}</span>`).join('')}</div>
+    </section>`,
+
+  /* 整幅素材图 */
+  image: b => `
+    <section class="blk flush">
+      <img src="${b.src}" alt="" loading="lazy">
+    </section>`,
+
+  /* 营养成分表（文字版） */
+  nutrition: b => `
+    <section class="blk">
+      <div class="blk-h">
+        <div class="kick">Nutrition Facts</div>
+        <div class="cn">${b.title || '营养成分表'}</div>
+        ${b.meta ? `<div class="meta">${b.meta}</div>` : ''}
+      </div>
+      <table class="nutri">
+        <thead><tr>${(b.head || ['成分','每份含量','NRV%']).map(h => `<th>${h}</th>`).join('')}</tr></thead>
+        <tbody>${b.rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody>
+      </table>
+      ${b.note ? `<p class="nutri-note">${b.note.replace(/\n/g, '<br>')}</p>` : ''}
+    </section>`,
+
+  /* 营养成分表（图片版，用于暂无文字资料的产品） */
+  nutrition_image: b => `
+    <section class="blk">
+      <div class="blk-h">
+        <div class="kick">Nutrition Facts</div>
+        <div class="cn">营养成分表</div>
+      </div>
+      <img src="${b.src}" alt="营养成分表" style="width:100%;display:block;border-radius:8px">
+    </section>`,
+};
+
+/* ---------- 组装页面 ---------- */
+const main = document.getElementById('detail');
+let html = '';
+
+/* 图廊 */
+html += R2.gallery(p.blocks2.find(b => b.type === 'gallery'));
+
+/* 摘要卡 */
+html += `
+  <section class="summary summary-v2">
+    <div class="tags">${p.tags.map(t => `<span class="tag">${t}</span>`).join('')}</div>
+    <h1 class="name">${p.name}</h1>
+    <div class="en-name">${p.en}</div>
+    <div class="sub">${p.flavor} · ${p.spec}</div>
+    <div class="prow">
+      <span class="price"><span class="cur">¥</span>${p.price}<span class="hint">示例价</span></span>
+      <span class="sold">保税仓直发 · 满 2 件包邮</span>
+    </div>
+    <div class="cross">跨境进口商品 · 1210 保税备货 · 下单需实名清关</div>
+  </section>`;
+
+/* 内容块序列 */
+for (const b of p.blocks2) {
+  if (b.type === 'gallery') continue;
+  const r = R2[b.type];
+  if (r) html += r(b);
+}
+
+/* 固定合规声明 */
+html += `
+  <details class="collapse">
+    <summary>跨境购买须知与合规说明</summary>
+    <div class="c-body">${COMPLIANCE_TEXT}</div>
+  </details>`;
+
+main.innerHTML = html;
+
+/* 图廊圆点联动 */
+const gal = main.querySelector('.gallery-v2');
+if (gal) gal.addEventListener('scroll', () => {
+  const i = Math.round(gal.scrollLeft / gal.clientWidth);
+  main.querySelectorAll('.g-dots i').forEach((d, k) => d.classList.toggle('on', k === i));
+});
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 1600);
+}
+</script>
+</body>
+</html>

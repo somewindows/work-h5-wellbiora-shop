@@ -1,0 +1,297 @@
+/* WELLBIORA H5 设计规范 v0.3 —— 预览样式（设计基准 375px） */
+:root {
+  --green: #033B3C;
+  --green-dark: #022829;
+  --mint: #D9EDE2;
+  --bg: #F7F5F0;
+  --card: #FFFFFF;
+  --text: #1A1A1A;
+  --text2: #6B6660;
+  --text3: #A8A29A;
+  --line: #EAE6DF;
+  --red: #E6432D;
+  --ok: #2BA471;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html { font-size: 16px; }
+body {
+  font-family: -apple-system, "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif;
+  background: #EAE6DF;
+  color: var(--text);
+}
+.page {
+  max-width: 480px;
+  margin: 0 auto;
+  background: var(--bg);
+  min-height: 100dvh;
+  padding-bottom: calc(64px + env(safe-area-inset-bottom));
+}
+img { display: block; }
+a { text-decoration: none; color: inherit; }
+.en { font-family: Georgia, "Times New Roman", serif; letter-spacing: .04em; }
+
+/* ---------- 顶部 ---------- */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 12px 8px;
+}
+.topbar img.logo { height: 22px; width: auto; }
+.topbar .cart-ico { width: 24px; height: 24px; }
+
+/* ---------- 首页 Hero ---------- */
+.hero {
+  margin: 4px 12px 0;
+  border-radius: 16px;
+  overflow: hidden;
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.hero::-webkit-scrollbar { display: none; }
+.hero .slide {
+  position: relative;
+  flex: 0 0 100%;
+  scroll-snap-align: start;
+  min-height: 220px;
+  background: var(--mint);
+}
+.hero .slide img.ph {
+  position: absolute; right: 0; top: 0;
+  width: 58%; height: 100%;
+  object-fit: contain;
+  padding: 14px 6px 14px 0;
+}
+.hero .slide .cap {
+  position: absolute; left: 20px; bottom: 20px; z-index: 2;
+  max-width: 46%;
+  color: var(--text);
+}
+.hero .slide .cap .t1 { font-size: 18px; font-weight: 700; line-height: 1.3; }
+.hero .slide .cap .t2 { font-size: 11px; color: var(--text2); margin-top: 4px; }
+.hero .slide .cap .t3 { margin-top: 8px; color: var(--red); font-weight: 700; font-size: 18px; }
+.hero .slide .cap .t3 span { font-size: 10px; font-weight: 400; color: var(--text3); }
+
+/* ---------- 公告条 ---------- */
+.notice {
+  margin: 10px 12px 0;
+  background: var(--mint);
+  color: var(--green);
+  font-size: 12px;
+  border-radius: 999px;
+  padding: 8px 14px;
+  display: flex; align-items: center; gap: 6px;
+  white-space: nowrap; overflow: hidden;
+}
+
+/* ---------- 模块标题 ---------- */
+.sec-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  padding: 22px 12px 12px;
+}
+.sec-head .t { font-size: 18px; font-weight: 600; }
+.sec-head .more { font-size: 12px; color: var(--text3); }
+
+/* ---------- 产品卡（两列） ---------- */
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 0 12px;
+}
+.pcard {
+  background: var(--card);
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+}
+.pcard .pic {
+  aspect-ratio: 1;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+.pcard .pic img { width: 100%; height: 100%; object-fit: cover; }
+.pcard .body { padding: 10px 12px 12px; }
+.pcard .name { font-size: 14px; font-weight: 600; line-height: 1.35; }
+.pcard .sub { font-size: 12px; color: var(--text2); margin-top: 2px; }
+.pcard .row { display: flex; align-items: flex-end; justify-content: space-between; margin-top: 8px; }
+.price { color: var(--red); font-weight: 700; font-size: 20px; line-height: 1; }
+.price .cur { font-size: 12px; margin-right: 1px; }
+.price .hint { font-size: 10px; font-weight: 400; color: var(--text3); margin-left: 2px; }
+.addbtn {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--green); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; line-height: 1; border: none;
+}
+
+/* ---------- 品牌区块 ---------- */
+.brand {
+  margin: 22px 12px 0;
+  background: var(--green-dark);
+  border-radius: 16px;
+  padding: 28px 20px;
+  color: #fff;
+  text-align: center;
+}
+.brand .bwm { font-size: 20px; letter-spacing: .25em; color: #fff; margin-bottom: 14px; }
+.brand .bwm sup { font-size: 10px; letter-spacing: 0; }
+.brand .b1 { font-size: 18px; font-weight: 600; }
+.brand .b2 { font-size: 12px; color: rgba(255,255,255,.72); margin-top: 8px; line-height: 1.8; }
+.brand .bimg { margin-top: 16px; border-radius: 12px; overflow: hidden; }
+.brand .bimg img { width: 100%; height: auto; }
+
+/* ---------- 认证墙 ---------- */
+.certs { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 12px; }
+.cert {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 12px; color: var(--text2);
+  padding: 7px 12px;
+}
+
+/* ---------- 底部 Tabbar ---------- */
+.tabbar {
+  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 100%; max-width: 480px;
+  background: rgba(255,255,255,.96);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid var(--line);
+  display: flex;
+  padding-bottom: env(safe-area-inset-bottom);
+  z-index: 50;
+}
+.tabbar a {
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 7px 0 5px;
+  font-size: 10px; color: var(--text3);
+}
+.tabbar a.on { color: var(--green); font-weight: 600; }
+.tabbar svg { width: 22px; height: 22px; margin-bottom: 2px; }
+
+/* ---------- 详情页 ---------- */
+.gallery {
+  background: #fff;
+  display: flex; overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.gallery::-webkit-scrollbar { display: none; }
+.gallery img { flex: 0 0 100%; width: 100%; scroll-snap-align: start; aspect-ratio: 1; object-fit: cover; }
+.summary {
+  background: var(--card);
+  border-radius: 16px 16px 0 0;
+  margin-top: -16px;
+  position: relative;
+  padding: 16px 16px 14px;
+}
+.summary .tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.summary .tag {
+  font-size: 10px; color: var(--green);
+  background: var(--mint);
+  border-radius: 4px; padding: 3px 6px;
+}
+.summary .name { font-size: 18px; font-weight: 700; }
+.summary .sub { font-size: 12px; color: var(--text2); margin-top: 4px; }
+.summary .en-name { font-size: 13px; color: var(--text2); margin-top: 2px; }
+.summary .prow { display: flex; align-items: baseline; gap: 8px; margin-top: 10px; }
+.summary .price { font-size: 24px; }
+.summary .sold { font-size: 11px; color: var(--text3); }
+
+.block { margin: 10px 12px 0; background: var(--card); border-radius: 12px; overflow: hidden; }
+.block.flush { padding: 0; }
+.block.flush img { width: 100%; height: auto; }
+.block .pad { padding: 16px; }
+.block h3 { font-size: 16px; font-weight: 600; margin-bottom: 10px; }
+.block p.desc { font-size: 14px; color: var(--text2); line-height: 1.7; }
+
+/* 卖点徽章行 */
+.badges { display: flex; flex-wrap: wrap; gap: 8px; }
+.badge {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px; color: var(--text);
+  background: #fff;
+}
+
+/* 营养成分表 */
+.nutri { width: 100%; border-collapse: collapse; font-size: 13px; }
+.nutri th, .nutri td { padding: 9px 4px; border-bottom: 1px solid var(--line); text-align: left; }
+.nutri th { color: var(--text2); font-weight: 400; font-size: 12px; }
+.nutri td:nth-child(2), .nutri td:nth-child(3),
+.nutri th:nth-child(2), .nutri th:nth-child(3) { text-align: right; }
+.nutri-note { font-size: 11px; color: var(--text3); margin-top: 10px; line-height: 1.7; }
+
+/* 折叠面板 */
+.collapse { margin: 10px 12px 0; background: var(--card); border-radius: 12px; }
+.collapse summary {
+  list-style: none; cursor: pointer;
+  padding: 14px 16px;
+  font-size: 14px; font-weight: 600;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.collapse summary::after { content: "›"; color: var(--text3); font-size: 16px; transition: transform .2s; }
+.collapse[open] summary::after { transform: rotate(90deg); }
+.collapse .c-body { padding: 0 16px 14px; font-size: 12px; color: var(--text2); line-height: 1.8; }
+
+/* 底部购买栏 */
+.buybar {
+  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 100%; max-width: 480px;
+  background: #fff;
+  border-top: 1px solid var(--line);
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+  z-index: 50;
+}
+.buybar .ic {
+  width: 44px; text-align: center;
+  font-size: 10px; color: var(--text2);
+}
+.buybar .ic svg { width: 20px; height: 20px; display: block; margin: 0 auto 2px; }
+.buybar .btn {
+  flex: 1; height: 44px; border: none; border-radius: 999px;
+  font-size: 15px; font-weight: 600;
+}
+.buybar .btn.cart { background: var(--mint); color: var(--green); }
+.buybar .btn.buy { background: var(--green); color: #fff; }
+
+/* Toast */
+.toast {
+  position: fixed; left: 50%; top: 45%; transform: translate(-50%,-50%);
+  background: rgba(0,0,0,.72); color: #fff;
+  font-size: 13px; padding: 10px 18px; border-radius: 8px;
+  opacity: 0; pointer-events: none; transition: opacity .25s;
+  z-index: 99;
+}
+.toast.show { opacity: 1; }
+
+/* 返回条（详情页） */
+.backbar {
+  position: fixed; top: 0; left: 50%; transform: translateX(-50%);
+  width: 100%; max-width: 480px; z-index: 50;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 12px;
+}
+.backbar a, .backbar span.ico {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: rgba(255,255,255,.9);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 1px 4px rgba(0,0,0,.08);
+}
+.backbar svg { width: 18px; height: 18px; }
+
+/* V1/V2 切换浮标 */
+.v-switch {
+  position: fixed; right: 12px;
+  bottom: calc(78px + env(safe-area-inset-bottom));
+  z-index: 60;
+  background: var(--text); color: #fff;
+  font-size: 11px; padding: 7px 12px;
+  border-radius: 999px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.18);
+}

@@ -1,0 +1,13 @@
+# 系统文件
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# 依赖与构建产物（后续前后端工程用）
+node_modules/
+dist/
+*.log
+
+# 本地环境配置
+.env
+.env.local

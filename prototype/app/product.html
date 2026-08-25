@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>商品详情 - WELLBIORA</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="page" id="page">
+
+  <!-- 悬浮返回栏 -->
+  <div class="backbar">
+    <a href="products.html" aria-label="返回">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#1A1A1A" stroke-width="2"><path d="M15 5l-7 7 7 7"/></svg>
+    </a>
+    <span class="ico" onclick="toast('分享为演示占位')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#1A1A1A" stroke-width="1.8"><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.2 10.8l7.6-3.6M8.2 13.2l7.6 3.6"/></svg>
+    </span>
+  </div>
+
+  <!-- 内容块渲染区 -->
+  <div id="blocks"></div>
+
+  <div style="height:16px"></div>
+</div>
+
+<!-- 底部购买栏 -->
+<div class="buybar">
+  <div class="ic" onclick="toast('客服为演示占位')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#6B6660" stroke-width="1.8"><path d="M21 12a8 8 0 1 0-3.5 6.6L21 20l-1-3.4A7.9 7.9 0 0 0 21 12z"/></svg>
+    客服
+  </div>
+  <div class="ic" onclick="toast('购物车为演示占位')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#6B6660" stroke-width="1.8"><path d="M3 3h2l2.4 12.2A2 2 0 0 0 9.36 17H18a2 2 0 0 0 1.95-1.55L21.5 8H6"/><circle cx="9.5" cy="20.5" r="1.3"/><circle cx="17.5" cy="20.5" r="1.3"/></svg>
+    购物车
+  </div>
+  <button class="btn cart" onclick="toast('已加入购物车（演示）')">加入购物车</button>
+  <button class="btn buy" onclick="toast('立即购买为演示占位')">立即购买</button>
+</div>
+
+<div class="toast" id="toast"></div>
+<a class="v-switch" id="vswitch" href="product-v2.html">V2 新版</a>
+<script src="data.js"></script>
+<script>
+/* ============================================================
+ * 详情页渲染器：type → 渲染函数
+ * 新增内容块类型 = 在这里登记一个渲染函数，后台即可使用。
+ * ============================================================ */
+const RENDERERS = {
+  gallery: b => `
+    <div class="gallery">
+      ${b.images.map(src => `<img src="${src}" alt="">`).join('')}
+    </div>`,
+  image: b => `<div class="block flush"><img src="${b.src}" alt="" loading="lazy"></div>`,
+  nutrition_image: b => `<div class="block flush"><img src="${b.src}" alt="营养成分表" loading="lazy"></div>`,
+  badges: b => `
+    <div class="block"><div class="pad">
+      <h3>${b.title}</h3>
+      <div class="badges">${b.items.map(i => `<span class="badge">${i}</span>`).join('')}</div>
+    </div></div>`,
+  nutrition: b => `
+    <div class="block"><div class="pad">
+      <h3>${b.title}</h3>
+      <p class="desc" style="font-size:12px;margin-bottom:8px">${b.meta}</p>
+      <table class="nutri">
+        <tr>${b.head.map(h => `<th>${h}</th>`).join('')}</tr>
+        ${b.rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}
+      </table>
+      <div class="nutri-note">${b.note.replace(/\n/g, '<br>')}</div>
+    </div></div>`,
+};
+
+const id = new URLSearchParams(location.search).get('id') || 'p1';
+const p = PRODUCTS.find(x => x.id === id) || PRODUCTS[0];
+document.getElementById('vswitch').href = 'product-v2.html?id=' + p.id;
+document.title = p.name + ' - WELLBIORA';
+
+// 页面骨架 = 数据中的 blocks + 固定尾部（合规声明不可删除）
+const html = [];
+
+p.blocks.forEach(b => {
+  const r = RENDERERS[b.type];
+  if (r) html.push(r(b));
+  // 第一个块（gallery）之后插入商品信息区
+  if (b.type === 'gallery') {
+    html.push(`
+      <div class="summary">
+        <div class="tags">${p.tags.map(t => `<span class="tag">${t}</span>`).join('')}</div>
+        <div class="name">${p.name}</div>
+        <div class="en-name en">${p.en}</div>
+        <div class="sub">${p.flavor} · ${p.spec}</div>
+        <div class="prow">
+          <div class="price"><span class="cur">¥</span>${p.price}<span class="hint">示例价</span></div>
+          <div class="sold">义乌保税仓发货</div>
+        </div>
+      </div>`);
+  }
+});
+
+// 固定合规声明（每个详情页自动附加）
+html.push(`
+  <details class="collapse">
+    <summary>产品声明与购买须知</summary>
+    <div class="c-body">${COMPLIANCE_TEXT}</div>
+  </details>`);
+
+document.getElementById('blocks').innerHTML = html.join('');
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 1600);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="购物车">
+<title>购物车 · WELLBIORA 海外旗舰店</title>
+<style>
+/* ============================================================
+ * WELLBIORA H5 · 购物车页（baoyu-design 试验产出）
+ * 设计令牌提取自 prototype/app/style.css + style-v2.css（v0.3 规范）
+ * 杂志式排版：英文衬线小字 kicker + 中文大标题
+ * ============================================================ */
+:root {
+  --green: #033B3C;
+  --green-dark: #022829;
+  --mint: #D9EDE2;
+  --bg: #F7F5F0;
+  --card: #FFFFFF;
+  --text: #1A1A1A;
+  --text2: #6B6660;
+  --text3: #A8A29A;
+  --line: #EAE6DF;
+  --red: #E6432D;
+  --ok: #2BA471;
+  --warn: #ED7B2F;
+  --err: #D54941;
+  --disabled-bg: #E5E1DB;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body {
+  font-family: -apple-system, "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif;
+  background: #EAE6DF;
+  color: var(--text);
+}
+.page {
+  max-width: 480px;
+  margin: 0 auto;
+  background: var(--bg);
+  min-height: 100dvh;
+  /* 底部预留：结算栏 64px + tabbar 50px + 安全区 */
+  padding-bottom: calc(64px + 50px + env(safe-area-inset-bottom) + 20px);
+}
+img { display: block; }
+a { text-decoration: none; color: inherit; }
+button { font-family: inherit; }
+
+/* ---------- 页头（杂志式：英文 kicker + 中文大标题） ---------- */
+.cart-head {
+  padding: calc(18px + env(safe-area-inset-top)) 16px 14px;
+  display: flex; align-items: flex-end; justify-content: space-between;
+}
+.cart-head .kick {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 11px; letter-spacing: .22em; text-transform: uppercase;
+  color: var(--text3);
+}
+.cart-head .cn { font-size: 22px; font-weight: 700; margin-top: 6px; line-height: 1.3; }
+.cart-head .manage {
+  font-size: 13px; color: var(--green); font-weight: 600;
+  padding: 10px 4px; /* 扩大点击区域 ≥44px */
+  background: none; border: none; cursor: pointer;
+}
+
+/* ---------- 公告条（与首页 notice 一致） ---------- */
+.notice {
+  margin: 0 12px;
+  background: var(--mint);
+  color: var(--green);
+  font-size: 12px;
+  border-radius: 999px;
+  padding: 8px 14px;
+  white-space: nowrap; overflow: hidden;
+}
+
+/* ---------- 商品行卡片 ---------- */
+.citem {
+  margin: 12px 12px 0;
+  background: var(--card);
+  border-radius: 16px;
+  padding: 14px 12px;
+  display: flex; gap: 10px; align-items: center;
+}
+/* 勾选：视觉 20px，触摸区 44px */
+.ck {
+  width: 44px; height: 44px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  margin-left: -10px;
+  background: none; border: none; cursor: pointer;
+}
+.ck i {
+  width: 20px; height: 20px; border-radius: 50%;
+  border: 1.5px solid var(--text3);
+  display: flex; align-items: center; justify-content: center;
+  transition: all .2s ease-out;
+}
+.ck.on i { background: var(--green); border-color: var(--green); }
+.ck i svg { width: 11px; height: 11px; stroke: #fff; opacity: 0; transition: opacity .15s; }
+.ck.on i svg { opacity: 1; }
+/* 产品图：产品浅底色 + 白底图 multiply 融合（沿用 v2 手法） */
+.citem .pic {
+  width: 76px; height: 76px; flex-shrink: 0;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+.citem .pic img { width: 88%; height: 88%; object-fit: contain; mix-blend-mode: multiply; }
+.citem .info { flex: 1; min-width: 0; }
+.citem .name { font-size: 14px; font-weight: 700; line-height: 1.35; }
+.citem .en {
+  font-family: Georgia, serif; font-size: 10px; color: var(--text2);
+  letter-spacing: .06em; margin-top: 2px;
+}
+.citem .meta { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.citem .row { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+.price { color: var(--red); font-weight: 700; font-size: 20px; line-height: 1; }
+.price .cur { font-size: 12px; margin-right: 1px; }
+
+/* 数量步进器：视觉 26px，触摸区 ≥44px */
+.stepper { display: flex; align-items: center; }
+.stepper button {
+  width: 44px; height: 44px;
+  background: none; border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.stepper button b {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--mint); color: var(--green);
+  font-size: 16px; font-weight: 400; line-height: 26px; text-align: center;
+}
+.stepper button:active b { transform: scale(.92); }
+.stepper button.dis b { background: var(--bg); color: var(--text3); }
+.stepper .qty { min-width: 26px; text-align: center; font-size: 14px; font-weight: 600; }
+
+/* ---------- 空态 ---------- */
+.empty { padding: 72px 24px 40px; text-align: center; display: none; }
+.empty .e-ico {
+  width: 88px; height: 88px; margin: 0 auto;
+  border-radius: 50%; background: var(--mint);
+  display: flex; align-items: center; justify-content: center;
+}
+.empty .e-ico svg { width: 38px; height: 38px; stroke: var(--green); }
+.empty .e-t { font-size: 15px; font-weight: 600; margin-top: 18px; }
+.empty .e-s { font-size: 12px; color: var(--text2); margin-top: 6px; }
+.empty .e-btn {
+  display: inline-block; margin-top: 22px;
+  height: 48px; line-height: 48px; padding: 0 40px;
+  background: var(--green); color: #fff;
+  font-size: 15px; font-weight: 600;
+  border-radius: 999px;
+}
+
+/* ---------- 底部结算栏（白底 + 顶部分割线 + 安全区） ---------- */
+.checkbar {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(50px + env(safe-area-inset-bottom));
+  width: 100%; max-width: 480px;
+  background: #fff;
+  border-top: 1px solid var(--line);
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px;
+  z-index: 50;
+}
+.checkbar .all { display: flex; align-items: center; font-size: 12px; color: var(--text2); }
+.checkbar .total { flex: 1; text-align: right; line-height: 1.2; }
+.checkbar .total .t { font-size: 11px; color: var(--text2); }
+.checkbar .total .price { font-size: 20px; }
+.checkbar .total .n { font-size: 10px; color: var(--text3); }
+.checkbar .go {
+  width: 118px; height: 48px; border: none; border-radius: 999px;
+  background: var(--green); color: #fff;
+  font-size: 15px; font-weight: 600; cursor: pointer;
+}
+.checkbar .go:active { transform: scale(.97); }
+.checkbar .go.dis { background: var(--disabled-bg); color: var(--text3); }
+/* 管理模式：删除按钮 */
+.checkbar .go.del { background: #fff; border: 1px solid var(--err); color: var(--err); }
+.checkbar .go.del.dis { border-color: var(--disabled-bg); color: var(--text3); }
+
+/* 超限警示条（结算栏上方） */
+.limit-warn {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(50px + 64px + env(safe-area-inset-bottom));
+  width: 100%; max-width: 480px;
+  background: #FDF3EC; color: var(--warn);
+  font-size: 11px; padding: 7px 16px;
+  border-top: 1px solid var(--line);
+  display: none; z-index: 50;
+}
+
+/* ---------- Tabbar（沿用 style.css，购物车选中 + 红色角标） ---------- */
+.tabbar {
+  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 100%; max-width: 480px;
+  background: rgba(255,255,255,.96);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid var(--line);
+  display: flex;
+  padding-bottom: env(safe-area-inset-bottom);
+  z-index: 50;
+}
+.tabbar a {
+  flex: 1; position: relative;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 7px 0 5px;
+  font-size: 10px; color: var(--text3);
+}
+.tabbar a.on { color: var(--green); font-weight: 600; }
+.tabbar svg { width: 22px; height: 22px; margin-bottom: 2px; }
+.tabbar .badge {
+  position: absolute; top: 2px; left: calc(50% + 2px);
+  min-width: 15px; height: 15px; border-radius: 999px;
+  background: var(--red); color: #fff;
+  font-size: 9px; line-height: 15px; text-align: center;
+  padding: 0 4px;
+}
+
+/* ---------- Toast（沿用 style.css） ---------- */
+.toast {
+  position: fixed; left: 50%; top: 45%; transform: translate(-50%,-50%);
+  background: rgba(0,0,0,.72); color: #fff;
+  font-size: 13px; padding: 10px 18px; border-radius: 8px;
+  opacity: 0; pointer-events: none; transition: opacity .25s;
+  z-index: 99;
+}
+.toast.show { opacity: 1; }
+
+/* ---------- 演示开关（tweaks，仅原型用） ---------- */
+.tweaks-btn {
+  position: fixed; right: 12px;
+  bottom: calc(64px + 50px + env(safe-area-inset-bottom) + 16px);
+  z-index: 60;
+  background: var(--text); color: #fff;
+  font-size: 11px; padding: 7px 12px;
+  border: none; border-radius: 999px; cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0,0,0,.18);
+}
+.tweaks {
+  position: fixed; right: 12px;
+  bottom: calc(64px + 50px + env(safe-area-inset-bottom) + 56px);
+  z-index: 60;
+  background: #fff; border-radius: 12px;
+  padding: 12px 14px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.12);
+  font-size: 12px; color: var(--text2);
+  display: none;
+}
+.tweaks.open { display: block; }
+.tweaks label { display: flex; align-items: center; gap: 8px; padding: 6px 0; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="page" id="page">
+
+  <!-- 页头 -->
+  <div class="cart-head">
+    <div>
+      <div class="kick">Shopping Cart</div>
+      <div class="cn">购物车</div>
+    </div>
+    <button class="manage" id="manageBtn" onclick="toggleManage()">管理</button>
+  </div>
+
+  <!-- 跨境提示（与首页公告条同式） -->
+  <div class="notice">义乌保税仓直发 · 下单需实名申报 · 单笔限 ¥5000</div>
+
+  <!-- 商品列表（JS 渲染） -->
+  <div id="list"></div>
+
+  <!-- 空态 -->
+  <div class="empty" id="empty">
+    <div class="e-ico">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
+        <path d="M3 3h2l2.4 12.2A2 2 0 0 0 9.36 17H18a2 2 0 0 0 1.95-1.55L21.5 8H6"/>
+        <circle cx="9.5" cy="20.5" r="1.3"/><circle cx="17.5" cy="20.5" r="1.3"/>
+      </svg>
+    </div>
+    <div class="e-t">购物车还是空的</div>
+    <div class="e-s">去挑选适合你的脂质体营养吧</div>
+    <a class="e-btn" href="../../prototype/app/products-v2.html">去逛逛</a>
+  </div>
+
+</div>
+
+<!-- 超限警示 -->
+<div class="limit-warn" id="limitWarn">已超出跨境电商单笔订单限值 ¥5000，请分单购买</div>
+
+<!-- 结算栏 -->
+<div class="checkbar" id="checkbar">
+  <div class="all">
+    <button class="ck on" id="allCk" onclick="toggleAll()">
+      <i><svg viewBox="0 0 24 24" fill="none" stroke-width="3.4"><path d="M4 12.5l5 5L20 6.5"/></svg></i>
+    </button>
+    全选
+  </div>
+  <div class="total" id="totalBox">
+    <div><span class="t">合计：</span><span class="price"><span class="cur">¥</span><span id="totalPrice">0</span></span></div>
+    <div class="n" id="totalN"></div>
+  </div>
+  <button class="go" id="goBtn" onclick="onGo()">去结算</button>
+</div>
+
+<!-- Tabbar -->
+<nav class="tabbar">
+  <a href="../../prototype/app/index-v2.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>
+    首页
+  </a>
+  <a href="../../prototype/app/products-v2.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></svg>
+    产品
+  </a>
+  <a href="#" class="on" onclick="return false;">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3h2l2.4 12.2A2 2 0 0 0 9.36 17H18a2 2 0 0 0 1.95-1.55L21.5 8H6"/><circle cx="9.5" cy="20.5" r="1.3"/><circle cx="17.5" cy="20.5" r="1.3"/></svg>
+    购物车
+    <span class="badge" id="cartBadge">4</span>
+  </a>
+  <a href="#" onclick="toast('个人中心为演示占位');return false;">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></svg>
+    我的
+  </a>
+</nav>
+
+<!-- 演示开关 -->
+<button class="tweaks-btn" onclick="document.querySelector('.tweaks').classList.toggle('open')">演示</button>
+<div class="tweaks">
+  <label><input type="checkbox" onchange="demoEmpty(this.checked)"> 空购物车状态</label>
+  <label><input type="checkbox" onchange="demoOverLimit(this.checked)"> 模拟超 ¥5000 限额</label>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* 商品数据与 prototype/app/data.js 保持一致 */
+const DEFAULT_CART = [
+  { id: 'p1', name: '脂质体谷胱甘肽饮', en: 'Liposomal Glutathione', spec: '5ml × 30袋 / 盒', price: 329, themeLight: '#E3F0F3', img: 'assets/p1-main.jpg', qty: 1, sel: true },
+  { id: 'p2', name: '脂质体维生素C饮', en: 'Liposomal Vitamin C', spec: '150ml（5ml × 30袋）· 香橙味', price: 259, themeLight: '#FDEED2', img: 'assets/p2-main.jpg', qty: 2, sel: true },
+  { id: 'p3', name: '脂质体睡眠喷雾', en: 'Liposomal Sleep Spray', spec: '30ml / 瓶 · 葡萄味', price: 289, themeLight: '#E4E9F6', img: 'assets/p3-box.jpg', qty: 1, sel: true },
+];
+const LIMIT = 5000; // 跨境电商单笔订单限值
+let cart = JSON.parse(JSON.stringify(DEFAULT_CART));
+let managing = false;
+
+function render() {
+  const list = document.getElementById('list');
+  const empty = document.getElementById('empty');
+  const checkbar = document.getElementById('checkbar');
+
+  if (cart.length === 0) {
+    list.innerHTML = '';
+    empty.style.display = 'block';
+    checkbar.style.display = 'none';
+    document.getElementById('limitWarn').style.display = 'none';
+    updateBadge();
+    return;
+  }
+  empty.style.display = 'none';
+  checkbar.style.display = 'flex';
+
+  list.innerHTML = cart.map((p, i) => `
+    <div class="citem">
+      <button class="ck ${p.sel ? 'on' : ''}" onclick="toggleSel(${i})" aria-label="选择">
+        <i><svg viewBox="0 0 24 24" fill="none" stroke-width="3.4"><path d="M4 12.5l5 5L20 6.5"/></svg></i>
+      </button>
+      <div class="pic" style="background:${p.themeLight}"><img src="${p.img}" alt="${p.name}"></div>
+      <div class="info">
+        <div class="name">${p.name}</div>
+        <div class="en">${p.en}</div>
+        <div class="meta">${p.spec}</div>
+        <div class="row">
+          <div class="price"><span class="cur">¥</span>${p.price}</div>
+          <div class="stepper">
+            <button class="${p.qty <= 1 ? 'dis' : ''}" onclick="step(${i}, -1)" aria-label="减少"><b>−</b></button>
+            <span class="qty">${p.qty}</span>
+            <button onclick="step(${i}, 1)" aria-label="增加"><b>＋</b></button>
+          </div>
+        </div>
+      </div>
+    </div>`).join('');
+
+  // 合计与状态
+  const selItems = cart.filter(p => p.sel);
+  const total = selItems.reduce((s, p) => s + p.price * p.qty, 0);
+  const count = selItems.reduce((s, p) => s + p.qty, 0);
+  const over = total > LIMIT;
+
+  document.getElementById('totalPrice').textContent = total;
+  document.getElementById('totalN').textContent = count ? `共 ${count} 件` : '未选择商品';
+  document.getElementById('limitWarn').style.display = over ? 'block' : 'none';
+
+  const allCk = document.getElementById('allCk');
+  allCk.classList.toggle('on', selItems.length === cart.length && cart.length > 0);
+
+  const go = document.getElementById('goBtn');
+  if (managing) {
+    go.textContent = '删除';
+    go.className = 'go del' + (selItems.length ? '' : ' dis');
+  } else {
+    go.textContent = over ? '已超限额' : `去结算`;
+    go.className = 'go' + ((over || !count) ? ' dis' : '');
+  }
+  updateBadge();
+}
+
+function updateBadge() {
+  const n = cart.reduce((s, p) => s + p.qty, 0);
+  const b = document.getElementById('cartBadge');
+  b.textContent = n;
+  b.style.display = n ? 'block' : 'none';
+}
+
+function toggleSel(i) { cart[i].sel = !cart[i].sel; render(); }
+function toggleAll() {
+  const allOn = cart.every(p => p.sel);
+  cart.forEach(p => p.sel = !allOn);
+  render();
+}
+function step(i, d) {
+  if (d < 0 && cart[i].qty <= 1) return;
+  cart[i].qty += d;
+  render();
+}
+function toggleManage() {
+  managing = !managing;
+  document.getElementById('manageBtn').textContent = managing ? '完成' : '管理';
+  render();
+}
+function onGo() {
+  const selItems = cart.filter(p => p.sel);
+  if (managing) {
+    if (!selItems.length) return;
+    cart = cart.filter(p => !p.sel);
+    toast('已删除所选商品');
+    render();
+    return;
+  }
+  if (!selItems.length) return;
+  const total = selItems.reduce((s, p) => s + p.price * p.qty, 0);
+  if (total > LIMIT) return; // 按钮已禁用，双保险
+  toast('去结算（结算页原型待设计）');
+}
+
+/* 演示开关 */
+function demoEmpty(on) {
+  if (on) { window._bak = cart; cart = []; }
+  else { cart = window._bak || JSON.parse(JSON.stringify(DEFAULT_CART)); }
+  render();
+}
+function demoOverLimit(on) {
+  cart = JSON.parse(JSON.stringify(DEFAULT_CART));
+  if (on) cart[0].qty = 16; // 329×16 = 5264 > 5000
+  render();
+}
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 1600);
+}
+
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>WELLBIORA 海外旗舰店</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="page">
+
+  <!-- 顶部 -->
+  <div class="topbar">
+    <img class="logo" src="assets/logo-h.jpg" alt="WELLBIORA">
+    <svg class="cart-ico" viewBox="0 0 24 24" fill="none" stroke="#033B3C" stroke-width="1.8">
+      <path d="M3 3h2l2.4 12.2A2 2 0 0 0 9.36 17H18a2 2 0 0 0 1.95-1.55L21.5 8H6"/>
+      <circle cx="9.5" cy="20.5" r="1.3"/><circle cx="17.5" cy="20.5" r="1.3"/>
+    </svg>
+  </div>
+
+  <!-- Hero 轮播（产品主推位，横向滑动） -->
+  <div class="hero">
+    <a class="slide" href="product.html?id=p2" style="background:#FDEED2">
+      <img class="ph" src="assets/p2-main.jpg" alt="">
+      <div class="cap">
+        <div class="t1">脂质体<br>维生素C饮</div>
+        <div class="t2 en">LIPOSOMAL VITAMIN C</div>
+        <div class="t3">¥259 <span>示例价</span></div>
+      </div>
+    </a>
+    <a class="slide" href="product.html?id=p3" style="background:#E4E9F6">
+      <img class="ph" src="assets/p3-box.jpg" alt="">
+      <div class="cap">
+        <div class="t1">脂质体<br>睡眠喷雾</div>
+        <div class="t2 en">LIPOSOMAL SLEEP SPRAY</div>
+        <div class="t3">¥289 <span>示例价</span></div>
+      </div>
+    </a>
+    <a class="slide" href="product.html?id=p4" style="background:#F0E4EB">
+      <img class="ph" src="assets/p4-main.jpg" alt="">
+      <div class="cap">
+        <div class="t1">脂质体<br>D3+K2+Q10饮</div>
+        <div class="t2 en">LIPOSOMAL D3+K2+Q10</div>
+        <div class="t3">¥299 <span>示例价</span></div>
+      </div>
+    </a>
+    <a class="slide" href="product.html?id=p1" style="background:#E3F0F3">
+      <img class="ph" src="assets/p1-main.jpg" alt="">
+      <div class="cap">
+        <div class="t1">脂质体<br>谷胱甘肽饮</div>
+        <div class="t2 en">LIPOSOMAL GLUTATHIONE</div>
+        <div class="t3">¥329 <span>示例价</span></div>
+      </div>
+    </a>
+  </div>
+
+  <!-- 公告条 -->
+  <div class="notice">义乌保税仓直发 · 跨境商品下单需实名申报 · 单笔限 ¥5000</div>
+
+  <!-- 全部产品 -->
+  <div class="sec-head">
+    <div class="t">全部产品</div>
+    <a class="more" href="products.html">查看全部 ›</a>
+  </div>
+  <div class="grid" id="homeGrid"></div>
+
+  <!-- 品牌区块 -->
+  <div class="brand">
+    <div class="bwm en">WELLBIORA<sup>™</sup></div>
+    <div class="b1">脂质体递送技术</div>
+    <div class="b2">每一剂营养成分都被脂质膜包裹——这种结构与人体细胞膜相似——帮助营养成分更好地通过消化过程，提高吸收效率，让身体更充分地利用。</div>
+    <div class="bimg"><img src="assets/p4-tech.jpg" alt="脂质体技术图解"></div>
+  </div>
+
+  <!-- 认证墙 -->
+  <div class="sec-head"><div class="t">品质承诺</div></div>
+  <div class="certs">
+    <span class="cert">纯素 VEGAN</span>
+    <span class="cert">非转基因</span>
+    <span class="cert">无糖</span>
+    <span class="cert">无麸质</span>
+    <span class="cert">GMP 生产规范</span>
+    <span class="cert">不含人工添加剂</span>
+    <span class="cert">欧洲制造</span>
+  </div>
+
+  <div style="height:24px"></div>
+</div>
+
+<!-- Tabbar -->
+<nav class="tabbar">
+  <a href="index.html" class="on">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>
+    首页
+  </a>
+  <a href="products.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></svg>
+    产品
+  </a>
+  <a href="#" onclick="toast('购物车为演示占位');return false;">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3h2l2.4 12.2A2 2 0 0 0 9.36 17H18a2 2 0 0 0 1.95-1.55L21.5 8H6"/><circle cx="9.5" cy="20.5" r="1.3"/><circle cx="17.5" cy="20.5" r="1.3"/></svg>
+    购物车
+  </a>
+  <a href="#" onclick="toast('个人中心为演示占位');return false;">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></svg>
+    我的
+  </a>
+</nav>
+
+<div class="toast" id="toast"></div>
+<script src="data.js"></script>
+<script>
+// 首页产品卡渲染
+const grid = document.getElementById('homeGrid');
+grid.innerHTML = PRODUCTS.map(p => `
+  <a class="pcard" href="product.html?id=${p.id}">
+    <div class="pic" style="background:${p.themeLight}"><img src="${p.cardImg}" alt="${p.name}" loading="lazy"></div>
+    <div class="body">
+      <div class="name">${p.name}</div>
+      <div class="sub en">${p.en}</div>
+      <div class="row">
+        <div class="price"><span class="cur">¥</span>${p.price}<span class="hint">示例价</span></div>
+        <button class="addbtn" onclick="event.preventDefault();toast('已加入购物车（演示）')">+</button>
+      </div>
+    </div>
+  </a>`).join('');
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 1600);
+}
+</script>
+<a class="v-switch" href="index-v2.html">V2 新版</a>
+</body>
+</html>
