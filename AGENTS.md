@@ -16,9 +16,10 @@
 ## 二、当前仓库状态（重要）
 
 - **尚无前后端工程代码**：没有 `package.json` / `pyproject.toml` 等任何配置文件，没有构建工具，也没有测试与 CI。`frontend/`、`server/` 目录**尚未创建**。
-- **不是 Git 仓库**：尚未执行 `git init`，无版本控制历史。
-- 仓库目前只有：设计/需求文档（`docs/`）、静态 HTML 高保真原型（`prototype/app/`）、产品图片素材、一个打包归档（`H5商城原型与文档/H5商城原型与文档.zip`）。
+- **已是 Git 仓库**（2026-08-25 初始化，默认分支 `main`），有 `.gitignore`（忽略 node_modules/dist/日志/.env 等）。
+- 仓库目前只有：设计/需求文档（`docs/`）、静态 HTML 高保真原型（`prototype/app/`）、产品图片素材、baoyu-design 试验产出的购物车页原型（`designs/h5-shop/`）、一个打包归档（`H5商城原型与文档/H5商城原型与文档.zip`）。
 - 因此**现阶段没有可运行的构建/测试命令**；原型页直接用浏览器打开 `prototype/app/index.html` 即可预览。
+- 已安装 `.agents/skills/baoyu-design/`（vendored，源自 github.com/JimLiu/baoyu-design）：高保真原型设计 skill，用于补齐 MVP 剩余 5 页（购物车/结算/地址实名/订单/我的）的原型，产出放 `designs/<项目名>/`。注意：本机暂无 Node.js，skill 自带的 `agents/*.mjs` 记账/编译脚本不可运行，跳过即可。
 
 ## 三、技术栈约定（后续生成代码必须遵循，不要换框架）
 
@@ -49,6 +50,8 @@ H5-shop/
 │   ├── data.js / data-v2.js       # 商品数据，采用「内容块数组」结构演示
 │   └── assets/                    # 原型引用的产品与 Logo 图片（p1-* ~ p4-*, logo-*）
 ├── assets/                        # 根目录素材夹（目前为空；实际素材在 docs/wellbiora资料夹/）
+├── designs/h5-shop/               # baoyu-design 产出的新页面原型（购物车 Cart.html 等，自包含 HTML + 本地 assets/）
+├── .agents/skills/baoyu-design/   # vendored 原型设计 skill（勿改，升级用 npx skills update）
 └── H5商城原型与文档/H5商城原型与文档.zip   # 文档+原型打包归档
 ```
 
