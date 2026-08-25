@@ -42,7 +42,8 @@ H5-shop/
 │   ├── H5商城设计规范_WELLBIORA_v0.2.md   # 注意：文件名是 v0.2，但内容已是 v0.3，为前端开发唯一设计依据
 │   ├── WorkBuddy原型设计任务书.md          # 原型设计任务书（含 4 款产品信息表、验收清单）
 │   ├── wellbiora资料夹/                   # 全部产品图与 Logo 素材（P1~P4 详情图 + 8 版 Logo）
-│   └── 小程序参考/乐檬/                    # LemonBox 小程序参考（目前为空目录）
+│   ├── 小程序参考/乐檬/                    # LemonBox 小程序参考（目前为空目录）
+│   └── tasks/                           # 任务管理：TODO.md（活跃）+ archive/（已归档，勿扫描）
 ├── prototype/app/                 # 静态 HTML 原型（纯 HTML+CSS+JS，无构建）
 │   ├── index.html / products.html / product.html   # V1 版
 │   ├── index-v2.html / products-v2.html / product-v2.html  # V2 版（当前认可的设计方向）
@@ -87,6 +88,13 @@ H5-shop/
 - 改已有代码时，只给改动部分并说明替换了什么，不要每次重发全量文件。
 - 涉及君梦接口时，主动提醒：**测试环境先行、签名调试、`orderDeclaNo` 和 `plaformCode`（注意君梦文档原始拼写）等待确认项**。
 - 不确定的需求，先向项目负责人确认再写代码，不要自行假设业务规则。
+
+### 任务管理链路（跨会话记忆）
+
+- **活跃任务**统一记录在 `docs/tasks/TODO.md`，每次会话开工前先读它。
+- 任务**完成后**：把该任务条目从 TODO.md 剪切到 `docs/tasks/archive/YYYY-MM-DD-<任务名>.md`（简述产出、验证结果、遗留点）。
+- `docs/tasks/archive/` 是冷存储，**日常不要读取/扫描**，仅当用户明确要求回溯时才打开（节省上下文）。
+- 任务状态变化后随手提交 git，保证下个会话（可能在另一台机器 clone）拿到最新状态。
 
 ## 八、待确认事项（碰到先问）
 
