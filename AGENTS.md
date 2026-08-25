@@ -51,7 +51,7 @@ H5-shop/
 │   ├── data.js / data-v2.js       # 商品数据，采用「内容块数组」结构演示
 │   └── assets/                    # 原型引用的产品与 Logo 图片（p1-* ~ p4-*, logo-*）
 ├── assets/                        # 根目录素材夹（目前为空；实际素材在 docs/wellbiora资料夹/）
-├── designs/h5-shop/               # baoyu-design 产出的新页面原型（购物车 Cart.html 等，自包含 HTML + 本地 assets/）
+├── designs/h5-shop/               # baoyu-design 产出的新页面原型（购物车 Cart.html、我的 Mine.html 等，自包含 HTML + 本地 assets/）
 ├── .agents/skills/baoyu-design/   # vendored 原型设计 skill（勿改，升级用 npx skills update）
 └── H5商城原型与文档/H5商城原型与文档.zip   # 文档+原型打包归档
 ```

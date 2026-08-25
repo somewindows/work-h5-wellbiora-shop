@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="我的">
+<title>我的 · WELLBIORA 海外旗舰店</title>
+<style>
+/* ============================================================
+ * WELLBIORA H5 · 个人中心「我的」页（MVP 第 8 页）
+ * 设计令牌提取自 prototype/app/style-v2.css（v0.3 规范）
+ * 风格基线延续 designs/h5-shop/购物车 Cart.html
+ * 参考：ActiNovo / LemonBox 个人中心骨架（只借结构不借色）
+ *   用户信息区 → 我的订单五态 → 服务列表 → 推荐商品
+ *   MVP 裁剪：会员等级/积分/钱包/任务中心/优惠券/邀请分销
+ * ============================================================ */
+:root {
+  --green: #033B3C;
+  --green-dark: #022829;
+  --mint: #D9EDE2;
+  --bg: #F7F5F0;
+  --card: #FFFFFF;
+  --text: #1A1A1A;
+  --text2: #6B6660;
+  --text3: #A8A29A;
+  --line: #EAE6DF;
+  --red: #E6432D;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body {
+  font-family: -apple-system, "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif;
+  background: #EAE6DF;
+  color: var(--text);
+}
+.page {
+  max-width: 480px;
+  margin: 0 auto;
+  background: var(--bg);
+  min-height: 100dvh;
+  /* 底部预留：tabbar 50px + 安全区 */
+  padding-bottom: calc(50px + env(safe-area-inset-bottom) + 20px);
+}
+img { display: block; }
+a { text-decoration: none; color: inherit; }
+button { font-family: inherit; }
+
+/* ---------- 用户信息区（品牌深墨绿） ---------- */
+.mine-head {
+  background: linear-gradient(180deg, var(--green) 0%, var(--green-dark) 100%);
+  padding: calc(20px + env(safe-area-inset-top)) 16px 44px;
+  color: #fff;
+}
+.mine-head .kick {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 11px; letter-spacing: .22em; text-transform: uppercase;
+  color: rgba(217, 237, 226, .65);
+}
+.mine-head .user {
+  display: flex; align-items: center; gap: 12px;
+  margin-top: 16px;
+  min-height: 56px;
+}
+.mine-head .avatar {
+  width: 56px; height: 56px; flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--mint);
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid rgba(255,255,255,.35);
+}
+.mine-head .avatar svg { width: 28px; height: 28px; stroke: var(--green); }
+.mine-head .uinfo { flex: 1; min-width: 0; }
+.mine-head .uname { font-size: 19px; font-weight: 700; line-height: 1.3; }
+.mine-head .usub { font-size: 12px; color: rgba(255,255,255,.65); margin-top: 3px; }
+.mine-head .login-btn {
+  height: 36px; padding: 0 20px;
+  background: #fff; color: var(--green);
+  font-size: 13px; font-weight: 600;
+  border: none; border-radius: 999px; cursor: pointer;
+}
+.mine-head .login-btn:active { transform: scale(.96); }
+
+/* ---------- 卡片通用 ---------- */
+.mcard {
+  margin: 12px 12px 0;
+  background: var(--card);
+  border-radius: 16px;
+  padding: 16px 14px;
+}
+.mcard.overlap { margin-top: -28px; position: relative; z-index: 1; }
+
+/* ---------- 我的订单 ---------- */
+.sec-head { display: flex; align-items: center; justify-content: space-between; }
+.sec-head .t { font-size: 15px; font-weight: 700; }
+.sec-head .more {
+  font-size: 12px; color: var(--text3);
+  display: flex; align-items: center; gap: 2px;
+  padding: 8px 0 8px 8px;
+  background: none; border: none; cursor: pointer;
+}
+.sec-head .more svg { width: 12px; height: 12px; stroke: var(--text3); }
+.order-grid {
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  margin-top: 12px;
+}
+.order-item {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 6px 0;
+  min-height: 44px;
+  background: none; border: none; cursor: pointer;
+  font-size: 11px; color: var(--text2);
+}
+.order-item:active { opacity: .6; }
+.order-item svg { width: 24px; height: 24px; stroke: var(--text); }
+.order-item .obadge {
+  position: absolute; top: 0; left: calc(50% + 4px);
+  min-width: 15px; height: 15px; border-radius: 999px;
+  background: var(--red); color: #fff;
+  font-size: 9px; line-height: 15px; text-align: center;
+  padding: 0 4px;
+}
+
+/* ---------- 服务列表（cell） ---------- */
+.svc { padding: 4px 14px; }
+.cell {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  padding: 8px 0;
+  background: none; border: none; cursor: pointer;
+  text-align: left;
+  font-size: 14px; color: var(--text);
+}
+.cell + .cell { border-top: 1px solid var(--line); }
+.cell:active { opacity: .6; }
+.cell .cico {
+  width: 34px; height: 34px; flex-shrink: 0;
+  border-radius: 10px;
+  background: var(--mint);
+  display: flex; align-items: center; justify-content: center;
+}
+.cell .cico svg { width: 17px; height: 17px; stroke: var(--green); }
+.cell .cbody { flex: 1; min-width: 0; }
+.cell .ct { font-size: 14px; font-weight: 600; line-height: 1.3; }
+.cell .cs { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.cell .arrow { width: 14px; height: 14px; stroke: var(--text3); flex-shrink: 0; }
+
+/* ---------- 为你推荐 ---------- */
+.rec { margin-top: 20px; padding: 0 12px; }
+.rec .kick {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 11px; letter-spacing: .22em; text-transform: uppercase;
+  color: var(--text3);
+  text-align: center;
+}
+.rec .cn { font-size: 20px; font-weight: 700; text-align: center; margin-top: 6px; }
+.rec-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  margin-top: 14px;
+}
+.pcard {
+  background: var(--card);
+  border-radius: 16px;
+  overflow: hidden;
+  display: block;
+}
+.pcard .pic {
+  height: 132px;
+  display: flex; align-items: center; justify-content: center;
+}
+.pcard .pic img { width: 78%; height: 78%; object-fit: contain; mix-blend-mode: multiply; }
+.pcard .pbody { padding: 10px 12px 12px; }
+.pcard .pname { font-size: 13px; font-weight: 700; line-height: 1.35; }
+.pcard .pen {
+  font-family: Georgia, serif; font-size: 10px; color: var(--text2);
+  letter-spacing: .04em; margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pcard .prow { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+.price { color: var(--red); font-weight: 700; font-size: 18px; line-height: 1; }
+.price .cur { font-size: 11px; margin-right: 1px; }
+.add-btn {
+  width: 44px; height: 44px; margin: -8px -8px -6px 0;
+  background: none; border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.add-btn b {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--green); color: #fff;
+  font-size: 17px; font-weight: 400; line-height: 25px; text-align: center;
+}
+.add-btn:active b { transform: scale(.9); }
+
+/* ---------- 页脚合规小字 ---------- */
+.mine-foot {
+  margin-top: 24px;
+  text-align: center;
+  font-size: 10px; color: var(--text3);
+  line-height: 1.8;
+}
+.mine-foot .en { font-family: Georgia, serif; letter-spacing: .14em; }
+
+/* ---------- Tabbar（沿用 style.css，我的选中） ---------- */
+.tabbar {
+  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 100%; max-width: 480px;
+  background: rgba(255,255,255,.96);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid var(--line);
+  display: flex;
+  padding-bottom: env(safe-area-inset-bottom);
+  z-index: 50;
+}
+.tabbar a {
+  flex: 1; position: relative;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 7px 0 5px;
+  font-size: 10px; color: var(--text3);
+}
+.tabbar a.on { color: var(--green); font-weight: 600; }
+.tabbar svg { width: 22px; height: 22px; margin-bottom: 2px; }
+.tabbar .badge {
+  position: absolute; top: 2px; left: calc(50% + 2px);
+  min-width: 15px; height: 15px; border-radius: 999px;
+  background: var(--red); color: #fff;
+  font-size: 9px; line-height: 15px; text-align: center;
+  padding: 0 4px;
+}
+
+/* ---------- 底部弹层（客服 / 协议） ---------- */
+.mask {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.45);
+  opacity: 0; pointer-events: none;
+  transition: opacity .25s;
+  z-index: 80;
+}
+.mask.show { opacity: 1; pointer-events: auto; }
+.sheet {
+  position: fixed; left: 50%; transform: translate(-50%, 100%);
+  bottom: 0;
+  width: 100%; max-width: 480px;
+  background: var(--bg);
+  border-radius: 20px 20px 0 0;
+  padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
+  transition: transform .3s ease-out;
+  z-index: 81;
+}
+.sheet.show { transform: translate(-50%, 0); }
+.sheet .s-kick {
+  font-family: Georgia, serif; font-size: 10px; letter-spacing: .22em;
+  text-transform: uppercase; color: var(--text3); text-align: center;
+}
+.sheet .s-title { font-size: 17px; font-weight: 700; text-align: center; margin-top: 5px; }
+.sheet .s-desc {
+  font-size: 12px; color: var(--text2); text-align: center;
+  margin-top: 10px; line-height: 1.7;
+}
+.sheet .s-btn {
+  display: block; width: 100%; height: 48px;
+  margin-top: 16px;
+  background: var(--green); color: #fff;
+  font-size: 15px; font-weight: 600;
+  border: none; border-radius: 999px; cursor: pointer;
+}
+.sheet .s-btn:active { transform: scale(.98); }
+.sheet .s-btn.ghost {
+  background: none; color: var(--text2);
+  font-weight: 400; margin-top: 4px;
+}
+.sheet .doc-item {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%;
+  background: var(--card); border: none; cursor: pointer;
+  border-radius: 12px;
+  padding: 14px;
+  margin-top: 10px;
+  font-size: 14px; font-weight: 600; color: var(--text);
+}
+.sheet .doc-item:active { opacity: .6; }
+.sheet .doc-item svg { width: 14px; height: 14px; stroke: var(--text3); }
+
+/* ---------- Toast（沿用 style.css） ---------- */
+.toast {
+  position: fixed; left: 50%; top: 45%; transform: translate(-50%,-50%);
+  background: rgba(0,0,0,.72); color: #fff;
+  font-size: 13px; padding: 10px 18px; border-radius: 8px;
+  opacity: 0; pointer-events: none; transition: opacity .25s;
+  z-index: 99;
+}
+.toast.show { opacity: 1; }
+
+/* ---------- 演示开关（tweaks，仅原型用） ---------- */
+.tweaks-btn {
+  position: fixed; right: 12px;
+  bottom: calc(50px + env(safe-area-inset-bottom) + 16px);
+  z-index: 60;
+  background: var(--text); color: #fff;
+  font-size: 11px; padding: 7px 12px;
+  border: none; border-radius: 999px; cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0,0,0,.18);
+}
+.tweaks {
+  position: fixed; right: 12px;
+  bottom: calc(50px + env(safe-area-inset-bottom) + 56px);
+  z-index: 60;
+  background: #fff; border-radius: 12px;
+  padding: 12px 14px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.12);
+  font-size: 12px; color: var(--text2);
+  display: none;
+}
+.tweaks.open { display: block; }
+.tweaks label { display: flex; align-items: center; gap: 8px; padding: 6px 0; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="page" id="page">
+
+  <!-- 用户信息区 -->
+  <div class="mine-head">
+    <div class="kick">My Account</div>
+    <div class="user" id="userRow"></div>
+  </div>
+
+  <!-- 我的订单 -->
+  <div class="mcard overlap">
+    <div class="sec-head">
+      <div class="t">我的订单</div>
+      <button class="more" onclick="todo('订单列表')">
+        查看全部订单
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.4"><path d="M9 6l6 6-6 6"/></svg>
+      </button>
+    </div>
+    <div class="order-grid">
+      <button class="order-item" onclick="todo('订单列表 · 待付款')">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><path d="M7 15h4"/></svg>
+        待付款
+        <span class="obadge" data-badge="pay" style="display:none">1</span>
+      </button>
+      <button class="order-item" onclick="todo('订单列表 · 待发货')">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M12 3l8 4v10l-8 4-8-4V7z"/><path d="M4 7l8 4 8-4"/><path d="M12 11v10"/></svg>
+        待发货
+        <span class="obadge" data-badge="ship" style="display:none">1</span>
+      </button>
+      <button class="order-item" onclick="todo('订单列表 · 待收货')">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M3 7h11v9H3z"/><path d="M14 10h4l3 3v3h-7z"/><circle cx="7" cy="18.5" r="1.6"/><circle cx="17" cy="18.5" r="1.6"/></svg>
+        待收货
+      </button>
+      <button class="order-item" onclick="todo('订单列表 · 待评价')">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M21 12a8 8 0 0 1-8 8H4l2-3a8 8 0 1 1 15-5z"/><path d="M9 11.5l2 2 4-4.5"/></svg>
+        待评价
+      </button>
+      <button class="order-item" onclick="todo('退款 / 售后')">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 8v4l3 2"/></svg>
+        退款/售后
+      </button>
+    </div>
+  </div>
+
+  <!-- 服务与支持 -->
+  <div class="mcard svc">
+    <button class="cell" onclick="todo('收货地址（地址+实名页，T3 待设计）')">
+      <span class="cico">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M12 21s7-6.1 7-11a7 7 0 1 0-14 0c0 4.9 7 11 7 11z"/><circle cx="12" cy="10" r="2.6"/></svg>
+      </span>
+      <span class="cbody">
+        <span class="ct">收货地址</span>
+        <span class="cs" style="display:block">含跨境清关实名信息</span>
+      </span>
+      <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke-width="2.2"><path d="M9 6l6 6-6 6"/></svg>
+    </button>
+    <button class="cell" onclick="openSheet('sheetKefu')">
+      <span class="cico">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M4 13a8 8 0 0 1 16 0"/><rect x="3" y="13" width="4" height="6" rx="2"/><rect x="17" y="13" width="4" height="6" rx="2"/><path d="M19 19a3 3 0 0 1-3 3h-3"/></svg>
+      </span>
+      <span class="cbody">
+        <span class="ct">联系客服</span>
+        <span class="cs" style="display:block">服务时间 9:00 – 23:00</span>
+      </span>
+      <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke-width="2.2"><path d="M9 6l6 6-6 6"/></svg>
+    </button>
+    <button class="cell" onclick="openSheet('sheetDoc')">
+      <span class="cico">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M7 3h8l4 4v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M15 3v4h4"/><path d="M9 12h6M9 16h6"/></svg>
+      </span>
+      <span class="cbody">
+        <span class="ct">协议与规则</span>
+        <span class="cs" style="display:block">用户协议 · 隐私政策 · 信息收集清单</span>
+      </span>
+      <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke-width="2.2"><path d="M9 6l6 6-6 6"/></svg>
+    </button>
+  </div>
+
+  <!-- 为你推荐（4 款 SKU 全量展示） -->
+  <div class="rec">
+    <div class="kick">Recommend</div>
+    <div class="cn">为你推荐</div>
+    <div class="rec-grid" id="recGrid"></div>
+  </div>
+
+  <!-- 页脚合规小字 -->
+  <div class="mine-foot">
+    <div class="en">WELLBIORA™ LIPOSOMAL NUTRITION</div>
+    <div>欧洲制造 · 义乌保税仓直发（1210 保税备货）</div>
+  </div>
+
+</div>
+
+<!-- Tabbar -->
+<nav class="tabbar">
+  <a href="../../prototype/app/index-v2.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>
+    首页
+  </a>
+  <a href="../../prototype/app/products-v2.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></svg>
+    产品
+  </a>
+  <a href="购物车 Cart.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3h2l2.4 12.2A2 2 0 0 0 9.36 17H18a2 2 0 0 0 1.95-1.55L21.5 8H6"/><circle cx="9.5" cy="20.5" r="1.3"/><circle cx="17.5" cy="20.5" r="1.3"/></svg>
+    购物车
+    <span class="badge" id="cartBadge">3</span>
+  </a>
+  <a href="#" class="on" onclick="return false;">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></svg>
+    我的
+  </a>
+</nav>
+
+<!-- 演示开关 -->
+<button class="tweaks-btn" onclick="document.querySelector('.tweaks').classList.toggle('open')">演示</button>
+<div class="tweaks">
+  <label><input type="checkbox" onchange="demoLogout(this.checked)"> 未登录状态</label>
+  <label><input type="checkbox" onchange="demoBadges(this.checked)" checked> 订单待办角标</label>
+</div>
+
+<!-- 遮罩 + 底部弹层 -->
+<div class="mask" id="mask" onclick="closeSheets()"></div>
+
+<div class="sheet" id="sheetKefu">
+  <div class="s-kick">Customer Service</div>
+  <div class="s-title">联系客服</div>
+  <div class="s-desc">服务时间 每日 9:00 – 23:00<br>添加客服微信，咨询订单与清关问题</div>
+  <button class="s-btn" onclick="copyKefu()">复制客服微信号：WellbioraService</button>
+  <button class="s-btn ghost" onclick="closeSheets()">取消</button>
+</div>
+
+<div class="sheet" id="sheetDoc">
+  <div class="s-kick">Terms &amp; Policies</div>
+  <div class="s-title">协议与规则</div>
+  <button class="doc-item" onclick="todo('《用户服务协议》正文页')">
+    用户服务协议
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2"><path d="M9 6l6 6-6 6"/></svg>
+  </button>
+  <button class="doc-item" onclick="todo('《隐私政策》正文页')">
+    隐私政策
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2"><path d="M9 6l6 6-6 6"/></svg>
+  </button>
+  <button class="doc-item" onclick="todo('《个人信息收集清单》正文页')">
+    个人信息收集清单
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2"><path d="M9 6l6 6-6 6"/></svg>
+  </button>
+  <button class="s-btn ghost" onclick="closeSheets()">关闭</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* 商品数据与 prototype/app/data.js 保持一致（价格为示例占位价） */
+const PRODUCTS = [
+  { id: 'p1', name: '脂质体谷胱甘肽饮', en: 'Liposomal Glutathione', price: 329, themeLight: '#E3F0F3', img: 'assets/p1-main.jpg' },
+  { id: 'p2', name: '脂质体维生素C饮', en: 'Liposomal Vitamin C', price: 259, themeLight: '#FDEED2', img: 'assets/p2-main.jpg' },
+  { id: 'p3', name: '脂质体睡眠喷雾', en: 'Liposomal Sleep Spray', price: 289, themeLight: '#E4E9F6', img: 'assets/p3-box.jpg' },
+  { id: 'p4', name: '脂质体D3+K2+Q10饮', en: 'Liposomal D3+K2+Q10', price: 299, themeLight: '#F0E4EB', img: 'assets/p4-main.jpg' },
+];
+
+let loggedIn = true;
+let cartCount = 3;
+
+const AVATAR_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></svg>';
+
+function renderUser() {
+  const row = document.getElementById('userRow');
+  if (loggedIn) {
+    row.innerHTML = `
+      <div class="avatar">${AVATAR_SVG}</div>
+      <div class="uinfo">
+        <div class="uname">WELL 会员</div>
+        <div class="usub">138****8888 · 已完成实名认证</div>
+      </div>`;
+  } else {
+    row.innerHTML = `
+      <div class="avatar">${AVATAR_SVG}</div>
+      <div class="uinfo">
+        <div class="uname">未登录</div>
+        <div class="usub">登录后查看订单与管理地址</div>
+      </div>
+      <button class="login-btn" onclick="toast('登录页为演示占位（手机号 + 验证码）')">立即登录</button>`;
+  }
+}
+
+function renderRec() {
+  document.getElementById('recGrid').innerHTML = PRODUCTS.map(p => `
+    <a class="pcard" href="../../prototype/app/product-v2.html?id=${p.id}">
+      <div class="pic" style="background:${p.themeLight}"><img src="${p.img}" alt="${p.name}"></div>
+      <div class="pbody">
+        <div class="pname">${p.name}</div>
+        <div class="pen">${p.en}</div>
+        <div class="prow">
+          <div class="price"><span class="cur">¥</span>${p.price}</div>
+          <button class="add-btn" onclick="addCart(event, '${p.name}')" aria-label="加入购物车"><b>＋</b></button>
+        </div>
+      </div>
+    </a>`).join('');
+}
+
+function addCart(e, name) {
+  e.preventDefault();
+  e.stopPropagation();
+  cartCount++;
+  updateBadge();
+  toast('已加入购物车');
+}
+
+function updateBadge() {
+  const b = document.getElementById('cartBadge');
+  b.textContent = cartCount;
+  b.style.display = cartCount ? 'block' : 'none';
+}
+
+/* 底部弹层 */
+function openSheet(id) {
+  document.getElementById('mask').classList.add('show');
+  document.getElementById(id).classList.add('show');
+}
+function closeSheets() {
+  document.getElementById('mask').classList.remove('show');
+  document.querySelectorAll('.sheet').forEach(s => s.classList.remove('show'));
+}
+function copyKefu() {
+  closeSheets();
+  toast('客服微信号已复制（演示）');
+}
+
+/* 待设计页面的占位提示 */
+function todo(name) {
+  closeSheets();
+  toast(name + '：原型待设计');
+}
+
+/* 演示开关 */
+let badgesOn = true;
+function demoLogout(off) {
+  loggedIn = !off;
+  renderUser();
+  demoBadges(badgesOn);
+}
+function demoBadges(on) {
+  badgesOn = on;
+  document.querySelectorAll('.obadge').forEach(b => {
+    b.style.display = on && loggedIn ? 'block' : 'none';
+  });
+}
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 1600);
+}
+
+renderUser();
+renderRec();
+updateBadge();
+demoBadges(true);
+</script>
+</body>
+</html>
