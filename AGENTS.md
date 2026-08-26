@@ -46,7 +46,7 @@ H5-shop/
 │   ├── methodology/                     # 方法论沉淀（AI原生开发流程-宝玉.md 等，供学习）
 │   ├── 小程序参考/乐檬/                    # LemonBox 小程序参考（目前为空目录）
 │   ├── vendor/junmeng/                  # 君梦 OMS OpenAPI 2.0：docx 原件 + 已拆分的 Markdown（查接口直接读这里的 md，勿解析 docx）
-│   ├── tech/                            # 技术设计文档（阶段 B）：junmeng-integration-notes.md 已产出
+│   ├── tech/                            # 技术设计文档（阶段 B）：junmeng-integration-notes.md（君梦对接注意）、payment-and-funds.md（支付申请与资金流）
 │   └── tasks/                           # 任务管理：TODO.md（活跃）+ archive/（已归档，勿扫描）
 ├── prototype/app/                 # 静态 HTML 原型（纯 HTML+CSS+JS，无构建）—— V3 统一版，8 页互链
 │   ├── index.html / products.html / product.html   # V1 版（历史冻结）
