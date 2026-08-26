@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="订单详情">
+<title>订单详情 · WELLBIORA 海外旗舰店</title>
+<style>
+/* ============================================================
+ * WELLBIORA H5 · 订单详情页（MVP 第 7 页，V3 统一原型）
+ * 设计令牌提取自 style.css / style-v2.css（v0.3 规范）
+ * 内容：状态头 / 物流 / 地址 / 商品清单 / 金额明细 / 订单信息
+ * ============================================================ */
+:root {
+  --green: #033B3C;
+  --green-dark: #022829;
+  --mint: #D9EDE2;
+  --bg: #F7F5F0;
+  --card: #FFFFFF;
+  --text: #1A1A1A;
+  --text2: #6B6660;
+  --text3: #A8A29A;
+  --line: #EAE6DF;
+  --red: #E6432D;
+  --ok: #2BA471;
+  --warn: #ED7B2F;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body {
+  font-family: -apple-system, "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif;
+  background: #EAE6DF;
+  color: var(--text);
+}
+.page {
+  max-width: 480px;
+  margin: 0 auto;
+  background: var(--bg);
+  min-height: 100dvh;
+  padding-bottom: calc(64px + env(safe-area-inset-bottom) + 20px);
+}
+img { display: block; }
+a { text-decoration: none; color: inherit; }
+button { font-family: inherit; }
+
+/* ---------- 顶部导航栏 ---------- */
+.navbar {
+  position: sticky; top: 0; z-index: 40;
+  display: flex; align-items: center;
+  height: calc(48px + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) 4px 0;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+.navbar .back {
+  width: 44px; height: 48px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text);
+}
+.navbar .back svg { width: 22px; height: 22px; }
+.navbar .title { flex: 1; text-align: center; font-size: 16px; font-weight: 700; }
+.navbar .gap { width: 44px; flex-shrink: 0; }
+
+/* ---------- 状态头（杂志式） ---------- */
+.status-head { padding: 24px 16px 6px; }
+.status-head .kick {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 11px; letter-spacing: .22em; text-transform: uppercase;
+  color: var(--text3);
+}
+.status-head .cn { font-size: 22px; font-weight: 700; margin-top: 6px; }
+.status-head .desc { font-size: 12px; color: var(--text2); margin-top: 8px; line-height: 1.7; }
+.status-head.warn .cn { color: var(--warn); }
+
+/* ---------- 卡片通用 ---------- */
+.card {
+  margin: 12px 12px 0;
+  background: var(--card);
+  border-radius: 16px;
+  padding: 14px;
+}
+.card .c-kick {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 10px; letter-spacing: .22em; text-transform: uppercase;
+  color: var(--text3);
+}
+.card .c-title { font-size: 15px; font-weight: 700; margin-top: 4px; }
+.card .c-head { display: flex; align-items: baseline; justify-content: space-between; }
+
+/* ---------- 物流卡 ---------- */
+.logi { display: flex; gap: 10px; margin-top: 12px; }
+.logi .lico {
+  width: 34px; height: 34px; flex-shrink: 0;
+  border-radius: 10px; background: var(--mint);
+  display: flex; align-items: center; justify-content: center;
+}
+.logi .lico svg { width: 17px; height: 17px; stroke: var(--green); }
+.logi .lbody { flex: 1; min-width: 0; }
+.logi .lnow { font-size: 13px; font-weight: 600; color: var(--green); line-height: 1.5; }
+.logi .lmeta { font-size: 11px; color: var(--text3); margin-top: 4px; }
+/* 物流时间线 */
+.trace { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 4px; }
+.trace .trow { display: flex; gap: 10px; padding: 8px 0; }
+.trace .tdot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--line); margin-top: 5px; flex-shrink: 0;
+}
+.trace .trow:first-child .tdot { background: var(--green); }
+.trace .tt { flex: 1; }
+.trace .ttext { font-size: 12px; color: var(--text); line-height: 1.6; }
+.trace .trow:first-child .ttext { color: var(--green); font-weight: 600; }
+.trace .ttime { font-size: 10px; color: var(--text3); margin-top: 2px; font-family: Georgia, serif; letter-spacing: .03em; }
+
+/* ---------- 地址卡 ---------- */
+.addr { display: flex; gap: 10px; margin-top: 12px; }
+.addr .aico {
+  width: 34px; height: 34px; flex-shrink: 0;
+  border-radius: 10px; background: var(--mint);
+  display: flex; align-items: center; justify-content: center;
+}
+.addr .aico svg { width: 17px; height: 17px; stroke: var(--green); }
+.addr .aname { font-size: 14px; font-weight: 700; }
+.addr .aphone { font-size: 12px; color: var(--text2); margin-left: 8px; }
+.addr .aline { font-size: 12px; color: var(--text2); line-height: 1.6; margin-top: 5px; }
+
+/* ---------- 商品行（同 orders.html） ---------- */
+.gitem { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
+.gitem .pic {
+  width: 60px; height: 60px; flex-shrink: 0;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+.gitem .pic img { width: 88%; height: 88%; object-fit: contain; mix-blend-mode: multiply; }
+.gitem .info { flex: 1; min-width: 0; }
+.gitem .name { font-size: 13px; font-weight: 700; line-height: 1.35; }
+.gitem .spec { font-size: 11px; color: var(--text3); margin-top: 3px; }
+.gitem .right { text-align: right; flex-shrink: 0; }
+.price { color: var(--red); font-weight: 700; font-size: 16px; line-height: 1; }
+.price .cur { font-size: 11px; margin-right: 1px; }
+.gitem .qty { font-size: 11px; color: var(--text3); margin-top: 6px; }
+
+/* ---------- 金额明细（同 checkout.html） ---------- */
+.fee { margin-top: 10px; }
+.fee .frow {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 7px 0; font-size: 13px;
+}
+.fee .frow .fl { color: var(--text2); }
+.fee .frow .fr { font-weight: 600; }
+.fee .frow .fr.free { color: var(--green); font-weight: 400; }
+.fee .frow.total { border-top: 1px solid var(--line); margin-top: 6px; padding-top: 12px; }
+.fee .frow.total .fl { color: var(--text); font-weight: 700; font-size: 14px; }
+
+/* ---------- 订单信息行 ---------- */
+.inforow { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
+.inforow:last-child { border-bottom: none; }
+.inforow .k { color: var(--text2); flex-shrink: 0; }
+.inforow .v { text-align: right; color: var(--text); line-height: 1.5; font-family: Georgia, serif; letter-spacing: .03em; }
+
+/* ---------- 底部操作栏 ---------- */
+.opbar {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: 0;
+  width: 100%; max-width: 480px;
+  background: #fff;
+  border-top: 1px solid var(--line);
+  display: flex; align-items: center; justify-content: flex-end; gap: 8px;
+  padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+  z-index: 50;
+}
+.btn-ghost, .btn-main {
+  height: 40px; padding: 0 22px;
+  border-radius: 999px;
+  font-size: 14px; cursor: pointer;
+}
+.btn-ghost { background: #fff; border: 1px solid var(--line); color: var(--text2); }
+.btn-main { background: var(--green); border: 1px solid var(--green); color: #fff; font-weight: 600; }
+.btn-ghost:active, .btn-main:active { transform: scale(.97); }
+
+/* ---------- Toast ---------- */
+.toast {
+  position: fixed; left: 50%; top: 45%; transform: translate(-50%,-50%);
+  background: rgba(0,0,0,.72); color: #fff;
+  font-size: 13px; padding: 10px 18px; border-radius: 8px;
+  opacity: 0; pointer-events: none; transition: opacity .25s;
+  z-index: 99;
+}
+.toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- 顶部导航 -->
+  <div class="navbar">
+    <a class="back" href="orders.html" aria-label="返回订单列表">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 5l-7 7 7 7"/></svg>
+    </a>
+    <div class="title">订单详情</div>
+    <div class="gap"></div>
+  </div>
+
+  <!-- 状态头 -->
+  <div class="status-head" id="statusHead"></div>
+
+  <!-- 物流卡（待收货/已完成显示） -->
+  <div class="card" id="logiCard" data-screen-label="物流信息" style="display:none">
+    <a name="logistics"></a>
+    <div class="c-head">
+      <div>
+        <div class="c-kick">Logistics</div>
+        <div class="c-title">物流信息</div>
+      </div>
+    </div>
+    <div id="logiBody"></div>
+  </div>
+
+  <!-- 地址卡 -->
+  <div class="card" data-screen-label="收货信息">
+    <div class="c-head">
+      <div>
+        <div class="c-kick">Shipping Address</div>
+        <div class="c-title">收货信息</div>
+      </div>
+    </div>
+    <div class="addr" id="addrBody"></div>
+  </div>
+
+  <!-- 商品清单 -->
+  <div class="card" data-screen-label="商品清单">
+    <div class="c-head">
+      <div>
+        <div class="c-kick">Items</div>
+        <div class="c-title">商品清单</div>
+      </div>
+    </div>
+    <div id="goods"></div>
+  </div>
+
+  <!-- 金额明细 -->
+  <div class="card" data-screen-label="金额明细">
+    <div class="c-head">
+      <div>
+        <div class="c-kick">Payment Details</div>
+        <div class="c-title">金额明细</div>
+      </div>
+    </div>
+    <div class="fee">
+      <div class="frow"><span class="fl">商品金额</span><span class="fr" id="feeGoods"></span></div>
+      <div class="frow"><span class="fl">运费</span><span class="fr free">免运费</span></div>
+      <div class="frow"><span class="fl">进口关税（跨境电商综合税）</span><span class="fr free">商家承担</span></div>
+      <div class="frow total"><span class="fl">实付金额</span><span class="price"><span class="cur">¥</span><span id="feeTotal"></span></span></div>
+    </div>
+  </div>
+
+  <!-- 订单信息 -->
+  <div class="card" data-screen-label="订单信息">
+    <div class="c-head">
+      <div>
+        <div class="c-kick">Order Info</div>
+        <div class="c-title">订单信息</div>
+      </div>
+    </div>
+    <div style="margin-top:6px" id="orderInfo"></div>
+  </div>
+
+</div>
+
+<!-- 底部操作栏 -->
+<div class="opbar" id="opbar"></div>
+
+<div class="toast" id="toast"></div>
+
+<script src="orders-data.js"></script>
+<script>
+const o = findOrder(new URLSearchParams(location.search).get('no'));
+const st = ORDER_STATUS[o.status];
+
+/* 状态头 */
+const HEAD_DESC = {
+  pay:  '请在 24 小时内完成支付，超时订单将自动取消',
+  ship: '订单已提交海关申报，保税仓拣货打包中',
+  recv: '海关已放行，包裹正在派送途中',
+  done: '交易完成，感谢购买 WELLBIORA 产品',
+};
+const head = document.getElementById('statusHead');
+head.classList.toggle('warn', o.status === 'pay');
+head.innerHTML = `
+  <div class="kick">${st.en}</div>
+  <div class="cn">${st.label}</div>
+  <div class="desc">${HEAD_DESC[o.status]}</div>`;
+
+/* 物流卡 */
+if (o.logistics) {
+  document.getElementById('logiCard').style.display = 'block';
+  document.getElementById('logiBody').innerHTML = `
+    <div class="logi">
+      <span class="lico">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M3 7h11v9H3z"/><path d="M14 10h4l3 3v3h-7z"/><circle cx="7" cy="18.5" r="1.6"/><circle cx="17" cy="18.5" r="1.6"/></svg>
+      </span>
+      <div class="lbody">
+        <div class="lnow">${o.logistics.traces[0].text}</div>
+        <div class="lmeta">${o.logistics.company} · ${o.logistics.trackNo}</div>
+      </div>
+    </div>
+    <div class="trace">
+      ${o.logistics.traces.map(t => `
+        <div class="trow">
+          <span class="tdot"></span>
+          <div class="tt">
+            <div class="ttext">${t.text}</div>
+            <div class="ttime">${t.time}</div>
+          </div>
+        </div>`).join('')}
+    </div>`;
+}
+
+/* 地址卡 */
+document.getElementById('addrBody').innerHTML = `
+  <span class="aico">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M12 21s7-6.1 7-11a7 7 0 1 0-14 0c0 4.9 7 11 7 11z"/><circle cx="12" cy="10" r="2.6"/></svg>
+  </span>
+  <div>
+    <div><span class="aname">${o.address.name}</span><span class="aphone">${o.address.phone}</span></div>
+    <div class="aline">${o.address.line}</div>
+  </div>`;
+
+/* 商品清单 */
+document.getElementById('goods').innerHTML = o.items.map(p => `
+  <a class="gitem" href="product-v2.html?id=${p.id}">
+    <div class="pic" style="background:${p.themeLight}"><img src="${p.img}" alt="${p.name}"></div>
+    <div class="info">
+      <div class="name">${p.name}</div>
+      <div class="spec">${p.spec}</div>
+    </div>
+    <div class="right">
+      <div class="price"><span class="cur">¥</span>${p.price}</div>
+      <div class="qty">×${p.qty}</div>
+    </div>
+  </a>`).join('');
+
+/* 金额 */
+document.getElementById('feeGoods').textContent = '¥' + orderTotal(o);
+document.getElementById('feeTotal').textContent = orderTotal(o);
+
+/* 订单信息 */
+document.getElementById('orderInfo').innerHTML = `
+  <div class="inforow"><span class="k">订单编号</span><span class="v">${o.no}</span></div>
+  <div class="inforow"><span class="k">下单时间</span><span class="v">${o.createdAt}</span></div>
+  ${o.payTime ? `<div class="inforow"><span class="k">支付时间</span><span class="v">${o.payTime}</span></div>` : ''}
+  ${o.declareNo ? `<div class="inforow"><span class="k">海关申报单号</span><span class="v">${o.declareNo}</span></div>` : ''}
+  <div class="inforow"><span class="k">清关模式</span><span class="v">1210 保税备货 · 义乌保税仓</span></div>`;
+
+/* 底部操作 */
+const OP = {
+  pay:  `<button class="btn-ghost" onclick="toast('取消订单：需二次确认弹窗（后续迭代）')">取消订单</button>
+         <button class="btn-main" onclick="location.href='checkout.html'">去支付</button>`,
+  ship: `<button class="btn-ghost" onclick="toast('已提醒仓库优先打包（演示）')">提醒发货</button>`,
+  recv: `<button class="btn-main" onclick="toast('已确认收货（演示）')">确认收货</button>`,
+  done: `<button class="btn-main" onclick="location.href='product-v2.html?id=${o.items[0].id}'">再次购买</button>`,
+};
+document.getElementById('opbar').innerHTML = OP[o.status];
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 1600);
+}
+</script>
+</body>
+</html>

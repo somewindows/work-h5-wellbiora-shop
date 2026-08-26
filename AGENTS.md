@@ -17,9 +17,10 @@
 
 - **尚无前后端工程代码**：没有 `package.json` / `pyproject.toml` 等任何配置文件，没有构建工具，也没有测试与 CI。`frontend/`、`server/` 目录**尚未创建**。
 - **已是 Git 仓库**（2026-08-25 初始化，默认分支 `main`），有 `.gitignore`（忽略 node_modules/dist/日志/.env 等）。
-- 仓库目前只有：设计/需求文档（`docs/`）、静态 HTML 高保真原型（`prototype/app/`）、产品图片素材、baoyu-design 试验产出的购物车页原型（`designs/h5-shop/`）、一个打包归档（`H5商城原型与文档/H5商城原型与文档.zip`）。
-- 因此**现阶段没有可运行的构建/测试命令**；原型页直接用浏览器打开 `prototype/app/index.html` 即可预览。
-- 已安装 `.agents/skills/baoyu-design/`（vendored，源自 github.com/JimLiu/baoyu-design）：高保真原型设计 skill，用于补齐 MVP 剩余 5 页（购物车/结算/地址实名/订单/我的）的原型，产出放 `designs/<项目名>/`。注意：本机暂无 Node.js，skill 自带的 `agents/*.mjs` 记账/编译脚本不可运行，跳过即可。
+- 仓库目前只有：设计/需求文档（`docs/`）、静态 HTML 高保真原型（`prototype/app/`，**V3 统一版**）、产品图片素材、方法论沉淀（`docs/methodology/`）、一个打包归档（`H5商城原型与文档/H5商城原型与文档.zip`）。
+- 因此**现阶段没有可运行的构建/测试命令**；原型页直接用浏览器打开 `prototype/app/index-v2.html` 即可预览。
+- 已安装 `.agents/skills/baoyu-design/`（vendored，源自 github.com/JimLiu/baoyu-design）：高保真原型设计 skill。注意：本机暂无 Node.js，skill 自带的 `agents/*.mjs` 记账/编译脚本不可运行，跳过即可。
+- **原型已统一收口到 `prototype/app/`（V3）**：MVP 8 页全部完成且互链可点，后续新页面原型直接放 `prototype/app/`；`designs/` 目录已废弃。V1 三页（index/products/product.html）为历史版本，冻结勿改。
 
 ## 三、技术栈约定（后续生成代码必须遵循，不要换框架）
 
@@ -42,16 +43,19 @@ H5-shop/
 │   ├── H5商城设计规范_WELLBIORA_v0.2.md   # 注意：文件名是 v0.2，但内容已是 v0.3，为前端开发唯一设计依据
 │   ├── WorkBuddy原型设计任务书.md          # 原型设计任务书（含 4 款产品信息表、验收清单）
 │   ├── wellbiora资料夹/                   # 全部产品图与 Logo 素材（P1~P4 详情图 + 8 版 Logo）
+│   ├── methodology/                     # 方法论沉淀（AI原生开发流程-宝玉.md 等，供学习）
 │   ├── 小程序参考/乐檬/                    # LemonBox 小程序参考（目前为空目录）
 │   └── tasks/                           # 任务管理：TODO.md（活跃）+ archive/（已归档，勿扫描）
-├── prototype/app/                 # 静态 HTML 原型（纯 HTML+CSS+JS，无构建）
-│   ├── index.html / products.html / product.html   # V1 版
-│   ├── index-v2.html / products-v2.html / product-v2.html  # V2 版（当前认可的设计方向）
+├── prototype/app/                 # 静态 HTML 原型（纯 HTML+CSS+JS，无构建）—— V3 统一版，8 页互链
+│   ├── index.html / products.html / product.html   # V1 版（历史冻结）
+│   ├── index-v2.html / products-v2.html / product-v2.html  # 首页 / 产品列表 / 商品详情
+│   ├── cart.html / checkout.html / address.html    # 购物车 / 结算页 / 地址+实名
+│   ├── orders.html / order.html / mine.html        # 订单列表 / 订单详情 / 我的
 │   ├── style.css / style-v2.css
 │   ├── data.js / data-v2.js       # 商品数据，采用「内容块数组」结构演示
+│   ├── orders-data.js             # 订单 mock 数据（orders.html / order.html 共用）
 │   └── assets/                    # 原型引用的产品与 Logo 图片（p1-* ~ p4-*, logo-*）
 ├── assets/                        # 根目录素材夹（目前为空；实际素材在 docs/wellbiora资料夹/）
-├── designs/h5-shop/               # baoyu-design 产出的新页面原型（cart.html 购物车、mine.html 我的、checkout.html 结算页、address.html 地址+实名；自包含 HTML + 本地 assets/，文件名一律用英文小写，页面间互链可点击）
 ├── .agents/skills/baoyu-design/   # vendored 原型设计 skill（勿改，升级用 npx skills update）
 └── H5商城原型与文档/H5商城原型与文档.zip   # 文档+原型打包归档
 ```

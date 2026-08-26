@@ -6,9 +6,10 @@
 
 ## 活跃任务
 
-（暂无。T3 已完成并归档至 `archive/2026-08-26-T3-地址实名页原型.md`，用户评审中；后续任务见下方排期。）
+（暂无。原型阶段已收官：MVP 8 页全部完成并统一为 V3，见 `prototype/app/`。）
 
 ## 完成后的后续任务（排期未定，先占位）
 
-- T4 · 订单列表/详情原型（MVP #7）
-- T5 · 前端工程初始化（Vue 3 + Vite + TS + Vant 4，需先装 Node.js）
+- T5 · 原型整体验收：用户完整点一遍 8 页链路，确认交互与文案合规 → 冻结设计基线
+- T6 · 技术设计文档（阶段 B）：`docs/tech/` 下四份——content-blocks.md（内容块 type 定稿，最贵返工点）、api-contract.md、order-flow.md（状态机+三单对碰+限额）、oms-adapter.md
+- T7 · 前端工程初始化（Vue 3 + Vite + TS + Vant 4，需先装 Node.js）

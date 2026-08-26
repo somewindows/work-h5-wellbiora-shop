@@ -6,9 +6,8 @@ WELLBIORA™ 海外旗舰店 —— 跨境电商 H5 商城（移动端网页，�
 
 项目处于**原型与设计阶段**，尚无前后端工程代码。当前仓库内容：
 
-- `docs/` —— 设计规范（v0.3，前端开发唯一设计依据）、原型设计任务书、产品与 Logo 素材
-- `prototype/app/` —— 静态 HTML 高保真原型（V1/V2 两版，**V2 为当前认可方向**）
-- `designs/h5-shop/` —— 新页面高保真原型（baoyu-design skill 产出，已完成购物车页）
+- `docs/` —— 设计规范（v0.3，前端开发唯一设计依据）、原型设计任务书、产品与 Logo 素材、方法论沉淀（`docs/methodology/`）
+- `prototype/app/` —— 静态 HTML 高保真原型 **V3 统一版**：MVP 8 页全部完成、互链可点（首页 / 产品列表 / 商品详情 / 购物车 / 结算 / 地址实名 / 订单列表与详情 / 我的）
 - `.agents/skills/baoyu-design/` —— vendored 原型设计 skill
 
 ## 原型预览
@@ -21,8 +20,8 @@ prototype/app/index-v2.html
 
 # 或本地起服务（推荐，体验与真机一致）
 python -m http.server 4311
-# 浏览器访问 http://localhost:4311/prototype/app/index-v2.html
-# 购物车页 http://localhost:4311/designs/h5-shop/购物车%20Cart.html
+# 入口：http://localhost:4311/prototype/app/index-v2.html
+# 全链路可点：首页 → 详情 → 购物车 → 结算 → 地址实名 → 支付（演示）→ 订单
 ```
 
 ## 规划技术栈
