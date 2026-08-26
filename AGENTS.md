@@ -20,7 +20,7 @@
 - 仓库目前只有：设计/需求文档（`docs/`）、静态 HTML 高保真原型（`prototype/app/`，**V3 统一版**）、产品图片素材、方法论沉淀（`docs/methodology/`）、一个打包归档（`H5商城原型与文档/H5商城原型与文档.zip`）。
 - 因此**现阶段没有可运行的构建/测试命令**；原型页直接用浏览器打开 `prototype/app/index-v2.html` 即可预览。
 - 已安装 `.agents/skills/baoyu-design/`（vendored，源自 github.com/JimLiu/baoyu-design）：高保真原型设计 skill。注意：本机暂无 Node.js，skill 自带的 `agents/*.mjs` 记账/编译脚本不可运行，跳过即可。
-- **原型已统一收口到 `prototype/app/`（V3）**：MVP 8 页全部完成且互链可点，后续新页面原型直接放 `prototype/app/`；`designs/` 目录已废弃。V1 三页（index/products/product.html）为历史版本，冻结勿改。
+- **原型已统一收口到 `prototype/app/`（V3）**：MVP 9 页（原 8 页 + 登录页 login.html，2026-08-26 验收时补）全部完成且互链可点，后续新页面原型直接放 `prototype/app/`；`designs/` 目录已废弃。V1 三页（index/products/product.html）为历史版本，冻结勿改。
 
 ## 三、技术栈约定（后续生成代码必须遵循，不要换框架）
 
@@ -43,16 +43,17 @@ H5-shop/
 │   ├── H5商城设计规范_WELLBIORA_v0.2.md   # 注意：文件名是 v0.2，但内容已是 v0.3，为前端开发唯一设计依据
 │   ├── WorkBuddy原型设计任务书.md          # 原型设计任务书（含 4 款产品信息表、验收清单）
 │   ├── wellbiora资料夹/                   # 全部产品图与 Logo 素材（P1~P4 详情图 + 8 版 Logo）
-│   ├── methodology/                     # 方法论沉淀（AI原生开发流程-宝玉.md 等，供学习）
+│   ├── methodology/                     # 方法论沉淀（AI原生开发流程-宝玉.md、原型验收核查清单.md）
 │   ├── 小程序参考/乐檬/                    # LemonBox 小程序参考（目前为空目录）
 │   ├── vendor/junmeng/                  # 君梦 OMS OpenAPI 2.0：docx 原件 + 已拆分的 Markdown（查接口直接读这里的 md，勿解析 docx）
-│   ├── tech/                            # 技术设计文档（阶段 B）：junmeng-integration-notes.md（君梦对接注意）、payment-and-funds.md（支付申请与资金流）
+│   ├── tech/                            # 技术设计文档（阶段 B）：junmeng-integration-notes.md（君梦对接注意）、payment-and-funds.md（支付申请与资金流）、auth-and-account.md（登录与账号体系）
 │   └── tasks/                           # 任务管理：TODO.md（活跃）+ archive/（已归档，勿扫描）
-├── prototype/app/                 # 静态 HTML 原型（纯 HTML+CSS+JS，无构建）—— V3 统一版，8 页互链
+├── prototype/app/                 # 静态 HTML 原型（纯 HTML+CSS+JS，无构建）—— V3 统一版，9 页互链
 │   ├── index.html / products.html / product.html   # V1 版（历史冻结）
 │   ├── index-v2.html / products-v2.html / product-v2.html  # 首页 / 产品列表 / 商品详情
 │   ├── cart.html / checkout.html / address.html    # 购物车 / 结算页 / 地址+实名
 │   ├── orders.html / order.html / mine.html        # 订单列表 / 订单详情 / 我的
+│   ├── login.html                        # 登录/注册页（手机号验证码免密，2026-08-26 新增）
 │   ├── style.css / style-v2.css
 │   ├── data.js / data-v2.js       # 商品数据，采用「内容块数组」结构演示
 │   ├── orders-data.js             # 订单 mock 数据（orders.html / order.html 共用）
@@ -86,7 +87,7 @@ H5-shop/
 - 产品主题色仅用于产品相关点缀：p1 `#88BDCB`、p2 `#F8A818`、p3 `#082068`、p4 `#702848`；页面骨架保持品牌绿体系
 - 排版为杂志式：模块标题 = 英文衬线小字（Georgia、全大写、字距 .22em）+ 中文大标题
 - 卡片无阴影，靠「米白底 + 白卡」区分层级；按钮全圆角 999px、高 48px
-- MVP 页面清单共 8 页：首页 / 产品列表 / 商品详情 / 购物车 / 结算页 / 地址+实名 / 订单列表与详情 / 我的
+- MVP 页面清单共 9 页：首页 / 产品列表 / 商品详情 / 购物车 / 结算页 / 地址+实名 / 订单列表与详情 / 我的 / 登录（手机号验证码免密）
 
 ## 七、协作方式
 
@@ -115,4 +116,5 @@ H5-shop/
 - [ ] 海关退单（超年度额度等）的状态码/拦截信息表现形式与资金退回路径
 - [ ] 微信支付商户号、报关接口接入方式（服务商模式还是直连；支付备案号已确认：财付通 4403169D3W）
 - [ ] 成都保税仓的 OMS 对接方是否也是君梦
+- [ ] 登录方案已定为手机号验证码免密 + 微信静默授权（docs/tech/auth-and-account.md），待确认认证服务号与短信服务商
 - [ ] 设计稿最终确认版本

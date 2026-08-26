@@ -172,6 +172,12 @@ button { font-family: inherit; }
 .fee .frow.total { border-top: 1px solid var(--line); margin-top: 6px; padding-top: 12px; }
 .fee .frow.total .fl { color: var(--text); font-weight: 700; font-size: 14px; }
 .fee .fnote { font-size: 10px; color: var(--text3); line-height: 1.6; margin-top: 6px; }
+/* 支付方式行：微信绿小圆点（无图标库，纯 CSS 画） */
+.fee .frow .fr .wx-dot {
+  display: inline-block; width: 8px; height: 8px;
+  border-radius: 50%; background: #07C160;
+  margin-right: 5px; vertical-align: 1px;
+}
 /* 税费信息小问号 */
 .qico {
   width: 13px; height: 13px; border-radius: 50%;
@@ -286,6 +292,17 @@ button { font-family: inherit; }
 }
 .sheet .doc-item:active { opacity: .6; }
 .sheet .doc-item svg { width: 14px; height: 14px; stroke: var(--text3); }
+/* 协议正文容器（可滚动） */
+.sheet .doc-body {
+  max-height: 50dvh; overflow-y: auto;
+  margin-top: 14px;
+  background: var(--card);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 12px; color: var(--text2); line-height: 1.8;
+  text-align: left;
+}
+.sheet .doc-body p + p { margin-top: 6px; }
 /* 支付成功弹层 */
 .sheet .ok-ico {
   width: 56px; height: 56px; margin: 6px auto 0;
@@ -396,6 +413,10 @@ button { font-family: inherit; }
         </span>
         <span class="fr free">商家承担</span>
       </div>
+      <div class="frow">
+        <span class="fl">支付方式</span>
+        <span class="fr"><i class="wx-dot"></i>微信支付</span>
+      </div>
       <div class="frow total">
         <span class="fl">实付金额</span>
         <span class="price"><span class="cur">¥</span><span id="feeTotal">0</span></span>
@@ -409,7 +430,7 @@ button { font-family: inherit; }
     <button class="ck" id="agreeCk" onclick="toggleAgree()" aria-label="同意协议">
       <i><svg viewBox="0 0 24 24" fill="none" stroke-width="3.4"><path d="M4 12.5l5 5L20 6.5"/></svg></i>
     </button>
-    <div>我已阅读并同意<a href="javascript:void(0)" onclick="openSheet('sheetDoc')">《跨境电子商务零售进口商品告知书》</a>与<a href="javascript:void(0)" onclick="openSheet('sheetDoc')">《用户服务协议》</a></div>
+    <div>我已阅读并同意<a href="javascript:void(0)" onclick="openDoc('notice')">《跨境电子商务零售进口商品告知书》</a>与<a href="javascript:void(0)" onclick="openDoc('service')">《用户服务协议》</a></div>
   </div>
 
   <!-- 页脚合规小字 -->
@@ -426,7 +447,7 @@ button { font-family: inherit; }
     <div><span class="t">合计：</span><span class="price"><span class="cur">¥</span><span id="payPrice">0</span></span></div>
     <div class="n" id="payN"></div>
   </div>
-  <button class="pay" onclick="onPay()">立即支付</button>
+  <button class="pay" id="payBtn" onclick="onPay()">微信支付</button>
 </div>
 
 <!-- 演示开关 -->
@@ -439,18 +460,11 @@ button { font-family: inherit; }
 <!-- 遮罩 + 底部弹层 -->
 <div class="mask" id="mask" onclick="closeSheets()"></div>
 
-<!-- 协议列表弹层 -->
+<!-- 协议正文弹层（标题与内容由 JS 按点击来源填充） -->
 <div class="sheet" id="sheetDoc">
   <div class="s-kick">Terms &amp; Policies</div>
-  <div class="s-title">协议与告知书</div>
-  <button class="doc-item" onclick="todo('《跨境电子商务零售进口商品告知书》正文页')">
-    跨境电子商务零售进口商品告知书
-    <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2"><path d="M9 6l6 6-6 6"/></svg>
-  </button>
-  <button class="doc-item" onclick="todo('《用户服务协议》正文页')">
-    用户服务协议
-    <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2"><path d="M9 6l6 6-6 6"/></svg>
-  </button>
+  <div class="s-title" id="docTitle">协议与告知书</div>
+  <div class="doc-body" id="docBody"></div>
   <button class="s-btn" onclick="agreeAndClose()">已阅读并同意</button>
   <button class="s-btn ghost" onclick="closeSheets()">关闭</button>
 </div>
@@ -511,6 +525,8 @@ function renderGoods() {
   document.getElementById('feeTotal').textContent = total;
   document.getElementById('payPrice').textContent = total;
   document.getElementById('payN').textContent = `共 ${count} 件 · 含进口税（商家承担）`;
+  // 支付按钮文案：微信支付 + 金额（随商品金额联动）
+  document.getElementById('payBtn').textContent = '微信支付 ¥' + total;
 }
 
 function renderAddr() {
@@ -563,6 +579,40 @@ function onPay() {
   openSheet('sheetPaid');
 }
 
+/* 协议正文（简要版，正式上线前需法务审定全文） */
+const DOCS = {
+  notice: {
+    title: '跨境电子商务零售进口商品购买告知书',
+    body: `
+      <p>一、本店商品通过跨境电商零售进口模式销售（海关监管方式代码 1210，保税备货），商品提前备货于义乌保税仓，下单后由保税仓直发。</p>
+      <p>二、本店商品为跨境电商零售进口商品，执行原产地（输出国/地区）相关标准，可能与我国标准存在差异；商品可能无中文标签及中文说明书，购买前请仔细阅读商品详情页信息。</p>
+      <p>三、根据海关监管要求，购买人需提供真实姓名与身份证号码用于通关申报；本店将对身份证号加密存储，且仅用于海关清关用途。</p>
+      <p>四、订购人、支付人、收货人三者的实名信息（姓名、身份证号）必须一致，否则订单将无法通过海关申报。</p>
+      <p>五、限值规定：单笔交易限值人民币 5000 元，个人年度交易限值人民币 26000 元，超出限值的订单将无法完成申报。</p>
+      <p>六、跨境电商零售进口商品仅限个人自用，不得用于二次销售或其他商业用途。</p>
+      <p>七、点击购买即视为您已阅读、理解并同意上述告知内容。</p>`,
+  },
+  service: {
+    title: '用户服务协议',
+    body: `
+      <p>一、服务内容：本店通过 H5 商城向您提供跨境膳食补充剂的浏览、下单、支付与配送服务；下单流程为：选购商品 → 填写收货地址与实名信息 → 微信支付 → 海关申报 → 保税仓发货。</p>
+      <p>二、实名信息与隐私保护：为完成海关申报，我们将收集您的姓名与身份证号；身份证号加密存储、仅用于清关申报，不用于其他用途，也不向无关第三方提供。</p>
+      <p>三、支付与退款：本店支持微信支付；退款按原支付路径退回，已提交海关申报的订单退款需人工审核处理，具体时效以客服答复为准。</p>
+      <p>四、订单取消：未提交海关申报的订单可自助取消；已申报订单如需取消，请联系人工客服协助处理。</p>
+      <p>五、售后政策：退款/售后暂由人工客服处理（服务时间每日 9:00–23:00），您可在「我的」页联系客服发起申请。</p>
+      <p>六、合规声明：本店商品为膳食补充剂，并非药品，不能替代药物；商品使用效果因个体差异而不同。</p>
+      <p>七、本协议如有更新将在本页面公示，继续使用本店服务即视为接受更新后的协议。</p>`,
+  },
+};
+
+/* 打开协议正文弹层：按点击来源填充标题与内容 */
+function openDoc(key) {
+  const d = DOCS[key];
+  document.getElementById('docTitle').textContent = d.title;
+  document.getElementById('docBody').innerHTML = d.body;
+  openSheet('sheetDoc');
+}
+
 /* 底部弹层 */
 function openSheet(id) {
   document.getElementById('mask').classList.add('show');
@@ -576,12 +626,6 @@ function agreeAndClose() {
   agreed = true;
   document.getElementById('agreeCk').classList.add('on');
   closeSheets();
-}
-
-/* 待设计页面的占位提示 */
-function todo(name) {
-  closeSheets();
-  toast(name + '：原型待设计');
 }
 
 /* 演示开关 */

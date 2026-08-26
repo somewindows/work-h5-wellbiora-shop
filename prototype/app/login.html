@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="登录">
+<title>登录 · WELLBIORA 海外旗舰店</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style-v2.css">
+<style>
+/* ============================================================
+ * WELLBIORA H5 · 登录/注册页（手机号验证码免密，2026-08-26 新增）
+ * 设计令牌来自 style.css / style-v2.css（v0.3 规范），本页内联部分
+ * 沿用 checkout.html / mine.html 的样式模式（导航栏 / 弹层 / toast / 演示开关）
+ * 方案要点：手机号主键 + 短信验证码免密（无密码）；微信内 snsapi_base 静默
+ *           授权做免登体验层；实名（身份证）不在本页采集，下单环节再收
+ * ============================================================ */
+
+/* ---------- 顶部导航栏（同 checkout.html，标题位放 Logo） ---------- */
+.navbar {
+  position: sticky; top: 0; z-index: 40;
+  display: flex; align-items: center;
+  height: calc(48px + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) 4px 0;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+.navbar .back {
+  width: 44px; height: 48px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: none; border: none; cursor: pointer;
+  color: var(--text);
+}
+.navbar .back svg { width: 22px; height: 22px; }
+.navbar .logo { flex: 1; height: 20px; width: auto; object-fit: contain; mix-blend-mode: multiply; }
+.navbar .gap { width: 44px; flex-shrink: 0; }
+
+/* ---------- 标题区（杂志式：英文衬线小字 + 中文大标题） ---------- */
+.login-head { padding: 28px 16px 6px; }
+.login-head .kick {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 11px; letter-spacing: .22em; text-transform: uppercase;
+  color: var(--text3);
+}
+.login-head .cn { font-size: 26px; font-weight: 700; margin-top: 6px; }
+.login-head .sub { font-size: 12px; color: var(--text2); margin-top: 8px; line-height: 1.7; }
+
+/* ---------- 表单卡（白卡无阴影） ---------- */
+.form {
+  margin: 16px 12px 0;
+  background: var(--card);
+  border-radius: 16px;
+  padding: 4px 14px;
+}
+.field { display: flex; align-items: center; gap: 10px; padding: 14px 0; }
+.field + .field { border-top: 1px solid var(--line); }
+.field input {
+  flex: 1; min-width: 0;
+  border: none; outline: none; background: none;
+  font-size: 15px; color: var(--text);
+  height: 24px;
+  font-family: inherit;
+}
+.field input::placeholder { color: var(--text3); }
+/* 获取验证码按钮（文字按钮，可点区域 ≥44px） */
+.code-btn {
+  flex-shrink: 0;
+  min-width: 96px; height: 44px;
+  margin-right: -8px;
+  background: none; border: none; cursor: pointer;
+  font-size: 13px; font-weight: 600; color: var(--green);
+}
+.code-btn:disabled { color: var(--text3); font-weight: 400; cursor: default; }
+
+/* ---------- 登录主按钮（全圆角 999px / 高 48px） ---------- */
+.login-btn {
+  display: block; width: calc(100% - 24px);
+  margin: 16px 12px 0;
+  height: 48px; border: none; border-radius: 999px;
+  background: var(--green); color: #fff;
+  font-size: 15px; font-weight: 600; cursor: pointer;
+}
+.login-btn:active { transform: scale(.98); }
+
+/* ---------- 协议勾选（沿用 checkout.html .agree 模式） ---------- */
+.agree {
+  display: flex; align-items: flex-start; gap: 8px;
+  margin: 14px 16px 0;
+  font-size: 12px; color: var(--text2); line-height: 1.7;
+}
+.agree .ck {
+  width: 44px; height: 44px; flex-shrink: 0;
+  margin: -12px 0 0 -10px;
+  display: flex; align-items: center; justify-content: center;
+  background: none; border: none; cursor: pointer;
+}
+.agree .ck i {
+  width: 20px; height: 20px; border-radius: 50%;
+  border: 1.5px solid var(--text3);
+  display: flex; align-items: center; justify-content: center;
+  transition: all .2s ease-out;
+}
+.agree .ck.on i { background: var(--green); border-color: var(--green); }
+.agree .ck i svg { width: 11px; height: 11px; stroke: #fff; opacity: 0; transition: opacity .15s; }
+.agree .ck.on i svg { opacity: 1; }
+.agree a { color: var(--green); font-weight: 600; }
+
+/* ---------- 页脚合规小字（沿用 mine.html） ---------- */
+.foot {
+  margin-top: 24px;
+  text-align: center;
+  font-size: 10px; color: var(--text3);
+  line-height: 1.8;
+}
+.foot .en { font-family: Georgia, serif; letter-spacing: .14em; }
+
+/* ---------- 底部弹层（沿用 checkout.html 协议弹层模式） ---------- */
+.mask {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.45);
+  opacity: 0; pointer-events: none;
+  transition: opacity .25s;
+  z-index: 80;
+}
+.mask.show { opacity: 1; pointer-events: auto; }
+.sheet {
+  position: fixed; left: 50%; transform: translate(-50%, 100%);
+  bottom: 0;
+  width: 100%; max-width: 480px;
+  background: var(--bg);
+  border-radius: 20px 20px 0 0;
+  padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
+  transition: transform .3s ease-out;
+  z-index: 81;
+}
+.sheet.show { transform: translate(-50%, 0); }
+.sheet .s-kick {
+  font-family: Georgia, serif; font-size: 10px; letter-spacing: .22em;
+  text-transform: uppercase; color: var(--text3); text-align: center;
+}
+.sheet .s-title { font-size: 17px; font-weight: 700; text-align: center; margin-top: 5px; }
+/* 协议正文容器（可滚动，同 checkout.html） */
+.sheet .doc-body {
+  max-height: 50dvh; overflow-y: auto;
+  margin-top: 14px;
+  background: var(--card);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 12px; color: var(--text2); line-height: 1.8;
+  text-align: left;
+}
+.sheet .doc-body p + p { margin-top: 6px; }
+.sheet .s-btn {
+  display: block; width: 100%; height: 48px;
+  margin-top: 16px;
+  background: var(--green); color: #fff;
+  font-size: 15px; font-weight: 600;
+  border: none; border-radius: 999px; cursor: pointer;
+}
+.sheet .s-btn:active { transform: scale(.98); }
+.sheet .s-btn.ghost {
+  background: none; color: var(--text2);
+  font-weight: 400; margin-top: 4px;
+}
+
+/* ---------- Toast（沿用 cart.html） ---------- */
+.toast {
+  position: fixed; left: 50%; top: 45%; transform: translate(-50%,-50%);
+  background: rgba(0,0,0,.72); color: #fff;
+  font-size: 13px; padding: 10px 18px; border-radius: 8px;
+  opacity: 0; pointer-events: none; transition: opacity .25s;
+  z-index: 99;
+}
+.toast.show { opacity: 1; }
+
+/* ---------- 演示开关（tweaks，沿用 mine.html，仅原型用） ---------- */
+.tweaks-btn {
+  position: fixed; right: 12px;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  z-index: 60;
+  background: var(--text); color: #fff;
+  font-size: 11px; padding: 7px 12px;
+  border: none; border-radius: 999px; cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0,0,0,.18);
+}
+.tweaks {
+  position: fixed; right: 12px;
+  bottom: calc(56px + env(safe-area-inset-bottom));
+  z-index: 60;
+  background: #fff; border-radius: 12px;
+  padding: 12px 14px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.12);
+  font-size: 12px; color: var(--text2);
+  display: none;
+}
+.tweaks.open { display: block; }
+.tweaks label { display: flex; align-items: center; gap: 8px; padding: 6px 0; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- 顶部导航：返回 + 居中 Logo -->
+  <div class="navbar">
+    <button class="back" onclick="goBack()" aria-label="返回">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 5l-7 7 7 7"/></svg>
+    </button>
+    <img class="logo" src="assets/logo-h.jpg" alt="WELLBIORA">
+    <div class="gap"></div>
+  </div>
+
+  <!-- 微信环境提示条（薄荷绿公告条，沿用 style.css .notice） -->
+  <div class="notice" id="wxNotice">微信内打开可免登录</div>
+
+  <!-- 标题区 -->
+  <div class="login-head">
+    <div class="kick">Sign In / Sign Up</div>
+    <div class="cn">登录 / 注册</div>
+    <div class="sub">新用户验证手机号后将自动注册</div>
+  </div>
+
+  <!-- 登录表单 -->
+  <div class="form" data-screen-label="登录表单">
+    <div class="field">
+      <input type="tel" id="phoneInput" maxlength="11" inputmode="numeric"
+             placeholder="请输入 11 位手机号" aria-label="手机号">
+    </div>
+    <div class="field">
+      <input type="tel" id="codeInput" maxlength="6" inputmode="numeric"
+             placeholder="请输入 6 位验证码" aria-label="验证码">
+      <button class="code-btn" id="codeBtn" onclick="sendCode()">获取验证码</button>
+    </div>
+  </div>
+
+  <!-- 登录主按钮 -->
+  <button class="login-btn" onclick="onLogin()">登录</button>
+
+  <!-- 协议勾选（默认不勾选） -->
+  <div class="agree" data-screen-label="协议勾选">
+    <button class="ck" id="agreeCk" onclick="toggleAgree()" aria-label="同意协议">
+      <i><svg viewBox="0 0 24 24" fill="none" stroke-width="3.4"><path d="M4 12.5l5 5L20 6.5"/></svg></i>
+    </button>
+    <div>我已阅读并同意<a href="javascript:void(0)" onclick="openDoc('service')">《用户服务协议》</a>和<a href="javascript:void(0)" onclick="openDoc('privacy')">《隐私政策》</a></div>
+  </div>
+
+  <!-- 页脚合规小字 -->
+  <div class="foot">
+    <div class="en">WELLBIORA™ LIPOSOMAL NUTRITION</div>
+    <div>实名信息（身份证）在下单结算时另行采集，仅用于海关清关</div>
+  </div>
+
+</div>
+
+<!-- 演示开关 -->
+<button class="tweaks-btn" onclick="document.querySelector('.tweaks').classList.toggle('open')">演示</button>
+<div class="tweaks">
+  <label><input type="checkbox" id="wxDemoCk" onchange="demoWx(this.checked)"> 模拟微信内打开</label>
+</div>
+
+<!-- 遮罩 + 协议正文弹层 -->
+<div class="mask" id="mask" onclick="closeSheets()"></div>
+<div class="sheet" id="sheetDoc">
+  <div class="s-kick">Terms &amp; Policies</div>
+  <div class="s-title" id="docTitle">协议</div>
+  <div class="doc-body" id="docBody"></div>
+  <button class="s-btn" onclick="closeSheets()">关闭</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* 演示验证码（原型固定，正式环境由短信服务商下发） */
+const DEMO_CODE = '123456';
+
+/* 登录成功后跳回来源页（仅允许站内页面名，防注入） */
+const fromRaw = new URLSearchParams(location.search).get('from') || '';
+const fromPage = /^[\w-]+\.html$/.test(fromRaw) ? fromRaw : 'mine.html';
+
+let agreed = false;   // 协议勾选状态（默认不勾选）
+let counting = false; // 验证码倒计时中
+
+/* 协议正文（《用户服务协议》精简自 checkout.html DOCS.service；《隐私政策》为本页新写简版。
+   正式上线前均需法务审定全文） */
+const DOCS = {
+  service: {
+    title: '用户服务协议',
+    body: `
+      <p>一、服务内容：本店通过 H5 商城向您提供跨境膳食补充剂的浏览、下单、支付与配送服务；下单流程为：选购商品 → 填写收货地址与实名信息 → 微信支付 → 海关申报 → 保税仓发货。</p>
+      <p>二、账号：本店以手机号作为账号唯一标识，通过短信验证码完成注册与登录，不设置登录密码。</p>
+      <p>三、支付与退款：本店支持微信支付；退款按原支付路径退回，已提交海关申报的订单退款需人工审核处理。</p>
+      <p>四、订单取消：未提交海关申报的订单可自助取消；已申报订单如需取消，请联系人工客服协助处理。</p>
+      <p>五、售后政策：退款/售后暂由人工客服处理（服务时间每日 9:00–23:00），您可在「我的」页联系客服发起申请。</p>
+      <p>六、合规声明：本店商品为膳食补充剂，并非药品，不能替代药物；商品使用效果因个体差异而不同。</p>
+      <p>七、本协议如有更新将在本页面公示，继续使用本店服务即视为接受更新后的协议。</p>`,
+  },
+  privacy: {
+    title: '隐私政策',
+    body: `
+      <p>一、信息收集：注册与登录时收集您的手机号，用于账号标识、登录验证与订单通知；下单环节另行收集的姓名与身份证号仅用于海关清关申报。</p>
+      <p>二、信息存储：身份证号等敏感信息加密存储，手机号作为账号主键保存。</p>
+      <p>三、信息使用与共享：我们不会向任何第三方出售您的个人信息；仅为完成订单履约（支付、清关、物流），向必要的服务方（微信支付、海关、保税仓、物流商）提供所必需的信息。</p>
+      <p>四、信息保护：我们采取加密传输、访问控制等措施保护您的信息安全。</p>
+      <p>五、您的权利：可通过人工客服查询、更正您的个人信息；注销账号请通过「我的 → 联系客服」发起，我们将在核实身份后处理。</p>
+      <p>六、本政策如有更新将在本页面公示。</p>`,
+  },
+};
+
+/* 返回：优先回上一页，无历史则回「我的」 */
+function goBack() {
+  if (history.length > 1) history.back();
+  else location.href = 'mine.html';
+}
+
+/* 手机号格式校验（11 位，1 开头） */
+function validPhone(p) {
+  return /^1\d{10}$/.test(p);
+}
+
+/* 获取验证码：校验手机号 → 60 秒倒计时（演示态直接提示验证码） */
+function sendCode() {
+  if (counting) return;
+  const phone = document.getElementById('phoneInput').value.trim();
+  if (!validPhone(phone)) { toast('请输入正确的 11 位手机号'); return; }
+  toast('验证码已发送（演示：' + DEMO_CODE + '）');
+  counting = true;
+  let left = 60;
+  const btn = document.getElementById('codeBtn');
+  btn.disabled = true;
+  btn.textContent = left + 's 后重发';
+  const timer = setInterval(() => {
+    left--;
+    if (left <= 0) {
+      clearInterval(timer);
+      counting = false;
+      btn.disabled = false;
+      btn.textContent = '获取验证码';
+    } else {
+      btn.textContent = left + 's 后重发';
+    }
+  }, 1000);
+}
+
+/* 登录：拦截顺序 手机号格式 → 验证码 → 协议勾选 */
+function onLogin() {
+  const phone = document.getElementById('phoneInput').value.trim();
+  const code = document.getElementById('codeInput').value.trim();
+  if (!validPhone(phone)) { toast('请输入正确的 11 位手机号'); return; }
+  if (code !== DEMO_CODE) { toast('验证码错误（演示：' + DEMO_CODE + '）'); return; }
+  if (!agreed) { toast('请先阅读并勾选相关协议'); return; }
+  toast('登录成功');
+  setTimeout(() => { location.href = fromPage; }, 1000);
+}
+
+/* 协议勾选 */
+function toggleAgree() {
+  agreed = !agreed;
+  document.getElementById('agreeCk').classList.toggle('on', agreed);
+}
+
+/* 打开协议正文弹层：按点击来源填充标题与内容 */
+function openDoc(key) {
+  const d = DOCS[key];
+  document.getElementById('docTitle').textContent = d.title;
+  document.getElementById('docBody').innerHTML = d.body;
+  openSheet('sheetDoc');
+}
+
+/* 底部弹层 */
+function openSheet(id) {
+  document.getElementById('mask').classList.add('show');
+  document.getElementById(id).classList.add('show');
+}
+function closeSheets() {
+  document.getElementById('mask').classList.remove('show');
+  document.querySelectorAll('.sheet').forEach(s => s.classList.remove('show'));
+}
+
+/* 演示开关：模拟微信内打开 → snsapi_base 静默授权未命中（未绑定账号），回落表单态 */
+function demoWx(on) {
+  const notice = document.getElementById('wxNotice');
+  if (!on) { notice.textContent = '微信内打开可免登录'; return; }
+  notice.textContent = '正在微信免登录…';
+  setTimeout(() => {
+    toast('该微信号未绑定账号，请用手机号注册');
+    notice.textContent = '微信内打开可免登录';
+    document.getElementById('wxDemoCk').checked = false;
+  }, 1500);
+}
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 1600);
+}
+</script>
+</body>
+</html>

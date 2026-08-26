@@ -2,7 +2,8 @@
  * 订单 Mock 数据 —— orders.html / order.html 共用
  * 状态机（与后端订单状态对齐的最小集合）：
  *   pay  待付款 → ship 待发货 → recv 待收货 → done 已完成
- * （取消/退款售后为后续迭代，不在 MVP 最小链路内）
+ *   cancelled 已取消（超时未支付等，2026-08-26 补充）
+ * （退款售后为后续迭代，短期由人工客服处理）
  * ============================================================ */
 
 const ORDER_STATUS = {
@@ -10,6 +11,7 @@ const ORDER_STATUS = {
   ship: { label: '待发货', en: 'Preparing' },
   recv: { label: '待收货', en: 'In Transit' },
   done: { label: '已完成', en: 'Completed' },
+  cancelled: { label: '已取消', en: 'Cancelled' },
 };
 
 const ORDERS = [
@@ -21,6 +23,8 @@ const ORDERS = [
       { id: 'p2', name: '脂质体维生素C饮', spec: '150ml（5ml × 30袋）· 香橙味', price: 259, qty: 1, themeLight: '#FDEED2', img: 'assets/p2-main.jpg' },
     ],
     address: { name: '王小也', phone: '138****8888', line: '浙江省 金华市 义乌市 北苑街道 拥军路 88 号 2 栋 501 室' },
+    idName: '王*也',              // 实名认证姓名（脱敏展示）
+    idcard: '3307**********1234', // 实名认证身份证号（脱敏展示，与 checkout.html 一致）
     payTime: null,
     declareNo: null,
     logistics: null,
@@ -34,6 +38,8 @@ const ORDERS = [
       { id: 'p3', name: '脂质体睡眠喷雾', spec: '30ml / 瓶 · 葡萄味', price: 289, qty: 1, themeLight: '#E4E9F6', img: 'assets/p3-box.jpg' },
     ],
     address: { name: '王小也', phone: '138****8888', line: '浙江省 金华市 义乌市 北苑街道 拥军路 88 号 2 栋 501 室' },
+    idName: '王*也',              // 实名认证姓名（脱敏展示）
+    idcard: '3307**********1234', // 实名认证身份证号（脱敏展示，与 checkout.html 一致）
     payTime: '2026-08-23 10:06',
     declareNo: 'HG20260823091234', // 海关申报单号（君梦 orderDeclaNo 待确认）
     logistics: null,
@@ -46,6 +52,8 @@ const ORDERS = [
       { id: 'p4', name: '脂质体D3+K2+Q10饮', spec: '150ml（5ml × 30袋）· 覆盆子味', price: 299, qty: 2, themeLight: '#F0E4EB', img: 'assets/p4-main.jpg' },
     ],
     address: { name: '王小也', phone: '138****8888', line: '浙江省 金华市 义乌市 北苑街道 拥军路 88 号 2 栋 501 室' },
+    idName: '王*也',              // 实名认证姓名（脱敏展示）
+    idcard: '3307**********1234', // 实名认证身份证号（脱敏展示，与 checkout.html 一致）
     payTime: '2026-08-20 21:41',
     declareNo: 'HG20260821085517',
     logistics: {
@@ -67,6 +75,8 @@ const ORDERS = [
       { id: 'p2', name: '脂质体维生素C饮', spec: '150ml（5ml × 30袋）· 香橙味', price: 259, qty: 2, themeLight: '#FDEED2', img: 'assets/p2-main.jpg' },
     ],
     address: { name: '王小也', phone: '138****8888', line: '浙江省 金华市 义乌市 北苑街道 拥军路 88 号 2 栋 501 室' },
+    idName: '王*也',              // 实名认证姓名（脱敏展示）
+    idcard: '3307**********1234', // 实名认证身份证号（脱敏展示，与 checkout.html 一致）
     payTime: '2026-08-12 14:23',
     declareNo: 'HG20260812153001',
     logistics: {
@@ -78,6 +88,22 @@ const ORDERS = [
         { time: '2026-08-12 15:10', text: '海关放行，保税仓拣货打包完成' },
       ],
     },
+  },
+  /* 已取消订单：未支付无申报单号，附取消原因 */
+  {
+    no: 'WB20260818005',
+    status: 'cancelled',
+    createdAt: '2026-08-18 09:30',
+    items: [
+      { id: 'p3', name: '脂质体睡眠喷雾', spec: '30ml / 瓶 · 葡萄味', price: 289, qty: 1, themeLight: '#E4E9F6', img: 'assets/p3-box.jpg' },
+    ],
+    address: { name: '王小也', phone: '138****8888', line: '浙江省 金华市 义乌市 北苑街道 拥军路 88 号 2 栋 501 室' },
+    idName: '王*也',
+    idcard: '3307**********1234',
+    payTime: null,
+    declareNo: null,
+    logistics: null,
+    cancelledReason: '超时未支付，自动取消',
   },
 ];
 

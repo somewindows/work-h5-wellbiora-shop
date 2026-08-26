@@ -354,7 +354,7 @@ button { font-family: inherit; }
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M21 12a8 8 0 0 1-8 8H4l2-3a8 8 0 1 1 15-5z"/><path d="M9 11.5l2 2 4-4.5"/></svg>
         待评价
       </button>
-      <button class="order-item" onclick="todo('退款 / 售后')">
+      <button class="order-item" onclick="openSheet('sheetKefu')" aria-label="退款/售后，人工客服处理">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 8v4l3 2"/></svg>
         退款/售后
       </button>
@@ -499,7 +499,7 @@ function renderUser() {
         <div class="uname">未登录</div>
         <div class="usub">登录后查看订单与管理地址</div>
       </div>
-      <button class="login-btn" onclick="toast('登录页为演示占位（手机号 + 验证码）')">立即登录</button>`;
+      <button class="login-btn" onclick="location.href='login.html?from=mine.html'">立即登录</button>`;
   }
 }
 

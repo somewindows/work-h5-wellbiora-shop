@@ -73,6 +73,7 @@ button { font-family: inherit; }
 .status-head .cn { font-size: 22px; font-weight: 700; margin-top: 6px; }
 .status-head .desc { font-size: 12px; color: var(--text2); margin-top: 8px; line-height: 1.7; }
 .status-head.warn .cn { color: var(--warn); }
+.status-head.grey .cn { color: var(--text3); }
 
 /* ---------- 卡片通用 ---------- */
 .card {
@@ -124,6 +125,8 @@ button { font-family: inherit; }
 .addr .aname { font-size: 14px; font-weight: 700; }
 .addr .aphone { font-size: 12px; color: var(--text2); margin-left: 8px; }
 .addr .aline { font-size: 12px; color: var(--text2); line-height: 1.6; margin-top: 5px; }
+/* 实名认证行（灰色小字，清关三单对碰信息） */
+.addr .areal { font-size: 11px; color: var(--text3); margin-top: 5px; }
 
 /* ---------- 商品行（同 orders.html） ---------- */
 .gitem { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
@@ -282,16 +285,18 @@ const st = ORDER_STATUS[o.status];
 /* 状态头 */
 const HEAD_DESC = {
   pay:  '请在 24 小时内完成支付，超时订单将自动取消',
-  ship: '订单已提交海关申报，保税仓拣货打包中',
+  ship: '订单已提交海关申报，保税仓拣货打包中；如需取消请联系人工客服',
   recv: '海关已放行，包裹正在派送途中',
   done: '交易完成，感谢购买 WELLBIORA 产品',
+  cancelled: '订单已取消',
 };
 const head = document.getElementById('statusHead');
 head.classList.toggle('warn', o.status === 'pay');
+head.classList.toggle('grey', o.status === 'cancelled');
 head.innerHTML = `
   <div class="kick">${st.en}</div>
   <div class="cn">${st.label}</div>
-  <div class="desc">${HEAD_DESC[o.status]}</div>`;
+  <div class="desc">${HEAD_DESC[o.status]}${o.status === 'cancelled' && o.cancelledReason ? '：' + o.cancelledReason : ''}</div>`;
 
 /* 物流卡 */
 if (o.logistics) {
@@ -326,6 +331,7 @@ document.getElementById('addrBody').innerHTML = `
   <div>
     <div><span class="aname">${o.address.name}</span><span class="aphone">${o.address.phone}</span></div>
     <div class="aline">${o.address.line}</div>
+    <div class="areal">实名认证：${o.idName} ${o.idcard}</div>
   </div>`;
 
 /* 商品清单 */
@@ -358,9 +364,11 @@ document.getElementById('orderInfo').innerHTML = `
 const OP = {
   pay:  `<button class="btn-ghost" onclick="toast('取消订单：需二次确认弹窗（后续迭代）')">取消订单</button>
          <button class="btn-main" onclick="location.href='checkout.html'">去支付</button>`,
-  ship: `<button class="btn-ghost" onclick="toast('已提醒仓库优先打包（演示）')">提醒发货</button>`,
+  ship: `<button class="btn-ghost" onclick="toast('已提醒仓库优先打包（演示）')">提醒发货</button>
+         <button class="btn-ghost" onclick="location.href='mine.html'">联系客服</button>`,
   recv: `<button class="btn-main" onclick="toast('已确认收货（演示）')">确认收货</button>`,
   done: `<button class="btn-main" onclick="location.href='product-v2.html?id=${o.items[0].id}'">再次购买</button>`,
+  cancelled: `<button class="btn-main" onclick="location.href='product-v2.html?id=${o.items[0].id}'">重新购买</button>`,
 };
 document.getElementById('opbar').innerHTML = OP[o.status];
 

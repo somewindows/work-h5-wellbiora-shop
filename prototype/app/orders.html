@@ -13,7 +13,7 @@
  * WELLBIORA H5 · 订单列表页（MVP 第 7 页，V3 统一原型）
  * 设计令牌提取自 style.css / style-v2.css（v0.3 规范）
  * 风格基线延续 cart.html / checkout.html / mine.html
- * 状态集：待付款 pay / 待发货 ship / 待收货 recv / 已完成 done
+ * 状态集：待付款 pay / 待发货 ship / 待收货 recv / 已完成 done / 已取消 cancelled
  * ============================================================ */
 :root {
   --green: #033B3C;
@@ -100,6 +100,10 @@ button { font-family: inherit; }
 .ocard .o-no { font-size: 11px; color: var(--text3); font-family: Georgia, serif; letter-spacing: .04em; }
 .ocard .o-status { font-size: 13px; font-weight: 700; color: var(--green); }
 .ocard .o-status.warn { color: var(--warn); }
+.ocard .o-status.grey { color: var(--text3); }
+/* 已取消订单整卡弱化（文字/价格转灰） */
+.ocard.cancelled .oitem .name { color: var(--text3); }
+.ocard.cancelled .o-sum, .ocard.cancelled .price { color: var(--text3); }
 
 .oitem { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
 .oitem .pic {
@@ -222,6 +226,7 @@ const TABS = [
   { key: 'ship', label: '待发货' },
   { key: 'recv', label: '待收货' },
   { key: 'done', label: '已完成' },
+  { key: 'cancelled', label: '已取消' },
 ];
 
 let curTab = new URLSearchParams(location.search).get('tab') || 'all';
@@ -253,6 +258,8 @@ function actions(o) {
               <button class="btn-main" onclick="event.preventDefault();confirmRecv('${o.no}')">确认收货</button>`;
     case 'done':
       return `<button class="btn-ghost" onclick="event.preventDefault();location.href='product-v2.html?id=${o.items[0].id}'">再次购买</button>`;
+    case 'cancelled':
+      return `<button class="btn-ghost" onclick="event.preventDefault();location.href='product-v2.html?id=${o.items[0].id}'">重新购买</button>`;
   }
   return '';
 }
@@ -270,11 +277,11 @@ function renderList() {
   empty.style.display = 'none';
 
   list.innerHTML = orders.map(o => `
-    <div class="ocard" data-screen-label="订单卡 ${o.no}">
+    <div class="ocard ${o.status === 'cancelled' ? 'cancelled' : ''}" data-screen-label="订单卡 ${o.no}">
       <a class="o-link" href="order.html?no=${o.no}">
         <div class="o-head">
           <span class="o-no">${o.no}</span>
-          <span class="o-status ${o.status === 'pay' ? 'warn' : ''}">${ORDER_STATUS[o.status].label}</span>
+          <span class="o-status ${o.status === 'pay' ? 'warn' : (o.status === 'cancelled' ? 'grey' : '')}">${ORDER_STATUS[o.status].label}</span>
         </div>
         ${o.items.map(p => `
           <div class="oitem">
