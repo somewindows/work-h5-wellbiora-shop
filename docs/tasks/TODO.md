@@ -6,9 +6,10 @@
 
 ## 活跃任务
 
-（暂无。原型阶段已收官：MVP 9 页（含登录页）全部完成并统一为 V3，见 `prototype/app/`。）
+（暂无。）
 
 ## 完成后的后续任务（排期未定，先占位）
 
-- T6 · 技术设计文档（阶段 B）：`docs/tech/` 下四份——content-blocks.md（内容块 type 定稿，最贵返工点）、api-contract.md、order-flow.md（状态机+三单对碰+限额）、oms-adapter.md
+- T6 已完成归档（2026-08-26）：技术设计 5 份文档在 `docs/tech/`——content-blocks / order-flow / oms-adapter / api-contract / admin-backend
 - T7 · 前端工程初始化（Vue 3 + Vite + TS + Vant 4，需先装 Node.js）
+- T8 · 后台管理工程初始化（admin/，Vue 3 + Element Plus，设计见 docs/tech/admin-backend.md）

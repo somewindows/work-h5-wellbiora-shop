@@ -47,6 +47,8 @@ H5-shop/
 │   ├── 小程序参考/乐檬/                    # LemonBox 小程序参考（目前为空目录）
 │   ├── vendor/junmeng/                  # 君梦 OMS OpenAPI 2.0：docx 原件 + 已拆分的 Markdown（查接口直接读这里的 md，勿解析 docx）
 │   ├── tech/                            # 技术设计文档（阶段 B）：junmeng-integration-notes.md（君梦对接注意）、payment-and-funds.md（支付申请与资金流）、auth-and-account.md（登录与账号体系）
+│   │                                    #   + T6 定稿（2026-08-26）：content-blocks.md（内容块 type 定稿）、order-flow.md（订单状态机/三单对碰/限额）、
+│   │                                    #   oms-adapter.md（保税仓适配层）、api-contract.md（前后端契约+mock 策略）、admin-backend.md（后台管理系统）
 │   └── tasks/                           # 任务管理：TODO.md（活跃）+ archive/（已归档，勿扫描）
 ├── prototype/app/                 # 静态 HTML 原型（纯 HTML+CSS+JS，无构建）—— V3 统一版，9 页互链
 │   ├── index.html / products.html / product.html   # V1 版（历史冻结）
@@ -65,7 +67,7 @@ H5-shop/
 
 > 注意：设计规范文档中写的素材目录是 `assets/wellbiora/`，但实际文件在 `docs/wellbiora资料夹/`，引用时以实际路径为准。
 > 君梦接口文档已拆分：`docs/vendor/junmeng/README.md` 是索引（环境地址/签名速查/接口清单），单个接口字段表在 `docs/vendor/junmeng/api/`，枚举值在 `docs/vendor/junmeng/reference/`。docx 更新后重跑该目录下 `_extract_docx.py` + `_split.py` 重新生成。
-> 规划中（待建）：`frontend/`（Vue 3 H5 前端）、`server/`（NestJS 后端）。
+> 规划中（待建）：`frontend/`（Vue 3 H5 前端）、`server/`（NestJS 后端）、`admin/`（Vue 3 + Element Plus 运营后台，与 server 同服务，设计见 docs/tech/admin-backend.md）。
 
 ## 五、硬性规则（不可违反）
 
