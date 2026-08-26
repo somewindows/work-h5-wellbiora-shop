@@ -45,6 +45,8 @@ H5-shop/
 │   ├── wellbiora资料夹/                   # 全部产品图与 Logo 素材（P1~P4 详情图 + 8 版 Logo）
 │   ├── methodology/                     # 方法论沉淀（AI原生开发流程-宝玉.md 等，供学习）
 │   ├── 小程序参考/乐檬/                    # LemonBox 小程序参考（目前为空目录）
+│   ├── vendor/junmeng/                  # 君梦 OMS OpenAPI 2.0：docx 原件 + 已拆分的 Markdown（查接口直接读这里的 md，勿解析 docx）
+│   ├── tech/                            # 技术设计文档（阶段 B）：junmeng-integration-notes.md 已产出
 │   └── tasks/                           # 任务管理：TODO.md（活跃）+ archive/（已归档，勿扫描）
 ├── prototype/app/                 # 静态 HTML 原型（纯 HTML+CSS+JS，无构建）—— V3 统一版，8 页互链
 │   ├── index.html / products.html / product.html   # V1 版（历史冻结）
@@ -61,6 +63,7 @@ H5-shop/
 ```
 
 > 注意：设计规范文档中写的素材目录是 `assets/wellbiora/`，但实际文件在 `docs/wellbiora资料夹/`，引用时以实际路径为准。
+> 君梦接口文档已拆分：`docs/vendor/junmeng/README.md` 是索引（环境地址/签名速查/接口清单），单个接口字段表在 `docs/vendor/junmeng/api/`，枚举值在 `docs/vendor/junmeng/reference/`。docx 更新后重跑该目录下 `_extract_docx.py` + `_split.py` 重新生成。
 > 规划中（待建）：`frontend/`（Vue 3 H5 前端）、`server/`（NestJS 后端）。
 
 ## 五、硬性规则（不可违反）
@@ -102,8 +105,14 @@ H5-shop/
 
 ## 八、待确认事项（碰到先问）
 
-- [ ] 君梦 OMS 测试环境地址与测试账号
-- [ ] 君梦接口字段：`orderDeclaNo`、`plaformCode` 的具体含义与取值
-- [ ] 微信支付商户号、报关接口接入方式（服务商模式还是直连）
+> 君梦相关细节问题已细化到 `docs/tech/junmeng-integration-notes.md` 第四节，联调前对照处理。
+
+- [ ] 君梦 OMS 测试环境账号与正式参数（appId/appSecret/shopId/warehouseNo，客户端「账号 → 君梦API接口对接」获取）
+- [ ] 自建 H5 商城的 `plaformCode` 海关编码取值（有赞编码文档内自相矛盾：3301961SWG vs 3301961H10；PERSON/OFFLINE 通用码是否适用）
+- [ ] `orderDeclaNo` 报关单号由谁生成；`orderNo` 弃用字段的实际传值要求
+- [ ] 发货回传：回调 method 名、验签规则、重推机制（需我方提供公网 HTTPS 回调地址）
+- [ ] 4 款在售商品的仓库 `goods_no` 与效期/批次属性（联系仓库商务）
+- [ ] 海关退单（超年度额度等）的状态码/拦截信息表现形式与资金退回路径
+- [ ] 微信支付商户号、报关接口接入方式（服务商模式还是直连；支付备案号已确认：财付通 4403169D3W）
 - [ ] 成都保税仓的 OMS 对接方是否也是君梦
 - [ ] 设计稿最终确认版本
