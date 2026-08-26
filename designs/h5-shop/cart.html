@@ -318,7 +318,7 @@ button { font-family: inherit; }
     购物车
     <span class="badge" id="cartBadge">4</span>
   </a>
-  <a href="#" onclick="toast('个人中心为演示占位');return false;">
+  <a href="mine.html">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></svg>
     我的
   </a>
@@ -440,7 +440,7 @@ function onGo() {
   if (!selItems.length) return;
   const total = selItems.reduce((s, p) => s + p.price * p.qty, 0);
   if (total > LIMIT) return; // 按钮已禁用，双保险
-  toast('去结算（结算页原型待设计）');
+  location.href = 'checkout.html';
 }
 
 /* 演示开关 */

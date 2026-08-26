@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="确认订单">
+<title>确认订单 · WELLBIORA 海外旗舰店</title>
+<style>
+/* ============================================================
+ * WELLBIORA H5 · 结算页「确认订单」（MVP 第 5 页）
+ * 设计令牌提取自 prototype/app/style-v2.css（v0.3 规范）
+ * 风格基线延续 designs/h5-shop/cart.html / mine.html
+ * 规范要点：地址、商品清单、金额明细（含进口关税「商家承担」）、
+ *           协议勾选、立即支付
+ * ============================================================ */
+:root {
+  --green: #033B3C;
+  --green-dark: #022829;
+  --mint: #D9EDE2;
+  --bg: #F7F5F0;
+  --card: #FFFFFF;
+  --text: #1A1A1A;
+  --text2: #6B6660;
+  --text3: #A8A29A;
+  --line: #EAE6DF;
+  --red: #E6432D;
+  --ok: #2BA471;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body {
+  font-family: -apple-system, "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif;
+  background: #EAE6DF;
+  color: var(--text);
+}
+.page {
+  max-width: 480px;
+  margin: 0 auto;
+  background: var(--bg);
+  min-height: 100dvh;
+  /* 底部预留：支付栏 64px + 安全区 */
+  padding-bottom: calc(64px + env(safe-area-inset-bottom) + 20px);
+}
+img { display: block; }
+a { text-decoration: none; color: inherit; }
+button { font-family: inherit; }
+
+/* ---------- 顶部导航栏（白底 + 返回 + 居中标题） ---------- */
+.navbar {
+  position: sticky; top: 0; z-index: 40;
+  display: flex; align-items: center;
+  height: calc(48px + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) 4px 0;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+.navbar .back {
+  width: 44px; height: 48px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text);
+}
+.navbar .back svg { width: 22px; height: 22px; }
+.navbar .title { flex: 1; text-align: center; font-size: 16px; font-weight: 700; }
+.navbar .gap { width: 44px; flex-shrink: 0; }
+
+/* ---------- 公告条（与 cart.html notice 一致） ---------- */
+.notice {
+  margin: 12px 12px 0;
+  background: var(--mint);
+  color: var(--green);
+  font-size: 12px;
+  border-radius: 999px;
+  padding: 8px 14px;
+  white-space: nowrap; overflow: hidden;
+}
+
+/* ---------- 卡片通用 ---------- */
+.card {
+  margin: 12px 12px 0;
+  background: var(--card);
+  border-radius: 16px;
+  padding: 14px;
+}
+.card .c-kick {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 10px; letter-spacing: .22em; text-transform: uppercase;
+  color: var(--text3);
+}
+.card .c-title { font-size: 15px; font-weight: 700; margin-top: 4px; }
+.card .c-head { display: flex; align-items: baseline; justify-content: space-between; }
+
+/* ---------- 地址卡 ---------- */
+.addr { display: flex; align-items: center; gap: 10px; width: 100%; background: none; border: none; cursor: pointer; text-align: left; padding: 0; }
+.addr .aico {
+  width: 34px; height: 34px; flex-shrink: 0;
+  border-radius: 10px;
+  background: var(--mint);
+  display: flex; align-items: center; justify-content: center;
+}
+.addr .aico svg { width: 17px; height: 17px; stroke: var(--green); }
+.addr .abody { flex: 1; min-width: 0; }
+.addr .arow1 { display: flex; align-items: center; gap: 8px; }
+.addr .aname { font-size: 15px; font-weight: 700; }
+.addr .aphone { font-size: 13px; color: var(--text2); }
+.addr .atag {
+  font-size: 10px; color: var(--green);
+  background: var(--mint);
+  border-radius: 4px; padding: 2px 6px;
+}
+.addr .aline { font-size: 13px; color: var(--text2); line-height: 1.5; margin-top: 5px; }
+.addr .arrow { width: 14px; height: 14px; stroke: var(--text3); flex-shrink: 0; }
+/* 空地址态 */
+.addr .aempty { flex: 1; font-size: 14px; font-weight: 600; color: var(--green); padding: 4px 0; }
+/* 薄荷绿重要提示（规范：下单后无法修改地址） */
+.addr-hint {
+  margin-top: 12px;
+  background: var(--mint);
+  color: var(--green);
+  font-size: 11px; line-height: 1.6;
+  border-radius: 10px;
+  padding: 8px 12px;
+}
+
+/* ---------- 实名信息（三单对碰） ---------- */
+.real { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.real .rt { font-size: 13px; color: var(--text2); }
+.real .rv { font-size: 13px; font-weight: 600; flex: 1; min-width: 0; }
+.real .rok { display: flex; align-items: center; gap: 3px; font-size: 11px; color: var(--ok); flex-shrink: 0; }
+.real .rok svg { width: 13px; height: 13px; stroke: var(--ok); }
+
+/* ---------- 商品清单 ---------- */
+.shop { display: flex; align-items: center; gap: 8px; }
+.shop .stag {
+  font-size: 10px; color: var(--green);
+  background: var(--mint);
+  border-radius: 4px; padding: 2px 6px;
+}
+.shop .sname { font-size: 14px; font-weight: 700; }
+.gitem { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
+.gitem .pic {
+  width: 64px; height: 64px; flex-shrink: 0;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+.gitem .pic img { width: 88%; height: 88%; object-fit: contain; mix-blend-mode: multiply; }
+.gitem .info { flex: 1; min-width: 0; }
+.gitem .name { font-size: 13px; font-weight: 700; line-height: 1.35; }
+.gitem .spec { font-size: 11px; color: var(--text3); margin-top: 3px; }
+.gitem .right { text-align: right; flex-shrink: 0; }
+.price { color: var(--red); font-weight: 700; font-size: 16px; line-height: 1; }
+.price .cur { font-size: 11px; margin-right: 1px; }
+.gitem .qty { font-size: 11px; color: var(--text3); margin-top: 6px; }
+.gsum {
+  display: flex; justify-content: flex-end; align-items: baseline; gap: 6px;
+  margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line);
+  font-size: 12px; color: var(--text2);
+}
+
+/* ---------- 金额明细 ---------- */
+.fee { margin-top: 10px; }
+.fee .frow {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 7px 0;
+  font-size: 13px;
+}
+.fee .frow .fl { color: var(--text2); display: flex; align-items: center; gap: 5px; }
+.fee .frow .fr { font-weight: 600; }
+.fee .frow .fr.free { color: var(--green); font-weight: 400; }
+.fee .frow.total { border-top: 1px solid var(--line); margin-top: 6px; padding-top: 12px; }
+.fee .frow.total .fl { color: var(--text); font-weight: 700; font-size: 14px; }
+.fee .fnote { font-size: 10px; color: var(--text3); line-height: 1.6; margin-top: 6px; }
+/* 税费信息小问号 */
+.qico {
+  width: 13px; height: 13px; border-radius: 50%;
+  border: 1px solid var(--text3); color: var(--text3);
+  font-size: 9px; line-height: 12px; text-align: center;
+  background: none; cursor: pointer; padding: 0;
+}
+
+/* ---------- 协议勾选 ---------- */
+.agree {
+  display: flex; align-items: flex-start; gap: 8px;
+  margin: 14px 16px 0;
+  font-size: 12px; color: var(--text2); line-height: 1.7;
+}
+.agree .ck {
+  width: 44px; height: 44px; flex-shrink: 0;
+  margin: -12px 0 0 -10px;
+  display: flex; align-items: center; justify-content: center;
+  background: none; border: none; cursor: pointer;
+}
+.agree .ck i {
+  width: 20px; height: 20px; border-radius: 50%;
+  border: 1.5px solid var(--text3);
+  display: flex; align-items: center; justify-content: center;
+  transition: all .2s ease-out;
+}
+.agree .ck.on i { background: var(--green); border-color: var(--green); }
+.agree .ck i svg { width: 11px; height: 11px; stroke: #fff; opacity: 0; transition: opacity .15s; }
+.agree .ck.on i svg { opacity: 1; }
+.agree a { color: var(--green); font-weight: 600; }
+
+/* ---------- 页脚合规小字（沿用 mine.html） ---------- */
+.foot {
+  margin-top: 24px;
+  text-align: center;
+  font-size: 10px; color: var(--text3);
+  line-height: 1.8;
+}
+.foot .en { font-family: Georgia, serif; letter-spacing: .14em; }
+
+/* ---------- 底部支付栏 ---------- */
+.paybar {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: 0;
+  width: 100%; max-width: 480px;
+  background: #fff;
+  border-top: 1px solid var(--line);
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+  z-index: 50;
+}
+.paybar .ptotal { flex: 1; line-height: 1.2; }
+.paybar .ptotal .t { font-size: 11px; color: var(--text2); }
+.paybar .ptotal .price { font-size: 22px; }
+.paybar .ptotal .n { font-size: 10px; color: var(--text3); }
+.paybar .pay {
+  width: 132px; height: 48px; border: none; border-radius: 999px;
+  background: var(--green); color: #fff;
+  font-size: 15px; font-weight: 600; cursor: pointer;
+}
+.paybar .pay:active { transform: scale(.97); }
+
+/* ---------- 底部弹层（沿用 mine.html 模式） ---------- */
+.mask {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.45);
+  opacity: 0; pointer-events: none;
+  transition: opacity .25s;
+  z-index: 80;
+}
+.mask.show { opacity: 1; pointer-events: auto; }
+.sheet {
+  position: fixed; left: 50%; transform: translate(-50%, 100%);
+  bottom: 0;
+  width: 100%; max-width: 480px;
+  background: var(--bg);
+  border-radius: 20px 20px 0 0;
+  padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
+  transition: transform .3s ease-out;
+  z-index: 81;
+}
+.sheet.show { transform: translate(-50%, 0); }
+.sheet .s-kick {
+  font-family: Georgia, serif; font-size: 10px; letter-spacing: .22em;
+  text-transform: uppercase; color: var(--text3); text-align: center;
+}
+.sheet .s-title { font-size: 17px; font-weight: 700; text-align: center; margin-top: 5px; }
+.sheet .s-desc {
+  font-size: 12px; color: var(--text2); text-align: center;
+  margin-top: 10px; line-height: 1.7;
+}
+.sheet .s-btn {
+  display: block; width: 100%; height: 48px;
+  margin-top: 16px;
+  background: var(--green); color: #fff;
+  font-size: 15px; font-weight: 600;
+  border: none; border-radius: 999px; cursor: pointer;
+}
+.sheet .s-btn:active { transform: scale(.98); }
+.sheet .s-btn.ghost {
+  background: none; color: var(--text2);
+  font-weight: 400; margin-top: 4px;
+}
+.sheet .doc-item {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%;
+  background: var(--card); border: none; cursor: pointer;
+  border-radius: 12px;
+  padding: 14px;
+  margin-top: 10px;
+  font-size: 14px; font-weight: 600; color: var(--text);
+}
+.sheet .doc-item:active { opacity: .6; }
+.sheet .doc-item svg { width: 14px; height: 14px; stroke: var(--text3); }
+/* 支付成功弹层 */
+.sheet .ok-ico {
+  width: 56px; height: 56px; margin: 6px auto 0;
+  border-radius: 50%; background: var(--mint);
+  display: flex; align-items: center; justify-content: center;
+}
+.sheet .ok-ico svg { width: 26px; height: 26px; stroke: var(--green); }
+
+/* ---------- Toast（沿用 cart.html） ---------- */
+.toast {
+  position: fixed; left: 50%; top: 45%; transform: translate(-50%,-50%);
+  background: rgba(0,0,0,.72); color: #fff;
+  font-size: 13px; padding: 10px 18px; border-radius: 8px;
+  opacity: 0; pointer-events: none; transition: opacity .25s;
+  z-index: 99;
+}
+.toast.show { opacity: 1; }
+
+/* ---------- 演示开关（tweaks，仅原型用） ---------- */
+.tweaks-btn {
+  position: fixed; right: 12px;
+  bottom: calc(64px + env(safe-area-inset-bottom) + 16px);
+  z-index: 60;
+  background: var(--text); color: #fff;
+  font-size: 11px; padding: 7px 12px;
+  border: none; border-radius: 999px; cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0,0,0,.18);
+}
+.tweaks {
+  position: fixed; right: 12px;
+  bottom: calc(64px + env(safe-area-inset-bottom) + 56px);
+  z-index: 60;
+  background: #fff; border-radius: 12px;
+  padding: 12px 14px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.12);
+  font-size: 12px; color: var(--text2);
+  display: none;
+}
+.tweaks.open { display: block; }
+.tweaks label { display: flex; align-items: center; gap: 8px; padding: 6px 0; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="page" id="page">
+
+  <!-- 顶部导航 -->
+  <div class="navbar">
+    <a class="back" href="cart.html" aria-label="返回购物车">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 5l-7 7 7 7"/></svg>
+    </a>
+    <div class="title">确认订单</div>
+    <div class="gap"></div>
+  </div>
+
+  <!-- 跨境提示 -->
+  <div class="notice">义乌保税仓直发 · 支付完成即向海关申报（1210 保税备货）</div>
+
+  <!-- 收货地址 + 实名 -->
+  <div class="card" data-screen-label="地址卡">
+    <div class="c-head">
+      <div>
+        <div class="c-kick">Shipping Address</div>
+        <div class="c-title">收货信息</div>
+      </div>
+    </div>
+    <div id="addrBox" style="margin-top:12px"></div>
+    <div class="addr-hint">跨境清关需要：订购人、支付人、收货人实名信息须一致，下单后无法修改地址</div>
+    <div class="real" id="realRow">
+      <span class="rt">支付人实名</span>
+      <span class="rv" id="realVal">王小也 · 3307**********1234</span>
+      <span class="rok">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.6"><path d="M4 12.5l5 5L20 6.5"/></svg>
+        已认证
+      </span>
+    </div>
+  </div>
+
+  <!-- 商品清单 -->
+  <div class="card" data-screen-label="商品清单">
+    <div class="shop">
+      <span class="sname">WELLBIORA 海外旗舰店</span>
+      <span class="stag">保税仓直发</span>
+    </div>
+    <div id="goods"></div>
+    <div class="gsum" id="gsum"></div>
+  </div>
+
+  <!-- 金额明细 -->
+  <div class="card" data-screen-label="金额明细">
+    <div class="c-head">
+      <div>
+        <div class="c-kick">Payment Details</div>
+        <div class="c-title">金额明细</div>
+      </div>
+    </div>
+    <div class="fee">
+      <div class="frow">
+        <span class="fl">商品金额</span>
+        <span class="fr" id="feeGoods">¥0</span>
+      </div>
+      <div class="frow">
+        <span class="fl">运费</span>
+        <span class="fr free">免运费</span>
+      </div>
+      <div class="frow">
+        <span class="fl">进口关税（跨境电商综合税）
+          <button class="qico" onclick="openSheet('sheetTax')" aria-label="税费说明">?</button>
+        </span>
+        <span class="fr free">商家承担</span>
+      </div>
+      <div class="frow total">
+        <span class="fl">实付金额</span>
+        <span class="price"><span class="cur">¥</span><span id="feeTotal">0</span></span>
+      </div>
+    </div>
+    <div class="fnote">根据跨境电商零售进口政策，本单税费由商家承担；个人年度交易限值 ¥26000，单笔限值 ¥5000。</div>
+  </div>
+
+  <!-- 协议勾选 -->
+  <div class="agree" data-screen-label="协议勾选">
+    <button class="ck" id="agreeCk" onclick="toggleAgree()" aria-label="同意协议">
+      <i><svg viewBox="0 0 24 24" fill="none" stroke-width="3.4"><path d="M4 12.5l5 5L20 6.5"/></svg></i>
+    </button>
+    <div>我已阅读并同意<a href="javascript:void(0)" onclick="openSheet('sheetDoc')">《跨境电子商务零售进口商品告知书》</a>与<a href="javascript:void(0)" onclick="openSheet('sheetDoc')">《用户服务协议》</a></div>
+  </div>
+
+  <!-- 页脚合规小字 -->
+  <div class="foot">
+    <div class="en">WELLBIORA™ LIPOSOMAL NUTRITION</div>
+    <div>欧洲制造 · 义乌保税仓直发（1210 保税备货）</div>
+  </div>
+
+</div>
+
+<!-- 底部支付栏 -->
+<div class="paybar">
+  <div class="ptotal">
+    <div><span class="t">合计：</span><span class="price"><span class="cur">¥</span><span id="payPrice">0</span></span></div>
+    <div class="n" id="payN"></div>
+  </div>
+  <button class="pay" onclick="onPay()">立即支付</button>
+</div>
+
+<!-- 演示开关 -->
+<button class="tweaks-btn" onclick="document.querySelector('.tweaks').classList.toggle('open')">演示</button>
+<div class="tweaks">
+  <label><input type="checkbox" onchange="demoNoAddr(this.checked)"> 空地址状态</label>
+  <label><input type="checkbox" onchange="demoNoReal(this.checked)"> 未完成实名认证</label>
+</div>
+
+<!-- 遮罩 + 底部弹层 -->
+<div class="mask" id="mask" onclick="closeSheets()"></div>
+
+<!-- 协议列表弹层 -->
+<div class="sheet" id="sheetDoc">
+  <div class="s-kick">Terms &amp; Policies</div>
+  <div class="s-title">协议与告知书</div>
+  <button class="doc-item" onclick="todo('《跨境电子商务零售进口商品告知书》正文页')">
+    跨境电子商务零售进口商品告知书
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2"><path d="M9 6l6 6-6 6"/></svg>
+  </button>
+  <button class="doc-item" onclick="todo('《用户服务协议》正文页')">
+    用户服务协议
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2"><path d="M9 6l6 6-6 6"/></svg>
+  </button>
+  <button class="s-btn" onclick="agreeAndClose()">已阅读并同意</button>
+  <button class="s-btn ghost" onclick="closeSheets()">关闭</button>
+</div>
+
+<!-- 税费说明弹层 -->
+<div class="sheet" id="sheetTax">
+  <div class="s-kick">Import Tax</div>
+  <div class="s-title">进口关税说明</div>
+  <div class="s-desc">跨境电商零售进口商品按政策征收跨境电商综合税，<br>本店所有商品税费均由商家承担，您支付的价格即为到手价。<br><br>政策限值：单笔订单 ≤ ¥5000，个人年度累计 ≤ ¥26000。</div>
+  <button class="s-btn" onclick="closeSheets()">我知道了</button>
+</div>
+
+<!-- 支付成功弹层 -->
+<div class="sheet" id="sheetPaid">
+  <div class="ok-ico">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2.4"><path d="M4 12.5l5 5L20 6.5"/></svg>
+  </div>
+  <div class="s-kick" style="margin-top:12px">Payment Successful</div>
+  <div class="s-title">支付成功（演示）</div>
+  <div class="s-desc">订单已提交海关申报，保税仓将尽快为您发货</div>
+  <button class="s-btn" onclick="todo('订单详情（订单页 T4 待设计）')">查看订单</button>
+  <a class="s-btn ghost" href="../../prototype/app/index-v2.html" style="display:block;text-align:center;line-height:48px">返回首页</a>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* 商品数据与 cart.html 默认选中项保持一致（价格为示例占位价） */
+const ITEMS = [
+  { id: 'p1', name: '脂质体谷胱甘肽饮', spec: '5ml × 30袋 / 盒', price: 329, themeLight: '#E3F0F3', img: 'assets/p1-main.jpg', qty: 1 },
+  { id: 'p2', name: '脂质体维生素C饮', spec: '150ml（5ml × 30袋）· 香橙味', price: 259, themeLight: '#FDEED2', img: 'assets/p2-main.jpg', qty: 2 },
+  { id: 'p3', name: '脂质体睡眠喷雾', spec: '30ml / 瓶 · 葡萄味', price: 289, themeLight: '#E4E9F6', img: 'assets/p3-box.jpg', qty: 1 },
+];
+const ADDR = { name: '王小也', phone: '138****8888', line: '浙江省 金华市 义乌市 北苑街道 拥军路 88 号 2 栋 501 室' };
+
+let hasAddr = true;
+let realOk = true;
+let agreed = false;
+
+const total = ITEMS.reduce((s, p) => s + p.price * p.qty, 0);
+const count = ITEMS.reduce((s, p) => s + p.qty, 0);
+
+function renderGoods() {
+  document.getElementById('goods').innerHTML = ITEMS.map(p => `
+    <div class="gitem">
+      <div class="pic" style="background:${p.themeLight}"><img src="${p.img}" alt="${p.name}"></div>
+      <div class="info">
+        <div class="name">${p.name}</div>
+        <div class="spec">${p.spec}</div>
+      </div>
+      <div class="right">
+        <div class="price"><span class="cur">¥</span>${p.price}</div>
+        <div class="qty">×${p.qty}</div>
+      </div>
+    </div>`).join('');
+  document.getElementById('gsum').innerHTML = `共 ${count} 件 · 小计 <span class="price"><span class="cur">¥</span>${total}</span>`;
+  document.getElementById('feeGoods').textContent = '¥' + total;
+  document.getElementById('feeTotal').textContent = total;
+  document.getElementById('payPrice').textContent = total;
+  document.getElementById('payN').textContent = `共 ${count} 件 · 含进口税（商家承担）`;
+}
+
+function renderAddr() {
+  const box = document.getElementById('addrBox');
+  if (hasAddr) {
+    box.innerHTML = `
+      <button class="addr" onclick="todo('地址选择（地址+实名页 T3 待设计）')">
+        <span class="aico">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M12 21s7-6.1 7-11a7 7 0 1 0-14 0c0 4.9 7 11 7 11z"/><circle cx="12" cy="10" r="2.6"/></svg>
+        </span>
+        <span class="abody">
+          <span class="arow1">
+            <span class="aname">${ADDR.name}</span>
+            <span class="aphone">${ADDR.phone}</span>
+            <span class="atag">默认</span>
+          </span>
+          <span class="aline" style="display:block">${ADDR.line}</span>
+        </span>
+        <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke-width="2.2"><path d="M9 6l6 6-6 6"/></svg>
+      </button>`;
+  } else {
+    box.innerHTML = `
+      <button class="addr" onclick="todo('新增地址（地址+实名页 T3 待设计）')">
+        <span class="aico">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>
+        </span>
+        <span class="aempty">请选择收货地址（需完成实名认证）</span>
+        <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke-width="2.2"><path d="M9 6l6 6-6 6"/></svg>
+      </button>`;
+  }
+  // 实名状态行
+  document.getElementById('realRow').style.display = hasAddr ? 'flex' : 'none';
+  if (realOk) {
+    document.getElementById('realVal').textContent = '王小也 · 3307**********1234';
+  } else {
+    document.getElementById('realVal').textContent = '待认证：下单前需填写支付人姓名与身份证号';
+  }
+  document.querySelector('#realRow .rok').style.display = realOk ? 'flex' : 'none';
+}
+
+function toggleAgree() {
+  agreed = !agreed;
+  document.getElementById('agreeCk').classList.toggle('on', agreed);
+}
+
+function onPay() {
+  if (!hasAddr) { toast('请先选择收货地址'); return; }
+  if (!realOk) { toast('请先完成支付人实名认证'); return; }
+  if (!agreed) { toast('请先阅读并勾选相关协议'); return; }
+  openSheet('sheetPaid');
+}
+
+/* 底部弹层 */
+function openSheet(id) {
+  document.getElementById('mask').classList.add('show');
+  document.getElementById(id).classList.add('show');
+}
+function closeSheets() {
+  document.getElementById('mask').classList.remove('show');
+  document.querySelectorAll('.sheet').forEach(s => s.classList.remove('show'));
+}
+function agreeAndClose() {
+  agreed = true;
+  document.getElementById('agreeCk').classList.add('on');
+  closeSheets();
+}
+
+/* 待设计页面的占位提示 */
+function todo(name) {
+  closeSheets();
+  toast(name + '：原型待设计');
+}
+
+/* 演示开关 */
+function demoNoAddr(on) {
+  hasAddr = !on;
+  renderAddr();
+}
+function demoNoReal(on) {
+  realOk = !on;
+  renderAddr();
+}
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 1600);
+}
+
+renderGoods();
+renderAddr();
+</script>
+</body>
+</html>
