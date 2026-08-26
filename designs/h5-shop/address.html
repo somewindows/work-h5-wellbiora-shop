@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="收货地址">
+<title>地址与实名 · WELLBIORA 海外旗舰店</title>
+<style>
+/* ============================================================
+ * WELLBIORA H5 · 地址+实名页（MVP 第 6 页）
+ * 设计令牌提取自 prototype/app/style-v2.css（v0.3 规范）
+ * 风格基线延续 designs/h5-shop/cart.html / checkout.html
+ * 规范要点：收货人信息 + 支付人姓名/身份证号 + 智能粘贴识别
+ * 表单规范：卡片式分组；标签 14px/600 + 输入区 + 底部 1px 分割线；
+ *           提示语 12px 弱提示色；重要提示薄荷绿底卡片
+ * ============================================================ */
+:root {
+  --green: #033B3C;
+  --green-dark: #022829;
+  --mint: #D9EDE2;
+  --bg: #F7F5F0;
+  --card: #FFFFFF;
+  --text: #1A1A1A;
+  --text2: #6B6660;
+  --text3: #A8A29A;
+  --line: #EAE6DF;
+  --red: #E6432D;
+  --ok: #2BA471;
+  --err: #D54941;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body {
+  font-family: -apple-system, "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif;
+  background: #EAE6DF;
+  color: var(--text);
+}
+.page {
+  max-width: 480px;
+  margin: 0 auto;
+  background: var(--bg);
+  min-height: 100dvh;
+  /* 底部预留：保存栏 64px + 安全区 */
+  padding-bottom: calc(64px + env(safe-area-inset-bottom) + 20px);
+}
+img { display: block; }
+a { text-decoration: none; color: inherit; }
+button { font-family: inherit; }
+
+/* ---------- 顶部导航栏（与 checkout.html 一致） ---------- */
+.navbar {
+  position: sticky; top: 0; z-index: 40;
+  display: flex; align-items: center;
+  height: calc(48px + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) 4px 0;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+.navbar .back {
+  width: 44px; height: 48px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text);
+}
+.navbar .back svg { width: 22px; height: 22px; }
+.navbar .title { flex: 1; text-align: center; font-size: 16px; font-weight: 700; }
+.navbar .gap { width: 44px; flex-shrink: 0; }
+
+/* ---------- 卡片通用 ---------- */
+.card {
+  margin: 12px 12px 0;
+  background: var(--card);
+  border-radius: 16px;
+  padding: 14px;
+}
+.card .c-kick {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 10px; letter-spacing: .22em; text-transform: uppercase;
+  color: var(--text3);
+}
+.card .c-title { font-size: 15px; font-weight: 700; margin-top: 4px; }
+.card .c-head { display: flex; align-items: baseline; justify-content: space-between; }
+
+/* ---------- 表单项（规范：标签 14px/600 + 底部 1px 分割线） ---------- */
+.field { padding: 12px 0 0; }
+.field .f-label { font-size: 14px; font-weight: 600; }
+.field .f-label .req { color: var(--red); margin-left: 2px; }
+.field .f-row {
+  display: flex; align-items: center; gap: 8px;
+  border-bottom: 1px solid var(--line);
+  padding: 8px 0;
+}
+.field .f-input {
+  flex: 1; min-width: 0;
+  border: none; outline: none; background: none;
+  font-size: 15px; color: var(--text);
+  font-family: inherit;
+  height: 28px;
+  padding: 0;
+}
+.field .f-input::placeholder { color: var(--text3); }
+.field textarea.f-input { height: auto; min-height: 56px; line-height: 1.6; resize: none; }
+.field .f-hint { font-size: 12px; color: var(--text3); margin-top: 6px; line-height: 1.5; }
+.field.err .f-row { border-bottom-color: var(--err); }
+.field.err .f-hint { color: var(--err); }
+.field .f-arrow { width: 14px; height: 14px; stroke: var(--text3); flex-shrink: 0; }
+.field .f-pick {
+  flex: 1; min-width: 0; text-align: left;
+  border: none; background: none; cursor: pointer;
+  font-size: 15px; color: var(--text);
+  height: 28px; padding: 0;
+  font-family: inherit;
+}
+.field .f-pick.ph { color: var(--text3); }
+
+/* ---------- 智能粘贴识别 ---------- */
+.paste-box { margin-top: 12px; }
+.paste-box textarea {
+  width: 100%;
+  border: 1px dashed var(--text3);
+  border-radius: 10px;
+  background: var(--bg);
+  font-size: 13px; color: var(--text);
+  font-family: inherit;
+  line-height: 1.6;
+  padding: 10px 12px;
+  min-height: 64px;
+  resize: none;
+  outline: none;
+}
+.paste-box textarea:focus { border-color: var(--green); }
+.paste-box .p-row { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+.paste-box .p-hint { font-size: 11px; color: var(--text3); }
+.paste-box .p-btn {
+  height: 34px; padding: 0 18px;
+  background: var(--mint); color: var(--green);
+  font-size: 13px; font-weight: 600;
+  border: none; border-radius: 999px; cursor: pointer;
+}
+.paste-box .p-btn:active { transform: scale(.96); }
+
+/* ---------- 薄荷绿重要提示（规范：下单后无法修改地址） ---------- */
+.mint-hint {
+  margin: 12px 12px 0;
+  background: var(--mint);
+  color: var(--green);
+  font-size: 11px; line-height: 1.6;
+  border-radius: 10px;
+  padding: 8px 12px;
+}
+
+/* ---------- 同一人开关（三单对碰） ---------- */
+.same-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 0 2px;
+  font-size: 14px; font-weight: 600;
+}
+.same-row .s-sub { font-size: 11px; color: var(--text3); font-weight: 400; margin-top: 3px; }
+.switch {
+  width: 46px; height: 28px; flex-shrink: 0;
+  border-radius: 999px; border: none; cursor: pointer;
+  background: var(--line);
+  position: relative;
+  transition: background .2s;
+}
+.switch::after {
+  content: '';
+  position: absolute; top: 3px; left: 3px;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: #fff;
+  transition: transform .2s;
+}
+.switch.on { background: var(--green); }
+.switch.on::after { transform: translateX(18px); }
+
+/* ---------- 底部保存栏 ---------- */
+.savebar {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: 0;
+  width: 100%; max-width: 480px;
+  background: #fff;
+  border-top: 1px solid var(--line);
+  padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+  z-index: 50;
+}
+.savebar .save {
+  width: 100%; height: 48px; border: none; border-radius: 999px;
+  background: var(--green); color: #fff;
+  font-size: 15px; font-weight: 600; cursor: pointer;
+}
+.savebar .save:active { transform: scale(.98); }
+
+/* ---------- 底部弹层（沿用 checkout.html 模式） ---------- */
+.mask {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.45);
+  opacity: 0; pointer-events: none;
+  transition: opacity .25s;
+  z-index: 80;
+}
+.mask.show { opacity: 1; pointer-events: auto; }
+.sheet {
+  position: fixed; left: 50%; transform: translate(-50%, 100%);
+  bottom: 0;
+  width: 100%; max-width: 480px;
+  background: var(--bg);
+  border-radius: 20px 20px 0 0;
+  padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
+  transition: transform .3s ease-out;
+  z-index: 81;
+}
+.sheet.show { transform: translate(-50%, 0); }
+.sheet .s-kick {
+  font-family: Georgia, serif; font-size: 10px; letter-spacing: .22em;
+  text-transform: uppercase; color: var(--text3); text-align: center;
+}
+.sheet .s-title { font-size: 17px; font-weight: 700; text-align: center; margin-top: 5px; }
+.sheet .doc-item {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%;
+  background: var(--card); border: none; cursor: pointer;
+  border-radius: 12px;
+  padding: 14px;
+  margin-top: 10px;
+  font-size: 14px; font-weight: 600; color: var(--text);
+  font-family: inherit;
+}
+.sheet .doc-item:active { opacity: .6; }
+.sheet .doc-item svg { width: 14px; height: 14px; stroke: var(--text3); }
+
+/* ---------- Toast（沿用 cart.html） ---------- */
+.toast {
+  position: fixed; left: 50%; top: 45%; transform: translate(-50%,-50%);
+  background: rgba(0,0,0,.72); color: #fff;
+  font-size: 13px; padding: 10px 18px; border-radius: 8px;
+  opacity: 0; pointer-events: none; transition: opacity .25s;
+  z-index: 99;
+}
+.toast.show { opacity: 1; }
+
+/* ---------- 演示开关（tweaks，仅原型用） ---------- */
+.tweaks-btn {
+  position: fixed; right: 12px;
+  bottom: calc(64px + env(safe-area-inset-bottom) + 16px);
+  z-index: 60;
+  background: var(--text); color: #fff;
+  font-size: 11px; padding: 7px 12px;
+  border: none; border-radius: 999px; cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0,0,0,.18);
+}
+.tweaks {
+  position: fixed; right: 12px;
+  bottom: calc(64px + env(safe-area-inset-bottom) + 56px);
+  z-index: 60;
+  background: #fff; border-radius: 12px;
+  padding: 12px 14px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.12);
+  font-size: 12px; color: var(--text2);
+  display: none;
+}
+.tweaks.open { display: block; }
+.tweaks label { display: flex; align-items: center; gap: 8px; padding: 6px 0; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="page" id="page">
+
+  <!-- 顶部导航 -->
+  <div class="navbar">
+    <a class="back" href="checkout.html" aria-label="返回确认订单">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 5l-7 7 7 7"/></svg>
+    </a>
+    <div class="title">地址与实名</div>
+    <div class="gap"></div>
+  </div>
+
+  <!-- 薄荷绿重要提示（规范：下单后无法修改地址） -->
+  <div class="mint-hint">跨境清关需要：请确保收货人、支付人实名信息真实一致，下单后无法修改地址</div>
+
+  <!-- 收货人信息卡 -->
+  <div class="card" data-screen-label="收货人信息">
+    <div class="c-head">
+      <div>
+        <div class="c-kick">Consignee</div>
+        <div class="c-title">收货人信息</div>
+      </div>
+    </div>
+
+    <div class="field" id="fName">
+      <div class="f-label">收货人姓名<span class="req">*</span></div>
+      <div class="f-row">
+        <input class="f-input" id="inName" placeholder="请输入真实姓名" maxlength="20">
+      </div>
+      <div class="f-hint">需与身份证姓名一致，海关清关申报使用</div>
+    </div>
+
+    <div class="field" id="fPhone">
+      <div class="f-label">手机号码<span class="req">*</span></div>
+      <div class="f-row">
+        <input class="f-input" id="inPhone" type="tel" placeholder="用于接收物流与清关通知" maxlength="11">
+      </div>
+    </div>
+
+    <div class="field" id="fRegion">
+      <div class="f-label">所在地区<span class="req">*</span></div>
+      <div class="f-row">
+        <button class="f-pick ph" id="inRegion" onclick="openSheet('sheetRegion')">省 / 市 / 区</button>
+        <svg class="f-arrow" viewBox="0 0 24 24" fill="none" stroke-width="2.2"><path d="M9 6l6 6-6 6"/></svg>
+      </div>
+    </div>
+
+    <div class="field" id="fDetail">
+      <div class="f-label">详细地址<span class="req">*</span></div>
+      <div class="f-row">
+        <textarea class="f-input" id="inDetail" placeholder="街道、小区、楼栋、门牌号等" maxlength="120"></textarea>
+      </div>
+    </div>
+
+    <!-- 智能粘贴识别 -->
+    <div class="paste-box">
+      <textarea id="inPaste" placeholder="粘贴完整地址信息，自动识别姓名、电话与地址"></textarea>
+      <div class="p-row">
+        <span class="p-hint">如：王小也 13888888888 浙江省金华市义乌市……</span>
+        <button class="p-btn" onclick="smartParse()">智能识别</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 支付人实名信息卡 -->
+  <div class="card" data-screen-label="支付人实名">
+    <div class="c-head">
+      <div>
+        <div class="c-kick">Payer Identity</div>
+        <div class="c-title">支付人实名信息</div>
+      </div>
+    </div>
+
+    <div class="same-row">
+      <div>
+        支付人与收货人为同一人
+        <div class="s-sub">海关要求订购人、支付人、收货人实名一致</div>
+      </div>
+      <button class="switch on" id="sameSwitch" onclick="toggleSame()" aria-label="同一人开关"></button>
+    </div>
+
+    <div class="field" id="fPayer">
+      <div class="f-label">支付人姓名<span class="req">*</span></div>
+      <div class="f-row">
+        <input class="f-input" id="inPayer" placeholder="请输入真实姓名" maxlength="20" disabled>
+      </div>
+      <div class="f-hint" id="payerHint">已同步收货人姓名</div>
+    </div>
+
+    <div class="field" id="fIdcard">
+      <div class="f-label">身份证号<span class="req">*</span></div>
+      <div class="f-row">
+        <input class="f-input" id="inIdcard" placeholder="用于海关申报，加密存储" maxlength="18">
+      </div>
+      <div class="f-hint">仅用于跨境电商清关申报，平台加密存储，不会用于其他用途</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- 底部保存栏 -->
+<div class="savebar">
+  <button class="save" onclick="onSave()">保存并使用</button>
+</div>
+
+<!-- 演示开关 -->
+<button class="tweaks-btn" onclick="document.querySelector('.tweaks').classList.toggle('open')">演示</button>
+<div class="tweaks">
+  <label><input type="checkbox" id="tglNew" onchange="demoNew(this.checked)"> 新增地址（空表单）</label>
+  <label><input type="checkbox" onchange="demoBadId(this.checked)"> 身份证号校验失败演示</label>
+</div>
+
+<!-- 遮罩 + 地区选择弹层 -->
+<div class="mask" id="mask" onclick="closeSheets()"></div>
+<div class="sheet" id="sheetRegion">
+  <div class="s-kick">Region</div>
+  <div class="s-title">选择所在地区（演示）</div>
+  <div id="regionList"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* 默认数据：与 checkout.html 地址卡一致（编辑已有地址场景） */
+const DEFAULT = {
+  name: '王小也',
+  phone: '13888888888',
+  region: '浙江省 金华市 义乌市',
+  detail: '北苑街道 拥军路 88 号 2 栋 501 室',
+  idcard: '330702199605121234',
+};
+const REGIONS = [
+  '浙江省 金华市 义乌市',
+  '浙江省 杭州市 西湖区',
+  '上海市 上海市 浦东新区',
+  '北京市 北京市 朝阳区',
+  '四川省 成都市 武侯区',
+];
+
+let samePerson = true;
+
+/* ---------- 渲染 ---------- */
+function fill(d) {
+  document.getElementById('inName').value = d.name || '';
+  document.getElementById('inPhone').value = d.phone || '';
+  document.getElementById('inDetail').value = d.detail || '';
+  document.getElementById('inIdcard').value = d.idcard || '';
+  setRegion(d.region || '');
+  syncPayer();
+}
+function setRegion(r) {
+  const btn = document.getElementById('inRegion');
+  btn.textContent = r || '省 / 市 / 区';
+  btn.classList.toggle('ph', !r);
+}
+
+/* ---------- 同一人开关（三单对碰） ---------- */
+function toggleSame() {
+  samePerson = !samePerson;
+  document.getElementById('sameSwitch').classList.toggle('on', samePerson);
+  syncPayer();
+}
+function syncPayer() {
+  const payer = document.getElementById('inPayer');
+  const hint = document.getElementById('payerHint');
+  if (samePerson) {
+    payer.value = document.getElementById('inName').value;
+    payer.disabled = true;
+    hint.textContent = '已同步收货人姓名';
+  } else {
+    payer.disabled = false;
+    if (payer.value === document.getElementById('inName').value) payer.value = '';
+    hint.textContent = '支付人姓名须与微信支付实名一致';
+  }
+}
+document.getElementById('inName').addEventListener('input', () => { if (samePerson) syncPayer(); });
+
+/* ---------- 智能粘贴识别（演示级解析） ---------- */
+function smartParse() {
+  let text = document.getElementById('inPaste').value.trim();
+  if (!text) { toast('请先粘贴地址信息'); return; }
+
+  // 1. 提取手机号
+  let phone = '';
+  const pm = text.match(/1[3-9]\d{9}/);
+  if (pm) { phone = pm[0]; text = text.replace(phone, ' '); }
+
+  // 2. 匹配地区（取预设中包含度最高的）
+  let region = '';
+  let rest = text;
+  for (const r of REGIONS) {
+    const parts = r.split(' ');
+    if (parts.every(p => text.includes(p.replace(/[省市]/, '')))) {
+      region = r;
+      parts.forEach(p => { rest = rest.replace(new RegExp(p + '|' + p.replace(/[省市]$/, '')), ' '); });
+      break;
+    }
+  }
+
+  // 3. 姓名：剩余文本开头的 2~4 个连续中文
+  let name = '';
+  const nm = rest.replace(/[，,.\s]+/g, ' ').trim().match(/^[\u4e00-\u9fa5]{2,4}(?=\s|$)/);
+  if (nm) { name = nm[0]; rest = rest.replace(name, ' '); }
+
+  // 4. 其余为详细地址
+  const detail = rest.replace(/[，,.\s]+/g, ' ').trim();
+
+  if (name) document.getElementById('inName').value = name;
+  if (phone) document.getElementById('inPhone').value = phone;
+  if (region) setRegion(region);
+  if (detail) document.getElementById('inDetail').value = detail;
+  syncPayer();
+  clearErr();
+  toast('识别完成，请核对信息');
+}
+
+/* ---------- 地区选择弹层 ---------- */
+function renderRegions() {
+  document.getElementById('regionList').innerHTML = REGIONS.map(r => `
+    <button class="doc-item" onclick="pickRegion('${r}')">
+      ${r}
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2"><path d="M9 6l6 6-6 6"/></svg>
+    </button>`).join('');
+}
+function pickRegion(r) {
+  setRegion(r);
+  closeSheets();
+}
+
+/* ---------- 校验 + 保存 ---------- */
+function markErr(id, msg) {
+  const f = document.getElementById(id);
+  f.classList.add('err');
+  f.querySelector('.f-hint').textContent = msg;
+}
+function clearErr() {
+  document.querySelectorAll('.field.err').forEach(f => f.classList.remove('err'));
+  document.getElementById('fName').querySelector('.f-hint').textContent = '需与身份证姓名一致，海关清关申报使用';
+  document.getElementById('fIdcard').querySelector('.f-hint').textContent = '仅用于跨境电商清关申报，平台加密存储，不会用于其他用途';
+}
+function onSave() {
+  clearErr();
+  const name = document.getElementById('inName').value.trim();
+  const phone = document.getElementById('inPhone').value.trim();
+  const region = document.getElementById('inRegion').classList.contains('ph') ? '' : document.getElementById('inRegion').textContent;
+  const detail = document.getElementById('inDetail').value.trim();
+  const payer = document.getElementById('inPayer').value.trim();
+  const idcard = document.getElementById('inIdcard').value.trim();
+
+  if (!name) { markErr('fName', '请输入收货人真实姓名'); toast('请完善收货人姓名'); return; }
+  if (!/^1[3-9]\d{9}$/.test(phone)) { toast('请输入正确的 11 位手机号'); return; }
+  if (!region) { toast('请选择所在地区'); return; }
+  if (!detail) { toast('请填写详细地址'); return; }
+  if (!payer) { toast('请输入支付人真实姓名'); return; }
+  if (!/^\d{17}[\dXx]$/.test(idcard)) {
+    markErr('fIdcard', '身份证号格式不正确（18 位，末位可为 X）');
+    toast('身份证号格式不正确');
+    return;
+  }
+  // 三单对碰：同一人模式下姓名强一致（前端提示，后端复核）
+  if (samePerson && payer !== name) { toast('支付人与收货人姓名须一致'); return; }
+
+  toast('已保存（演示），返回确认订单');
+  setTimeout(() => { location.href = 'checkout.html'; }, 900);
+}
+
+/* ---------- 底部弹层 ---------- */
+function openSheet(id) {
+  document.getElementById('mask').classList.add('show');
+  document.getElementById(id).classList.add('show');
+}
+function closeSheets() {
+  document.getElementById('mask').classList.remove('show');
+  document.querySelectorAll('.sheet').forEach(s => s.classList.remove('show'));
+}
+
+/* ---------- 演示开关 ---------- */
+function demoNew(on) {
+  fill(on ? {} : DEFAULT);
+  clearErr();
+}
+function demoBadId(on) {
+  document.getElementById('inIdcard').value = on ? '3307021996051' : DEFAULT.idcard;
+}
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 1600);
+}
+
+renderRegions();
+fill(DEFAULT);
+</script>
+</body>
+</html>
