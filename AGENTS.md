@@ -15,18 +15,20 @@
 
 ## 二、当前仓库状态（重要）
 
-- **尚无前后端工程代码**：没有 `package.json` / `pyproject.toml` 等任何配置文件，没有构建工具，也没有测试与 CI。`frontend/`、`server/` 目录**尚未创建**。
+- **前端工程已建立（2026-08-27，T7）**：`frontend/`（Vue 3 + Vite + TS + Vant 4 + Tailwind 3 + Pinia + hash 路由），MVP 9 页已按 V3 原型 1:1 实现，走 mock 数据。启动：`cd frontend && npm install && npm run dev`（mock 开关在 `.env.development` 的 `VITE_USE_MOCK=1`）。
+- **后端 `server/`、后台 `admin/` 尚未创建**（T8 待启动）。
 - **已是 Git 仓库**（2026-08-25 初始化，默认分支 `main`），有 `.gitignore`（忽略 node_modules/dist/日志/.env 等）。
-- 仓库目前只有：设计/需求文档（`docs/`）、静态 HTML 高保真原型（`prototype/app/`，**V3 统一版**）、产品图片素材、方法论沉淀（`docs/methodology/`）、一个打包归档（`H5商城原型与文档/H5商城原型与文档.zip`）。
-- 因此**现阶段没有可运行的构建/测试命令**；原型页直接用浏览器打开 `prototype/app/index-v2.html` 即可预览。
-- 已安装 `.agents/skills/baoyu-design/`（vendored，源自 github.com/JimLiu/baoyu-design）：高保真原型设计 skill。注意：本机暂无 Node.js，skill 自带的 `agents/*.mjs` 记账/编译脚本不可运行，跳过即可。
+- 仓库内容：设计/需求文档（`docs/`）、静态 HTML 高保真原型（`prototype/app/`，**V3 统一版**）、前端工程（`frontend/`）、产品图片素材、方法论沉淀（`docs/methodology/`）、一个打包归档（`H5商城原型与文档/H5商城原型与文档.zip`）。
+- 原型页直接用浏览器打开 `prototype/app/index-v2.html` 即可预览。
+- 已安装 `.agents/skills/baoyu-design/`（vendored，源自 github.com/JimLiu/baoyu-design）：高保真原型设计 skill。skill 自带的 `agents/*.mjs` 记账/编译脚本不可运行，跳过即可。
 - **原型已统一收口到 `prototype/app/`（V3）**：MVP 9 页（原 8 页 + 登录页 login.html，2026-08-26 验收时补）全部完成且互链可点，后续新页面原型直接放 `prototype/app/`；`designs/` 目录已废弃。V1 三页（index/products/product.html）为历史版本，冻结勿改。
 
 ## 三、技术栈约定（后续生成代码必须遵循，不要换框架）
 
-### 前端（待建）
+### 前端（已建，`frontend/`）
 - Vue 3 + Vite + TypeScript + Vant 4 + TailwindCSS + Pinia + Vue Router（**hash 模式**）+ Axios + Swiper
-- px 用 `postcss-px-to-viewport` 转 vw，**375px 为设计基准**，最大展示宽度 480px
+- px 用 `postcss-px-to-viewport-8-plugin` 转 vw，**375px 为设计基准**，最大展示宽度 480px
+- 数据流：页面只调 `src/api/`，`VITE_USE_MOCK=1` 时走 `frontend/mock/`；内容块渲染器在 `src/components/blocks/`
 
 ### 后端（待建）
 - Node.js + NestJS + TypeScript + MySQL 8 + Redis
@@ -61,6 +63,14 @@ H5-shop/
 │   ├── data.js / data-v2.js       # 商品数据，采用「内容块数组」结构演示
 │   ├── orders-data.js             # 订单 mock 数据（orders.html / order.html 共用）
 │   └── assets/                    # 原型引用的产品与 Logo 图片（p1-* ~ p4-*, logo-*）
+├── frontend/                      # H5 前端工程（T7 已建，MVP 9 页 mock 全链路）
+│   ├── src/views/                 # 9 页：Home/Products/ProductDetail/Cart/Checkout/Address/Orders/OrderDetail/Mine/Login
+│   ├── src/components/            # TabBar/ProductCard/SectionHead/PriceText + blocks/（BlockRenderer + 16 种块组件）
+│   ├── src/api/                   # API 层（mock 开关）+ axios 封装（统一响应壳、JWT 头）
+│   ├── src/stores/                # Pinia：cart / user
+│   ├── src/types/                 # ContentBlock 联合类型、Product/Order 等（金额一律分）
+│   ├── mock/                      # mock 数据（搬自原型 data.js/data-v2.js/orders-data.js）
+│   └── public/assets/             # 产品与 Logo 图片（复制自 prototype/app/assets/）
 ├── assets/                        # 根目录素材夹（目前为空；实际素材在 docs/wellbiora资料夹/）
 ├── .agents/skills/baoyu-design/   # vendored 原型设计 skill（勿改，升级用 npx skills update）
 └── H5商城原型与文档/H5商城原型与文档.zip   # 文档+原型打包归档
@@ -68,7 +78,7 @@ H5-shop/
 
 > 注意：设计规范文档中写的素材目录是 `assets/wellbiora/`，但实际文件在 `docs/wellbiora资料夹/`，引用时以实际路径为准。
 > 君梦接口文档已拆分：`docs/vendor/junmeng/README.md` 是索引（环境地址/签名速查/接口清单），单个接口字段表在 `docs/vendor/junmeng/api/`，枚举值在 `docs/vendor/junmeng/reference/`。docx 更新后重跑该目录下 `_extract_docx.py` + `_split.py` 重新生成。
-> 规划中（待建）：`frontend/`（Vue 3 H5 前端）、`server/`（NestJS 后端）、`admin/`（Vue 3 + Element Plus 运营后台，与 server 同服务，设计见 docs/tech/admin-backend.md）。
+> 规划中（待建）：`server/`（NestJS 后端）、`admin/`（Vue 3 + Element Plus 运营后台，与 server 同服务，设计见 docs/tech/admin-backend.md）。
 
 ## 五、硬性规则（不可违反）
 
