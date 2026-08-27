@@ -6,10 +6,27 @@
 
 ## 活跃任务
 
-（暂无。）
+- **T7 · 前端工程初始化**（Vue 3 + Vite + TS + Vant 4 + Tailwind + Pinia + Vue Router hash 模式 + Axios + Swiper，px→vw 375 基准）
+  - 前置：本机安装 Node.js（装好后即可开工）
+  - 范围：搭建 `frontend/` 工程骨架 + 按 `prototype/app/` V3 原型 1:1 实现 MVP 9 页，走 mock 数据
+  - 关键约束（2026-08-27 定）：支付主流程已定 90%，按 `docs/tech/order-flow.md` + `api-contract.md` 实现；首页/详情页内容后期会调整，**内容块数据必须抽成独立配置/mock 层**，内容调整只动数据不动代码（`docs/tech/content-blocks.md`）
+  - 样式唯一依据：`docs/H5商城设计规范_WELLBIORA_v0.2.md`（内容为 v0.3）
+- T8 · 后台管理工程初始化（admin/，Vue 3 + Element Plus，设计见 docs/tech/admin-backend.md）——T7 稳定后启动
 
 ## 完成后的后续任务（排期未定，先占位）
 
 - T6 已完成归档（2026-08-26）：技术设计 5 份文档在 `docs/tech/`——content-blocks / order-flow / oms-adapter / api-contract / admin-backend
-- T7 · 前端工程初始化（Vue 3 + Vite + TS + Vant 4，需先装 Node.js）
-- T8 · 后台管理工程初始化（admin/，Vue 3 + Element Plus，设计见 docs/tech/admin-backend.md）
+
+## 项目负责人并行推进事项（非开发，周期长，越早启动越好）
+
+> 2026-08-27 确认：**前期只做微信支付，支付宝暂不接入**（后期要接再评估：需单独申请支付宝商户 + 「手机网站支付」产品 + 支付宝报关接口，后端支付层已按适配层设计，届时不动业务代码）。
+
+- [ ] ICP 备案（域名 + 国内服务器；周期约 2~4 周，是支付授权目录、回调 URL、公众号绑定的前置条件，**最优先启动**）
+- [ ] 微信服务号「泽芃铭Zevon」（gh_75de7e368f9b，主体成都泽芃铭贸易有限公司）**已注册**（2026-08-27 截图确认）；待确认：①是否已做**微信认证**（mp.weixin.qq.com → 设置与开发 → 微信认证，未认证不能用于 JSAPI）②认证是否在有效期内
+- [ ] 微信支付商户号：待登录 pay.weixin.qq.com 确认是否已注册成功（2026-08-27 截图显示商户平台已关联服务号，疑似已有商户号，需登录后台核实 mchid）；成功后开通 **JSAPI 支付**产品，配置 API v3 密钥、商户证书、支付授权目录
+- [ ] 商户平台提交**海关备案信息** + 开通「自助清关」（报关前置，详见 docs/tech/payment-and-funds.md 第四节）
+- [ ] 君梦 OMS 测试环境账号与参数（appId / appSecret / shopId / warehouseNo）
+- [ ] 4 款在售商品的仓库 `goods_no` 与效期/批次属性（联系仓库商务）
+- [ ] 综合税缴纳模式与君梦/义乌保税仓商务确认（代缴还是自缴、是否预存税金）
+- [ ] 短信服务商选型（登录手机号验证码用）
+- [x] ~~设计稿最终确认版本~~ → 2026-08-27 降级：**不阻塞开发**；首页/详情页内容后期随运营调整，走内容块数据层即可；设计规范 v0.3（色值/圆角/字号/间距）已定稿不变

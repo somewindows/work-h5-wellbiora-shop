@@ -49,6 +49,7 @@ H5-shop/
 │   ├── tech/                            # 技术设计文档（阶段 B）：junmeng-integration-notes.md（君梦对接注意）、payment-and-funds.md（支付申请与资金流）、auth-and-account.md（登录与账号体系）
 │   │                                    #   + T6 定稿（2026-08-26）：content-blocks.md（内容块 type 定稿）、order-flow.md（订单状态机/三单对碰/限额）、
 │   │                                    #   oms-adapter.md（保税仓适配层）、api-contract.md（前后端契约+mock 策略）、admin-backend.md（后台管理系统）
+│   ├── requirements/                    # 需求池（未排期候选需求，文件名前缀日期 YYYY-MM-DD-；决定启动时才转入 tasks/TODO.md）
 │   └── tasks/                           # 任务管理：TODO.md（活跃）+ archive/（已归档，勿扫描）
 ├── prototype/app/                 # 静态 HTML 原型（纯 HTML+CSS+JS，无构建）—— V3 统一版，9 页互链
 │   ├── index.html / products.html / product.html   # V1 版（历史冻结）
