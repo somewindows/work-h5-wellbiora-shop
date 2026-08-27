@@ -33,9 +33,28 @@
   src: url('/fonts/playfair-display-latin-700.woff2') format('woff2');
 }
 
+/* ===== 中文大标题衬线：思源宋体 Noto Serif SC（自托管子集，仅含项目实际用到的字） ===== */
+/* 子集外字符自动回退系统字体；文案改动后重跑 scripts/build_font_subset.py */
+@font-face {
+  font-family: 'Noto Serif SC';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/noto-serif-sc-600.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Noto Serif SC';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/noto-serif-sc-700.woff2') format('woff2');
+}
+
 :root {
   /* 全局衬线栈：Playfair Display 不含中文字形，中文自动回退系统字体 */
   --font-serif: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  /* 中文大标题衬线栈：英文/数字优先 Playfair，中文用思源宋体，兜底系统宋体 */
+  --font-serif-cn: 'Playfair Display', 'Noto Serif SC', 'Songti SC', 'SimSun', serif;
 }
 
 /* ===== 全局基础样式（设计规范 v0.3）===== */

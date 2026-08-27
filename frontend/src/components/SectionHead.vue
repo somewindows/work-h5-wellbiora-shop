@@ -39,6 +39,7 @@ withDefaults(
   color: #a8a29a;
 }
 .cn {
+  font-family: var(--font-serif-cn); /* 中文大标题用思源宋体 */
   font-size: 22px;
   font-weight: 700;
   margin-top: 6px;

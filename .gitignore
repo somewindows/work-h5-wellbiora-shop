@@ -11,3 +11,8 @@ dist/
 # 本地环境配置
 .env
 .env.local
+
+# QA 截图产物与本地字体构建环境（frontend/）
+frontend/qa/
+frontend/.venv-fonts/
+frontend/.font-cache/

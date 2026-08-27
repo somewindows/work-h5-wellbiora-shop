@@ -50,6 +50,7 @@ function go() {
   text-transform: uppercase;
 }
 .h-title {
+  font-family: var(--font-serif-cn); /* 中文大标题用思源宋体，高级感 */
   font-size: 27px;
   font-weight: 700;
   line-height: 1.32;

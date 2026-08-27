@@ -48,6 +48,7 @@ defineProps<{ block: BrandBlock }>()
   letter-spacing: 0;
 }
 .cn {
+  font-family: var(--font-serif-cn); /* 中文标题用思源宋体 */
   font-size: 17px; /* 品牌区标题收小一档，深绿底上更精致 */
   font-weight: 600;
   letter-spacing: 0.02em;

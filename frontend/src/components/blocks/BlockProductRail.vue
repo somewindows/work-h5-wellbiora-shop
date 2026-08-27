@@ -50,8 +50,11 @@ const list = computed(() =>
   display: flex;
   gap: 10px;
   overflow-x: auto;
+  /* mandatory 吸附会把容器自动滚动到首卡 snap 点（吃掉 padding），
+     必须用 scroll-padding 告诉吸附口留出同样的左距，首卡才能与模块标题对齐 */
   scroll-snap-type: x mandatory;
-  padding: 2px 16px 6px; /* 左右与 SectionHead 的 16px 对齐，首卡与标题左缘对齐 */
+  padding: 2px 16px 6px;
+  scroll-padding: 2px 16px 6px;
   scrollbar-width: none;
 }
 .rail::-webkit-scrollbar {
