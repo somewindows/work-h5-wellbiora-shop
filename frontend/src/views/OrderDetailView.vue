@@ -303,7 +303,7 @@ onMounted(async () => {
   padding: 24px 16px 6px;
 }
 .status-head .kick {
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--font-serif);
   font-size: 11px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -335,7 +335,7 @@ onMounted(async () => {
   padding: 14px;
 }
 .card .c-kick {
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--font-serif);
   font-size: 10px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -426,7 +426,7 @@ onMounted(async () => {
   font-size: 10px;
   color: #a8a29a;
   margin-top: 2px;
-  font-family: Georgia, serif;
+  font-family: var(--font-serif);
   letter-spacing: 0.03em;
 }
 
@@ -584,7 +584,7 @@ onMounted(async () => {
   text-align: right;
   color: #1a1a1a;
   line-height: 1.5;
-  font-family: Georgia, serif;
+  font-family: var(--font-serif);
   letter-spacing: 0.03em;
 }
 

@@ -19,7 +19,7 @@ export default {
         p4: '#702848',
       },
       fontFamily: {
-        serif: ['Georgia', 'serif'], // 模块英文小标题
+        serif: ['Playfair Display', 'Georgia', 'serif'], // 模块英文小标题/品牌衬线
       },
     },
   },

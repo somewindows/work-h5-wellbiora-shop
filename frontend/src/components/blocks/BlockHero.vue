@@ -43,7 +43,7 @@ function go() {
   cursor: pointer;
 }
 .h-kick {
-  font-family: Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 11px;
   letter-spacing: 0.22em;
   color: #033b3c;

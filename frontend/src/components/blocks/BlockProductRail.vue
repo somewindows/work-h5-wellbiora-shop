@@ -51,7 +51,7 @@ const list = computed(() =>
   gap: 10px;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
-  padding: 2px 12px 6px;
+  padding: 2px 16px 6px; /* 左右与 SectionHead 的 16px 对齐，首卡与标题左缘对齐 */
   scrollbar-width: none;
 }
 .rail::-webkit-scrollbar {
@@ -76,7 +76,7 @@ const list = computed(() =>
   max-width: 60%;
 }
 .t-en {
-  font-family: Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 10px;
   color: #6b6660;
   margin-top: 4px;

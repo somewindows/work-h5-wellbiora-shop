@@ -317,7 +317,7 @@ onMounted(() => {
 .ocard .o-no {
   font-size: 11px;
   color: #a8a29a;
-  font-family: Georgia, serif;
+  font-family: var(--font-serif);
   letter-spacing: 0.04em;
 }
 .ocard .o-status {
@@ -491,7 +491,7 @@ onMounted(() => {
   line-height: 1.8;
 }
 .foot .en {
-  font-family: Georgia, serif;
+  font-family: var(--font-serif);
   letter-spacing: 0.14em;
 }
 </style>

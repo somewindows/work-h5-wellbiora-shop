@@ -317,7 +317,7 @@ async function onBuyNow() {
   margin-bottom: 12px;
 }
 .blk-h .kick {
-  font-family: Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 11px;
   letter-spacing: 0.22em;
   text-transform: uppercase;

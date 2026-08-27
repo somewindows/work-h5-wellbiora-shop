@@ -29,6 +29,8 @@ export interface StatsBlock {
   type: 'stats'
   items: { n: string; unit: string; l: string; d: string }[]
   note?: string // 带 * 宣称时脚注必填
+  title?: string // 页级使用时可选模块标题（如「为什么选择我们？」）
+  en?: string // 英文衬线小标题
 }
 export interface ScenarioBlock { type: 'scenario'; title: string; items: string[] }
 export interface TextBlock { type: 'text'; title?: string; body: string }
@@ -48,7 +50,12 @@ export interface NoticeBarBlock { type: 'notice_bar'; text: string }
 export interface ProductRailBlock { type: 'product_rail'; title: string; en: string; productIds: string[] }
 export interface ProductGridBlock { type: 'product_grid'; title?: string; en?: string; productIds: string[] }
 export interface ImageBannerBlock { type: 'image_banner'; src: string; link?: string; alt?: string }
-export interface CertWallBlock { type: 'cert_wall'; items: { icon: string; label: string }[] }
+export interface CertWallBlock {
+  type: 'cert_wall'
+  items: { icon: string; label: string }[]
+  title?: string // 可选模块标题（如「品质承诺」）
+  en?: string
+}
 export interface BrandBlock {
   type: 'brand_block'
   kick: string

@@ -6,6 +6,7 @@
  * 视觉来源：prototype/app/index-v2.html .certs2
  */
 import type { CertWallBlock } from '@/types'
+import SectionHead from '../SectionHead.vue'
 
 defineProps<{ block: CertWallBlock }>()
 
@@ -31,11 +32,14 @@ function iconOf(key: string): string {
 </script>
 
 <template>
-  <div class="certs">
-    <div v-for="(item, i) in block.items" :key="i" class="cert">
-      <!-- 图标内容来自本地常量表，非用户输入，可用 v-html -->
-      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" v-html="iconOf(item.icon)" />
-      {{ item.label }}
+  <div>
+    <SectionHead v-if="block.title" :kick="block.en ?? ''" :cn="block.title" />
+    <div class="certs">
+      <div v-for="(item, i) in block.items" :key="i" class="cert">
+        <!-- 图标内容来自本地常量表，非用户输入，可用 v-html -->
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" v-html="iconOf(item.icon)" />
+        {{ item.label }}
+      </div>
     </div>
   </div>
 </template>

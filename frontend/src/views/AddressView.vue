@@ -368,7 +368,7 @@ function onSave() {
   padding: 14px;
 }
 .c-kick {
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--font-serif);
   font-size: 10px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -620,7 +620,7 @@ textarea.f-input {
   transform: translate(-50%, 0);
 }
 .s-kick {
-  font-family: Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 10px;
   letter-spacing: 0.22em;
   text-transform: uppercase;

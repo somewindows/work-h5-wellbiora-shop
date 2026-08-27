@@ -18,6 +18,8 @@ export const MOCK_HOME_BLOCKS: ContentBlock[] = [
   { type: 'product_rail', title: '今日推荐', en: 'Quick Shop', productIds: ['p1', 'p2', 'p3', 'p4'] },
   {
     type: 'stats',
+    title: '为什么选择我们？',
+    en: 'Why Wellbiora',
     items: [
       { n: '4', unit: 'x', l: '同等剂量吸收利用提升*', d: 'BIOAVAILABILITY' },
       { n: '100', unit: '%', l: '植物来源成分', d: 'PLANT-BASED' },
@@ -29,6 +31,8 @@ export const MOCK_HOME_BLOCKS: ContentBlock[] = [
   { type: 'product_grid', title: '全部产品', en: 'All Products', productIds: ['p1', 'p2', 'p3', 'p4'] },
   {
     type: 'cert_wall',
+    title: '品质承诺',
+    en: 'Our Promise',
     items: [
       { icon: 'leaf', label: '纯素配方' },
       { icon: 'dna', label: '非转基因' },

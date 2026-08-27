@@ -87,13 +87,14 @@ async function onAdd() {
   padding: 3px 6px;
 }
 .name {
-  font-size: 15px;
+  font-size: 14px; /* 15px 时「脂质体D3+K2+Q10饮」在部分字体下会换行，14px 保证最长名称一行放下 */
   font-weight: 600;
   line-height: 1.35;
   color: #1a1a1a;
+  white-space: nowrap;
 }
 .sub {
-  font-family: Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 10px;
   color: #6b6660;
   letter-spacing: 0.06em;

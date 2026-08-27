@@ -32,7 +32,7 @@ withDefaults(
   justify-content: space-between;
 }
 .kick {
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--font-serif);
   font-size: 11px;
   letter-spacing: 0.22em;
   text-transform: uppercase;

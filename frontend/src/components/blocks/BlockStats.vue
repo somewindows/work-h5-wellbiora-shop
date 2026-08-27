@@ -8,6 +8,7 @@
  */
 import type { StatsBlock } from '@/types'
 import BlockCard from './BlockCard.vue'
+import SectionHead from '../SectionHead.vue'
 
 withDefaults(defineProps<{ block: StatsBlock; layout?: 'page' | 'card' }>(), { layout: 'page' })
 </script>
@@ -25,8 +26,9 @@ withDefaults(defineProps<{ block: StatsBlock; layout?: 'page' | 'card' }>(), { l
     <p v-if="block.note" class="note">{{ block.note }}</p>
   </BlockCard>
 
-  <!-- 首页页级网格版 -->
+  <!-- 首页页级网格版（可选模块标题） -->
   <div v-else>
+    <SectionHead v-if="block.title" :kick="block.en ?? ''" :cn="block.title" />
     <div class="stats">
       <div v-for="(s, i) in block.items" :key="i" class="stat">
         <div class="n">{{ s.n }}<small v-if="s.unit">{{ s.unit }}</small></div>
@@ -55,7 +57,7 @@ withDefaults(defineProps<{ block: StatsBlock; layout?: 'page' | 'card' }>(), { l
   font-size: 25px;
   font-weight: 700;
   color: #033b3c;
-  font-family: Georgia, serif;
+  font-family: var(--font-serif);
   letter-spacing: -0.01em;
 }
 .n small {
@@ -72,7 +74,7 @@ withDefaults(defineProps<{ block: StatsBlock; layout?: 'page' | 'card' }>(), { l
   font-size: 10px;
   color: #a8a29a;
   margin-top: 2px;
-  font-family: Georgia, serif;
+  font-family: var(--font-serif);
   letter-spacing: 0.06em;
 }
 /* 详情页卡片内嵌：1px 分割线网格 */

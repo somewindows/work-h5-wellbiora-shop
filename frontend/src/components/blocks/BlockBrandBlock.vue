@@ -31,14 +31,14 @@ defineProps<{ block: BrandBlock }>()
   overflow: hidden;
 }
 .kick {
-  font-family: Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 11px;
   letter-spacing: 0.22em;
   color: rgba(255, 255, 255, 0.55);
   text-transform: uppercase;
 }
 .wm {
-  font-family: Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 24px;
   letter-spacing: 0.2em;
   margin-top: 10px;
@@ -48,10 +48,11 @@ defineProps<{ block: BrandBlock }>()
   letter-spacing: 0;
 }
 .cn {
-  font-size: 19px;
-  font-weight: 700;
+  font-size: 17px; /* 品牌区标题收小一档，深绿底上更精致 */
+  font-weight: 600;
+  letter-spacing: 0.02em;
   margin-top: 16px;
-  line-height: 1.5;
+  line-height: 1.6;
   white-space: pre-line;
 }
 .desc {

@@ -211,7 +211,7 @@ onMounted(() => {
   color: #fff;
 }
 .mine-head .kick {
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--font-serif);
   font-size: 11px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -404,7 +404,7 @@ onMounted(() => {
   padding: 0 12px;
 }
 .rec .kick {
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--font-serif);
   font-size: 11px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -433,7 +433,7 @@ onMounted(() => {
   line-height: 1.8;
 }
 .mine-foot .en {
-  font-family: Georgia, serif;
+  font-family: var(--font-serif);
   letter-spacing: 0.14em;
 }
 
@@ -468,7 +468,7 @@ onMounted(() => {
   transform: translate(-50%, 0);
 }
 .sheet .s-kick {
-  font-family: Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 10px;
   letter-spacing: 0.22em;
   text-transform: uppercase;

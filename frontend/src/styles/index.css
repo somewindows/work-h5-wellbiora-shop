@@ -2,6 +2,42 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ===== 品牌衬线字体：Playfair Display（自托管 latin 子集，仅英文/数字命中）===== */
+/* 高级感来源：杂志式衬线用于英文小标题、品牌字标、数据数字；中文仍走系统字体栈 */
+@font-face {
+  font-family: 'Playfair Display';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/playfair-display-latin-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Playfair Display';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/playfair-display-latin-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Playfair Display';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/playfair-display-latin-600.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Playfair Display';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/playfair-display-latin-700.woff2') format('woff2');
+}
+
+:root {
+  /* 全局衬线栈：Playfair Display 不含中文字形，中文自动回退系统字体 */
+  --font-serif: 'Playfair Display', Georgia, 'Times New Roman', serif;
+}
+
 /* ===== 全局基础样式（设计规范 v0.3）===== */
 
 html,
@@ -28,7 +64,7 @@ body {
 
 /* 杂志式模块英文小标题：衬线、全大写、字距 .22em */
 .section-eyebrow {
-  font-family: Georgia, serif;
+  font-family: var(--font-serif);
   text-transform: uppercase;
   letter-spacing: 0.22em;
 }

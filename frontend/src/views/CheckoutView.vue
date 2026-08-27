@@ -381,7 +381,7 @@ function agreeAndClose() {
   padding: 14px;
 }
 .c-kick {
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--font-serif);
   font-size: 10px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -717,7 +717,7 @@ function agreeAndClose() {
   line-height: 1.8;
 }
 .foot .en {
-  font-family: Georgia, serif;
+  font-family: var(--font-serif);
   letter-spacing: 0.14em;
 }
 
@@ -798,7 +798,7 @@ function agreeAndClose() {
   transform: translate(-50%, 0);
 }
 .s-kick {
-  font-family: Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 10px;
   letter-spacing: 0.22em;
   text-transform: uppercase;

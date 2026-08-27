@@ -132,7 +132,7 @@ onMounted(async () => {
   text-align: center;
 }
 .f-logo {
-  font-family: Georgia, serif;
+  font-family: var(--font-serif);
   letter-spacing: 0.25em;
   font-size: 14px;
   color: #6b6660;

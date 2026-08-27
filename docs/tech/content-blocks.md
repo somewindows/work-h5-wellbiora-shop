@@ -34,7 +34,7 @@
 | `badges` | 特点徽章墙 | `title, items: string[]` | data.js |
 | `nutrition` | 营养成分表（结构化表格） | `title, meta, head: string[], rows: string[][], note` | data.js |
 | `nutrition_image` | 营养表图片版（无结构化数据时用） | `src, alt?` | data.js |
-| `stats` | 数据网格（4 宫格数字卖点） | `items: [{n, unit, l, d}]`，带 `*` 宣称时脚注 `note` 必填 | data-v2.js |
+| `stats` | 数据网格（4 宫格数字卖点） | `items: [{n, unit, l, d}]`，带 `*` 宣称时脚注 `note` 必填；页级使用可选 `title?/en?` 模块标题 | data-v2.js |
 | `scenario` | 适用场景清单 | `title, items: string[]` | data-v2.js |
 | `text` | 纯文字段落（新增，备用） | `title?, body`（支持 `\n` 分段） | — |
 
@@ -50,7 +50,7 @@
 | `product_grid` | 产品卡片区（两列网格） | `title?, en?, productIds: string[]`（引用商品，不内嵌数据） |
 | `image_banner` | 单图横幅（可带跳转） | `src, link?, alt?` |
 | `stats` | 数据网格（复用 2.1 定义） | 同 2.1 |
-| `cert_wall` | 认证/品质承诺图标墙 | `items: [{ icon, label }]`（icon 为前端内置 SVG 图标 key，未知 key 回退默认图标） |
+| `cert_wall` | 认证/品质承诺图标墙 | `items: [{ icon, label }]`，可选 `title?/en?` 模块标题（icon 为前端内置 SVG 图标 key，未知 key 回退默认图标） |
 | `brand_block` | 品牌专区（深绿底反白） | `kick, title, desc, image?` |
 | `text` | 同 2.1，品牌故事等段落复用 | 同上 |
 
