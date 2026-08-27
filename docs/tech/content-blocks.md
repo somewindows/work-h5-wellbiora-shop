@@ -44,10 +44,17 @@
 
 | type | 用途 | 字段 |
 |---|---|---|
-| `hero` | 首页顶部品牌区（大标题+副文+背景图） | `title, sub?, image?, link?` |
-| `product_grid` | 产品卡片区 | `title?, en?, productIds: string[]`（引用商品，不内嵌数据） |
+| `hero` | 首页顶部品牌区（大标题+副文+背景图） | `badge?, kick, title, sub?, tags?, image?, link?` |
+| `notice_bar` | 公告/活动条 | `text` |
+| `product_rail` | 产品速览横滑票卡 | `title, en, productIds: string[]`（引用商品，不内嵌数据） |
+| `product_grid` | 产品卡片区（两列网格） | `title?, en?, productIds: string[]`（引用商品，不内嵌数据） |
 | `image_banner` | 单图横幅（可带跳转） | `src, link?, alt?` |
+| `stats` | 数据网格（复用 2.1 定义） | 同 2.1 |
+| `cert_wall` | 认证/品质承诺图标墙 | `items: [{ icon, label }]`（icon 为前端内置 SVG 图标 key，未知 key 回退默认图标） |
+| `brand_block` | 品牌专区（深绿底反白） | `kick, title, desc, image?` |
 | `text` | 同 2.1，品牌故事等段落复用 | 同上 |
+
+> 2026-08-27 补充：`notice_bar / product_rail / cert_wall / brand_block` 为实现 V3 原型首页（index-v2.html）登记的新类型，已随 T7 前端落地渲染组件。页脚（WELLBIORA™ + 合规小字）为页面固定元素，不进 blocks。
 
 > 首页不需要的块先不实现（如视频、倒计时、优惠券）。**新增 type 的流程：先在本文档登记 type 定义 → 写前端渲染组件 → 后台才能配置。** 顺序反过来必返工。
 

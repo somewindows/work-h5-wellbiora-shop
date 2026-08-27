@@ -6,16 +6,17 @@
 
 ## 活跃任务
 
-- **T7 · 前端工程初始化**（Vue 3 + Vite + TS + Vant 4 + Tailwind + Pinia + Vue Router hash 模式 + Axios + Swiper，px→vw 375 基准）
-  - 前置：本机安装 Node.js（装好后即可开工）
-  - 范围：搭建 `frontend/` 工程骨架 + 按 `prototype/app/` V3 原型 1:1 实现 MVP 9 页，走 mock 数据
-  - 关键约束（2026-08-27 定）：支付主流程已定 90%，按 `docs/tech/order-flow.md` + `api-contract.md` 实现；首页/详情页内容后期会调整，**内容块数据必须抽成独立配置/mock 层**，内容调整只动数据不动代码（`docs/tech/content-blocks.md`）
-  - 样式唯一依据：`docs/H5商城设计规范_WELLBIORA_v0.2.md`（内容为 v0.3）
-- T8 · 后台管理工程初始化（admin/，Vue 3 + Element Plus，设计见 docs/tech/admin-backend.md）——T7 稳定后启动
+- **T9 · 前端收尾与联调准备**（T7 遗留，详见 `archive/2026-08-27-T7-前端工程初始化.md` 遗留点）
+  - 视觉走查：`npm run dev` 对照 `prototype/app/` 逐页目检
+  - 登录路由守卫（订单/结算/我的需登录态）
+  - BlockRenderer 向 gallery 块透传产品 themeLight 底色
+  - 后端 NestJS 工程初始化后可开始接口联调（顺序：认证 → 商品 → 下单 mock 支付 → 微信沙箱 → 君梦测试环境）
+- T8 · 后台管理工程初始化（admin/，Vue 3 + Element Plus，设计见 docs/tech/admin-backend.md）——后端工程启动后并行
 
-## 完成后的后续任务（排期未定，先占位）
+## 已归档
 
-- T6 已完成归档（2026-08-26）：技术设计 5 份文档在 `docs/tech/`——content-blocks / order-flow / oms-adapter / api-contract / admin-backend
+- T7 已完成归档（2026-08-27）：`frontend/` 工程搭建 + MVP 9 页 mock 全链路，见 archive/
+- T6 已完成归档（2026-08-26）：技术设计 5 份文档在 `docs/tech/`
 
 ## 项目负责人并行推进事项（非开发，周期长，越早启动越好）
 

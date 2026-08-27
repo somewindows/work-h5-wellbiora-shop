@@ -1,0 +1,34 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===== 全局基础样式（设计规范 v0.3）===== */
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #f7f5f0; /* 页面底 米白 */
+  color: #022829;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 移动端优先：页面容器 100dvh，桌面端限宽 480px 居中 */
+#app {
+  min-height: 100dvh;
+  max-width: 480px;
+  margin: 0 auto;
+  background-color: #f7f5f0;
+}
+
+/* iPhone 安全区适配工具类 */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* 杂志式模块英文小标题：衬线、全大写、字距 .22em */
+.section-eyebrow {
+  font-family: Georgia, serif;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+}
