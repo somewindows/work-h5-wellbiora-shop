@@ -4,10 +4,12 @@ WELLBIORA™ 海外旗舰店 —— 跨境电商 H5 商城（移动端网页，�
 
 ## 当前状态
 
-项目处于**原型与设计阶段**，尚无前后端工程代码。当前仓库内容：
+项目已有前端 MVP 和服务端首期工程。当前仓库内容：
 
 - `docs/` —— 设计规范（v0.3，前端开发唯一设计依据）、原型设计任务书、产品与 Logo 素材、方法论沉淀（`docs/methodology/`）
 - `prototype/app/` —— 静态 HTML 高保真原型 **V3 统一版**：MVP 8 页全部完成、互链可点（首页 / 产品列表 / 商品详情 / 购物车 / 结算 / 地址实名 / 订单列表与详情 / 我的）
+- `frontend/` —— Vue 3 H5 前端 MVP（9 页，默认 mock 数据）
+- `server/` —— NestJS 服务端首期：认证、首页和商品接口，以及 MySQL/Redis 本地基础设施配置
 - `.agents/skills/baoyu-design/` —— vendored 原型设计 skill
 
 ## 原型预览
@@ -39,3 +41,15 @@ python -m http.server 4311
 - 详情页/首页采用「内容块数组 + 前端渲染器」架构，禁止富文本堆砌
 
 更多约定见 [AGENTS.md](AGENTS.md)。
+
+## 服务端本地启动
+
+```powershell
+cd server
+Copy-Item .env.example .env
+docker compose up -d mysql redis
+npm run migration:run
+npm run start:dev
+```
+
+接口前缀为 `/api/v1`。前端默认保持 `VITE_USE_MOCK=1`，真实接口联调在 T9 路由守卫完成后进行。

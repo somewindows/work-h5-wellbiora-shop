@@ -10,13 +10,18 @@
   - 视觉走查：`npm run dev` 对照 `prototype/app/` 逐页目检
   - 登录路由守卫（订单/结算/我的需登录态）
   - BlockRenderer 向 gallery 块透传产品 themeLight 底色
-  - 后端 NestJS 工程初始化后可开始接口联调（顺序：认证 → 商品 → 下单 mock 支付 → 微信沙箱 → 君梦测试环境）
-- T8 · 后台管理工程初始化（admin/，Vue 3 + Element Plus，设计见 docs/tech/admin-backend.md）——后端工程启动后并行
+  - 后端认证、首页与商品接口已完成并可开始真实接口联调（前端 mock 开关暂不改）；后续顺序：下单 mock 支付 → 微信沙箱 → 君梦测试环境
+- **T8 · 后端与后台后续模块**（服务端首期已归档：`archive/2026-08-29-T8-服务端首期.md`）
+  - 购物车、地址和实名模块（实名身份证号密文存储/脱敏展示）
+  - 订单预检、创建、查询、取消；服务端强制限额和三单对碰校验
+  - 微信支付 mock → 微信沙箱 → 君梦 OMS 测试环境；保税仓仅经 `WarehouseAdapter` 接入
+  - 后台管理工程 `admin/`（Vue 3 + Element Plus，见 `docs/tech/admin-backend.md`）
 
 ## 已归档
 
 - T7 已完成归档（2026-08-27）：`frontend/` 工程搭建 + MVP 9 页 mock 全链路，见 archive/
 - T6 已完成归档（2026-08-26）：技术设计 5 份文档在 `docs/tech/`
+- T8 服务端首期已完成归档（2026-08-29）：`server/` NestJS 基础、认证、首页和商品接口，见 archive/
 
 ## 项目负责人并行推进事项（非开发，周期长，越早启动越好）
 
