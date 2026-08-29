@@ -16,7 +16,7 @@
 ## 二、当前仓库状态（重要）
 
 - **前端工程已建立（2026-08-27，T7）**：`frontend/`（Vue 3 + Vite + TS + Vant 4 + Tailwind 3 + Pinia + hash 路由），MVP 9 页已按 V3 原型 1:1 实现，走 mock 数据。启动：`cd frontend && npm install && npm run dev`（mock 开关在 `.env.development` 的 `VITE_USE_MOCK=1`）。
-- **后端服务端首期已建立（2026-08-29，T8）**：`server/`（NestJS + TypeScript + TypeORM + MySQL 8 + Redis），已实现统一 `/api/v1` 响应层、认证（开发短信验证码/JWT）以及首页和商品只读接口；测试、e2e、生产构建均已验证通过。`admin/` 尚未创建。
+- **后端服务端首期已建立（2026-08-29，T8）**：`server/`（NestJS + TypeScript + TypeORM + MySQL 8），已实现统一 `/api/v1` 响应层、认证（开发短信验证码/JWT）以及首页和商品只读接口；验证码与限频存 MySQL，不使用 Redis；测试、e2e、生产构建均已验证通过。`admin/` 尚未创建。
 - **已是 Git 仓库**（2026-08-25 初始化，默认分支 `main`），有 `.gitignore`（忽略 node_modules/dist/日志/.env 等）。
 - 仓库内容：设计/需求文档（`docs/`）、静态 HTML 高保真原型（`prototype/app/`，**V3 统一版**）、前端工程（`frontend/`）、产品图片素材、方法论沉淀（`docs/methodology/`）、一个打包归档（`H5商城原型与文档/H5商城原型与文档.zip`）。
 - 原型页直接用浏览器打开 `prototype/app/index-v2.html` 即可预览。
@@ -31,7 +31,7 @@
 - 数据流：页面只调 `src/api/`，`VITE_USE_MOCK=1` 时走 `frontend/mock/`；内容块渲染器在 `src/components/blocks/`
 
 ### 后端（`server/` 已建，持续开发）
-- Node.js + NestJS + TypeScript + MySQL 8 + Redis
+- Node.js + NestJS + TypeScript + MySQL 8（不使用 Redis）
 
 ### 部署
 - 国内服务器 + Nginx + HTTPS + Docker
@@ -72,7 +72,7 @@ H5-shop/
 │   ├── mock/                      # mock 数据（搬自原型 data.js/data-v2.js/orders-data.js）
 │   └── public/assets/             # 产品与 Logo 图片（复制自 prototype/app/assets/）
 ├── server/                        # NestJS 服务端（T8 首期已建）
-│   ├── src/auth/                  # 短信验证码/JWT 登录（Redis 验证码、MySQL 用户）
+│   ├── src/auth/                  # 短信验证码/JWT 登录（MySQL 验证码、用户与限频）
 │   ├── src/home/ + src/products/  # 首页内容块、商品列表/详情只读接口
 │   ├── src/database/              # TypeORM 数据源与 users 初始化迁移
 │   ├── test/                      # HTTP e2e 测试

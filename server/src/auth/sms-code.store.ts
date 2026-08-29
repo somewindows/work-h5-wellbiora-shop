@@ -1,6 +1,4 @@
 import { randomInt } from 'node:crypto'
-import Redis from 'ioredis'
-import type { RedisOptions } from 'ioredis'
 
 import { BusinessException } from '../common/business.exception'
 
@@ -57,57 +55,5 @@ export class MemorySmsCodeStore implements SmsCodeStore {
     }
 
     this.codes.delete(phone)
-  }
-}
-
-export class RedisSmsCodeStore implements SmsCodeStore {
-  private readonly client: Redis
-
-  constructor(redisUrl: string, options?: RedisOptions) {
-    this.client = new Redis(redisUrl, options ?? {})
-  }
-
-  async issue(phone: string, ip: string): Promise<string> {
-    const cooldownKey = `wellbiora:sms:cooldown:${phone}`
-    const cooldownSet = await this.client.set(cooldownKey, '1', 'EX', 60, 'NX')
-    if (cooldownSet !== 'OK') {
-      throw new BusinessException(40005, '请稍后再试')
-    }
-
-    const ipKey = `wellbiora:sms:ip:${ip}`
-    const ipCount = await this.client.incr(ipKey)
-    if (ipCount === 1) await this.client.expire(ipKey, 60 * 60)
-    if (ipCount > 10) {
-      throw new BusinessException(40005, '请稍后再试')
-    }
-
-    const code = randomInt(100_000, 1_000_000).toString()
-    await this.client.set(`wellbiora:sms:code:${phone}`, JSON.stringify({ code, attempts: 0 }), 'EX', 5 * 60)
-    return code
-  }
-
-  async verify(phone: string, code: string): Promise<void> {
-    const key = `wellbiora:sms:code:${phone}`
-    const serialized = await this.client.get(key)
-    if (!serialized) throw new BusinessException(40004, '验证码错误或已过期')
-
-    const entry = JSON.parse(serialized) as { code: string; attempts: number }
-    if (entry.code === code) {
-      await this.client.del(key)
-      return
-    }
-
-    entry.attempts += 1
-    if (entry.attempts >= 5) {
-      await this.client.del(key)
-    } else {
-      const ttl = await this.client.ttl(key)
-      if (ttl > 0) await this.client.set(key, JSON.stringify(entry), 'EX', ttl)
-    }
-    throw new BusinessException(40004, '验证码错误或已过期')
-  }
-
-  async close(): Promise<void> {
-    await this.client.quit()
   }
 }

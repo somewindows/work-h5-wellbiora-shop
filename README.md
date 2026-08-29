@@ -9,7 +9,7 @@ WELLBIORA™ 海外旗舰店 —— 跨境电商 H5 商城（移动端网页，�
 - `docs/` —— 设计规范（v0.3，前端开发唯一设计依据）、原型设计任务书、产品与 Logo 素材、方法论沉淀（`docs/methodology/`）
 - `prototype/app/` —— 静态 HTML 高保真原型 **V3 统一版**：MVP 8 页全部完成、互链可点（首页 / 产品列表 / 商品详情 / 购物车 / 结算 / 地址实名 / 订单列表与详情 / 我的）
 - `frontend/` —— Vue 3 H5 前端 MVP（9 页，默认 mock 数据）
-- `server/` —— NestJS 服务端首期：认证、首页和商品接口，以及 MySQL/Redis 本地基础设施配置
+- `server/` —— NestJS 服务端首期：认证、首页和商品接口，以及 MySQL 本地基础设施配置
 - `.agents/skills/baoyu-design/` —— vendored 原型设计 skill
 
 ## 原型预览
@@ -29,7 +29,7 @@ python -m http.server 4311
 ## 规划技术栈
 
 - **前端**：Vue 3 + Vite + TypeScript + Vant 4 + TailwindCSS + Pinia + Vue Router（hash 模式）+ Axios + Swiper；px → vw（375px 设计基准，最大宽度 480px）
-- **后端**：Node.js + NestJS + TypeScript + MySQL 8 + Redis
+- **后端**：Node.js + NestJS + TypeScript + MySQL 8
 - **对接**：君梦 OMS OpenAPI 2.0（保税仓）、微信支付（含海关报关）
 - **部署**：国内服务器 + Nginx + HTTPS + Docker
 
@@ -47,7 +47,7 @@ python -m http.server 4311
 ```powershell
 cd server
 Copy-Item .env.example .env
-docker compose up -d mysql redis
+docker compose up -d mysql
 npm run migration:run
 npm run start:dev
 ```

@@ -4,9 +4,9 @@
 
 **Goal:** 初始化可运行、可测试的 NestJS 服务端，并实现与 H5 前端契约一致的认证、首页和商品接口。
 
-**Architecture:** NestJS 以 `/api/v1` 为唯一 H5 接口前缀。全局响应/异常层规范化 API 输出；认证模块通过 Redis 管理验证码与限频、TypeORM 保存用户并签发 JWT；首页和商品模块通过受版本控制的服务端 seed 数据提供固定内容块，后续可无缝替换为 MySQL 内容数据。
+**Architecture:** NestJS 以 `/api/v1` 为唯一 H5 接口前缀。全局响应/异常层规范化 API 输出；认证模块通过 MySQL 管理验证码与限频、TypeORM 保存用户并签发 JWT；首页和商品模块通过受版本控制的服务端 seed 数据提供固定内容块，后续可无缝替换为 MySQL 内容数据。
 
-**Tech Stack:** Node.js 24、NestJS、TypeScript、Jest、TypeORM、MySQL 8、Redis 7、Docker Compose。
+**Tech Stack:** Node.js 24、NestJS、TypeScript、Jest、TypeORM、MySQL 8、Docker Compose。
 
 **Spec:** `docs/superpowers/specs/2026-08-29-t8-server-foundation-design.md`
 
@@ -14,7 +14,7 @@
 
 - 所有 H5 路由必须在 `/api/v1` 下，成功响应为 `{ code: 0, data }`。
 - 金额使用整数分；内容页使用有序内容块数组，合规声明不可缺失。
-- JWT、MySQL、Redis、短信以及未来的支付/OMS 密钥仅能来自服务端 `.env`，不得提交真实值。
+- JWT、MySQL、短信以及未来的支付/OMS 密钥仅能来自服务端 `.env`，不得提交真实值。
 - 本期不实现订单、支付、君梦、实名与 admin；后续订单必须遵守限额和三单对碰硬校验。
 - `prototype/` 与 `frontend/.env.development` 不修改。
 
@@ -138,7 +138,7 @@ Expected: PASS, including the API response shell and 40404 body.
 - Modify: `server/src/app.module.ts`
 
 **Interfaces:**
-- `SmsCodeStore.issue(phone, ip): Promise<void>` applies Redis TTL and send rate limits.
+- `SmsCodeStore.issue(phone, ip): Promise<void>` applies MySQL-persisted cooldown and send rate limits.
 - `SmsCodeStore.verify(phone, code): Promise<void>` enforces expiry and five failed attempts.
 - `AuthService.login(phone, code): Promise<{ token: string; user: PublicUser }>` creates a user if absent.
 
@@ -160,7 +160,7 @@ it('rejects a wrong code without issuing a JWT', async () => {
 
 Run: `cd server && npm test -- auth.service.spec.ts`
 
-- [x] **Step 3: Implement entity/migration, repository, Redis-backed store with testable memory double, console SMS provider, DTO validation and JWT service**
+- [x] **Step 3: Implement entity/migration, repository, MySQL-backed store with testable memory double, console SMS provider, DTO validation and JWT service**
 
 ```ts
 return { token: this.jwtService.sign({ sub: user.id, phone: user.phone }), user: toPublicUser(user) }

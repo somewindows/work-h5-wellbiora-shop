@@ -11,9 +11,9 @@
 - NestJS 应用监听 `PORT`（默认 `3000`），全局前缀为 `/api/v1`；CORS 来源通过 `CORS_ORIGIN` 配置。
 - 成功响应统一为 `{ code: 0, data }`；业务异常由全局过滤器转换为 `{ code, message, data: null }`。未知商品返回 HTTP 404 与业务码 `40404`；未认证/失效返回 HTTP 401 与 `40101`。
 - `@nestjs/config` 读取 `.env`，仓库只提交 `.env.example`。启动时验证生产环境的 JWT、MySQL、Redis 配置；真实密钥不落库、不提交。
-- MySQL 8 用 TypeORM 管理。首期仅建 `users` 表及迁移，保留 `union_id`、`wechat_open_id` 字段；手机号保存为唯一值。生产环境禁止 `synchronize`，仅执行迁移。
-- Redis 存放短信验证码、验证码失败次数和手机号/IP 发送窗口。键统一以前缀 `wellbiora:` 命名并带 TTL。开发环境可用 console 短信提供商打印验证码；响应始终不泄露验证码。正式短信服务商未确认前不接真实供应商。
-- Docker Compose 仅提供本地 MySQL 8 与 Redis 7；应用既可本地 `npm run start:dev`，也可用 Dockerfile 构建。
+- MySQL 8 用 TypeORM 管理。首期建立 `users`、`sms_verification_codes` 和 `sms_ip_rate_limits` 表及迁移；手机号保存为唯一值，验证码仅保存 SHA-256 哈希。生产环境禁止 `synchronize`，仅执行迁移。
+- MySQL 存放短信验证码有效期、失败次数和手机号/IP 发送窗口；验证码 5 分钟有效、最多 5 次校验，手机号冷却 60 秒、IP 每小时最多 10 次。开发环境可用 console 短信提供商打印验证码；响应始终不泄露验证码。正式短信服务商未确认前不接真实供应商。
+- Docker Compose 仅提供本地 MySQL 8；应用既可本地 `npm run start:dev`，也可用 Dockerfile 构建。
 
 ## 模块与接口
 
@@ -35,7 +35,7 @@
 
 - 单元测试覆盖响应包装、异常映射、商品详情/不存在商品，以及验证码登录的成功、无效、限频与新用户创建路径。
 - e2e 测试覆盖 `/api/v1/home`、商品列表与详情、商品 404、短信登录成功后的 JWT 受保护探针。
-- 所有单元测试使用内存仓库和内存验证码存储，不依赖本机 MySQL/Redis；运行时适配器才连接真实基础设施。
+- 所有单元测试使用内存仓库和内存验证码存储，不依赖本机 MySQL；运行时适配器才连接真实基础设施。
 - 完成时运行 `npm run lint`、`npm test`、`npm run test:e2e`、`npm run build`；并执行前端 `npm run build` 证明新增服务端不影响既有工程。
 
 ## 非目标与后续边界
