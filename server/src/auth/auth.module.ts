@@ -4,6 +4,7 @@ import { JwtModule } from '@nestjs/jwt'
 import { DataSource } from 'typeorm'
 
 import { AuthController } from './auth.controller'
+import { CurrentUserController } from './current-user.controller'
 import { AuthService } from './auth.service'
 import { MySqlSmsCodeStore } from './mysql-sms-code.store'
 import { MemorySmsCodeStore, SMS_CODE_STORE } from './sms-code.store'
@@ -26,7 +27,7 @@ import { isInMemoryStorage } from '../common/runtime-mode'
       }),
     }),
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, CurrentUserController],
   providers: [
     AuthService,
     {

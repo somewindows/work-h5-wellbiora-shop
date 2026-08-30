@@ -39,6 +39,27 @@ describe('认证接口（e2e）', () => {
     expect(JSON.stringify(loginResponse.body)).not.toContain(smsProvider.lastCode)
   })
 
+  it('登录后可通过 users/me 查询当前用户', async () => {
+    await request(app.getHttpServer())
+      .post('/api/v1/auth/sms-code')
+      .send({ phone: '13700000000' })
+      .expect(200)
+    const loginResponse = await request(app.getHttpServer())
+      .post('/api/v1/auth/login')
+      .send({ phone: '13700000000', code: smsProvider.lastCode })
+      .expect(200)
+
+    const response = await request(app.getHttpServer())
+      .get('/api/v1/users/me')
+      .set('Authorization', `Bearer ${loginResponse.body.data.token}`)
+      .expect(200)
+
+    expect(response.body).toMatchObject({
+      code: 0,
+      data: { phone: '137****0000', nickname: 'WELLBIORA 会员' },
+    })
+  })
+
   it('清晰表示微信静默授权尚未配置', async () => {
     const response = await request(app.getHttpServer()).get('/api/v1/auth/wechat-silent').expect(501)
 

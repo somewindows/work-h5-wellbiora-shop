@@ -8,6 +8,7 @@ import { UserEntity } from './user.entity'
 export const USERS_REPOSITORY = Symbol('USERS_REPOSITORY')
 
 export interface UsersRepository {
+  findById(id: string): Promise<UserEntity | null>
   findByPhone(phone: string): Promise<UserEntity | null>
   create(phone: string): Promise<UserEntity>
 }
@@ -15,6 +16,10 @@ export interface UsersRepository {
 @Injectable()
 export class TypeOrmUsersRepository implements UsersRepository {
   constructor(@InjectRepository(UserEntity) private readonly repository: Repository<UserEntity>) {}
+
+  findById(id: string): Promise<UserEntity | null> {
+    return this.repository.findOneBy({ id })
+  }
 
   findByPhone(phone: string): Promise<UserEntity | null> {
     return this.repository.findOneBy({ phone })
@@ -30,6 +35,10 @@ export class InMemoryUsersRepository implements UsersRepository {
 
   async findByPhone(phone: string): Promise<UserEntity | null> {
     return this.users.get(phone) ?? null
+  }
+
+  async findById(id: string): Promise<UserEntity | null> {
+    return [...this.users.values()].find((user) => user.id === id) ?? null
   }
 
   async create(phone: string): Promise<UserEntity> {

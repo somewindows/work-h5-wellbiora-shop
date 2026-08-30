@@ -248,5 +248,5 @@ export function login(phone: string, code: string): Promise<{ token: string; use
 
 export function getUserInfo(): Promise<UserInfo> {
   if (USE_MOCK) return delay(MOCK_USER)
-  return request.get('/auth/wechat-silent')
+  return request.get('/users/me')
 }

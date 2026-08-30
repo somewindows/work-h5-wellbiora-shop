@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common'
+import { HttpStatus, Inject, Injectable } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 
 import type { UserEntity } from '../users/user.entity'
@@ -6,6 +6,7 @@ import { USERS_REPOSITORY, type UsersRepository } from '../users/users.repositor
 
 import { SMS_CODE_STORE, type SmsCodeStore } from './sms-code.store'
 import { SMS_PROVIDER, type SmsProvider } from './sms-provider'
+import { BusinessException } from '../common/business.exception'
 
 export interface PublicUser {
   id: string
@@ -35,6 +36,12 @@ export class AuthService {
       token: await this.jwtService.signAsync({ sub: user.id, phone: user.phone }),
       user: this.toPublicUser(user),
     }
+  }
+
+  async getCurrentUser(userId: string): Promise<PublicUser> {
+    const user = await this.usersRepository.findById(userId)
+    if (!user) throw new BusinessException(40101, '登录已过期，请重新登录', HttpStatus.UNAUTHORIZED)
+    return this.toPublicUser(user)
   }
 
   private toPublicUser(user: UserEntity): PublicUser {

@@ -1,6 +1,14 @@
 import axios from 'axios'
 import type { ApiResponse } from '@/types'
 
+export function getBusinessErrorMessage(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    const body = error.response?.data as Partial<ApiResponse<unknown>> | undefined
+    if (typeof body?.message === 'string' && body.message) return body.message
+  }
+  return error instanceof Error ? error.message : '网络请求失败，请稍后重试'
+}
+
 /**
  * Axios 实例：统一前缀 /api/v1，统一响应壳 { code, data, message }
  * 鉴权：登录后 JWT 放 Authorization 头
@@ -26,5 +34,5 @@ request.interceptors.response.use(
     }
     return body.data as never
   },
-  (err) => Promise.reject(err),
+  (err: unknown) => Promise.reject(new Error(getBusinessErrorMessage(err))),
 )

@@ -10,12 +10,14 @@
   - 视觉走查：`npm run dev` 对照 `prototype/app/` 逐页目检
   - [x] 登录路由守卫：订单列表/详情、结算页、我的页面未登录时跳转 `/login`，并保留来源路径
   - [x] BlockRenderer 向 gallery 块透传产品 `themeLight` 底色（2026-08-30，含 Vitest 回归测试）
+  - [x] 真实模式当前用户接口：`GET /users/me`；Axios 在 HTTP 错误时优先展示服务端业务文案（2026-08-30，前后端回归测试覆盖）
   - 后端认证、首页、商品、购物车、地址实名和本地下单接口已完成；前端可通过 `.env.local` 的 `VITE_USE_MOCK=0` 联调本机服务端。无 Docker 时复制 `server/.env.local-test.example` 为 `.env` 即可使用内存模式进行浏览器测试，默认 mock 开关不改
 - **T8 · 后端与后台后续模块**（服务端首期已归档：`archive/2026-08-29-T8-服务端首期.md`）
   - [x] 购物车、地址和实名模块（身份证 AES-256-GCM 密文存储、脱敏展示与 HMAC 年度额度指纹）
   - [x] 订单预检、创建、查询、取消；服务端强制限额、实名收货人一致性和请求幂等校验（本地 mock 支付/仓库）
   - 微信支付 sandbox → 君梦 OMS 测试环境；保税仓仅经 `WarehouseAdapter` 接入
   - 后台管理工程 `admin/`（Vue 3 + Element Plus，见 `docs/tech/admin-backend.md`）
+  - 上线前订单生产加固：MySQL 下单事务、库存预占/扣减、支付回调后仓库推送与状态补偿；同时评估 Nginx `trust proxy`、年度额度查询索引和生产密钥占位配置
 
 ## 已归档
 
