@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'
+import { createCipheriv, createDecipheriv, createHmac, randomBytes } from 'node:crypto'
 
 /** 身份证号等个人敏感字段的 AES-256-GCM 加密服务。 */
 export class PersonalDataCryptoService {
@@ -24,5 +24,10 @@ export class PersonalDataCryptoService {
     const decipher = createDecipheriv('aes-256-gcm', this.key, Buffer.from(ivText, 'base64'))
     decipher.setAuthTag(Buffer.from(tagText, 'base64'))
     return Buffer.concat([decipher.update(Buffer.from(encryptedText, 'base64')), decipher.final()]).toString('utf8')
+  }
+
+  /** 用密钥 HMAC 生成可查询、不可逆的实名指纹，不保存身份证明文。 */
+  fingerprint(value: string): string {
+    return createHmac('sha256', this.key).update(value, 'utf8').digest('hex')
   }
 }

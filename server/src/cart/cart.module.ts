@@ -19,6 +19,7 @@ export class CartModule {
         CartService,
         { provide: CART_REPOSITORY, useClass: isTest ? InMemoryCartRepository : TypeOrmCartRepository },
       ],
+      exports: [CART_REPOSITORY],
     }
   }
 }

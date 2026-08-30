@@ -24,6 +24,7 @@ export interface RealnameProfileRecord {
   userId: string
   name: string
   idcardEncrypted: string
+  idcardFingerprint: string
 }
 
 export interface AddressRepository {

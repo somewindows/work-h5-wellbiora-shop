@@ -15,6 +15,9 @@ export class RealnameProfileEntity {
   @Column({ name: 'idcard_encrypted', type: 'text' })
   idcardEncrypted!: string
 
+  @Column({ name: 'idcard_fingerprint', length: 64 })
+  idcardFingerprint!: string
+
   @CreateDateColumn({ name: 'created_at', type: 'datetime' })
   createdAt!: Date
 

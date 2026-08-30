@@ -73,12 +73,28 @@ export class ProfileService {
     return profile ? this.toRealnameResponse(profile) : null
   }
 
+  async getRealnameForOrder(userId: string): Promise<RealnameProfileRecord> {
+    const profile = await this.realnameRepository.findByUser(userId)
+    if (!profile) throw new BusinessException(40002, '请先完成实名认证')
+    return profile
+  }
+
   async saveRealname(userId: string, dto: SaveRealnameDto): Promise<RealnameResponse> {
     if (!/^\d{17}[\dXx]$/.test(dto.idcard)) throw new BusinessException(40002, '身份证号格式不正确')
     const existing = await this.realnameRepository.findByUser(userId)
     const profile = existing
-      ? { ...existing, name: dto.name.trim(), idcardEncrypted: this.crypto.encrypt(dto.idcard.toUpperCase()) }
-      : this.realnameRepository.create({ userId, name: dto.name.trim(), idcardEncrypted: this.crypto.encrypt(dto.idcard.toUpperCase()) })
+      ? {
+          ...existing,
+          name: dto.name.trim(),
+          idcardEncrypted: this.crypto.encrypt(dto.idcard.toUpperCase()),
+          idcardFingerprint: this.crypto.fingerprint(dto.idcard.toUpperCase()),
+        }
+      : this.realnameRepository.create({
+          userId,
+          name: dto.name.trim(),
+          idcardEncrypted: this.crypto.encrypt(dto.idcard.toUpperCase()),
+          idcardFingerprint: this.crypto.fingerprint(dto.idcard.toUpperCase()),
+        })
     return this.toRealnameResponse(await this.realnameRepository.save(profile))
   }
 

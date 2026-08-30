@@ -8,6 +8,8 @@ import { SmsVerificationCodeEntity } from '../auth/sms-verification-code.entity'
 import { CartItemEntity } from '../cart/cart-item.entity'
 import { AddressEntity } from '../profile/address.entity'
 import { RealnameProfileEntity } from '../profile/realname-profile.entity'
+import { OrderEntity } from '../orders/order.entity'
+import { OrderItemEntity } from '../orders/order-item.entity'
 
 @Module({})
 export class DatabaseModule {
@@ -27,7 +29,7 @@ export class DatabaseModule {
             username: config.get<string>('MYSQL_USER', 'wellbiora'),
             password: config.get<string>('MYSQL_PASSWORD', ''),
             database: config.get<string>('MYSQL_DATABASE', 'wellbiora_shop'),
-            entities: [UserEntity, SmsVerificationCodeEntity, SmsIpRateLimitEntity, CartItemEntity, AddressEntity, RealnameProfileEntity],
+            entities: [UserEntity, SmsVerificationCodeEntity, SmsIpRateLimitEntity, CartItemEntity, AddressEntity, RealnameProfileEntity, OrderEntity, OrderItemEntity],
             synchronize: false,
           }),
         }),

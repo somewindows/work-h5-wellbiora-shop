@@ -3,13 +3,12 @@ import { ConfigModule } from '@nestjs/config'
 import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core'
 
 import { AuthModule } from './auth/auth.module'
-import { CartModule } from './cart/cart.module'
 import { ApiResponseInterceptor } from './common/api-response.interceptor'
 import { HttpExceptionFilter } from './common/http-exception.filter'
 import { DatabaseModule } from './database/database.module'
 import { HomeModule } from './home/home.module'
 import { ProductsModule } from './products/products.module'
-import { ProfileModule } from './profile/profile.module'
+import { OrdersModule } from './orders/orders.module'
 import { SecurityModule } from './security/security.module'
 
 @Module({
@@ -17,11 +16,10 @@ import { SecurityModule } from './security/security.module'
     ConfigModule.forRoot({ isGlobal: true }),
     DatabaseModule.register(),
     AuthModule,
-    CartModule.register(),
     SecurityModule,
     HomeModule,
     ProductsModule,
-    ProfileModule.register(),
+    OrdersModule.register(),
   ],
   providers: [
     { provide: APP_INTERCEPTOR, useClass: ApiResponseInterceptor },
