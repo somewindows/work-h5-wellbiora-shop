@@ -5,6 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm'
 import { UserEntity } from '../users/user.entity'
 import { SmsIpRateLimitEntity } from '../auth/sms-ip-rate-limit.entity'
 import { SmsVerificationCodeEntity } from '../auth/sms-verification-code.entity'
+import { CartItemEntity } from '../cart/cart-item.entity'
 
 @Module({})
 export class DatabaseModule {
@@ -24,7 +25,7 @@ export class DatabaseModule {
             username: config.get<string>('MYSQL_USER', 'wellbiora'),
             password: config.get<string>('MYSQL_PASSWORD', ''),
             database: config.get<string>('MYSQL_DATABASE', 'wellbiora_shop'),
-            entities: [UserEntity, SmsVerificationCodeEntity, SmsIpRateLimitEntity],
+            entities: [UserEntity, SmsVerificationCodeEntity, SmsIpRateLimitEntity, CartItemEntity],
             synchronize: false,
           }),
         }),

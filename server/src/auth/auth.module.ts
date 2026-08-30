@@ -45,6 +45,6 @@ import { UsersModule } from '../users/users.module'
       },
     },
   ],
-  exports: [SMS_PROVIDER],
+  exports: [SMS_PROVIDER, JwtModule],
 })
 export class AuthModule {}
