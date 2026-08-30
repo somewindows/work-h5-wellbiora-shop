@@ -10,11 +10,12 @@ import { AddressEntity } from '../profile/address.entity'
 import { RealnameProfileEntity } from '../profile/realname-profile.entity'
 import { OrderEntity } from '../orders/order.entity'
 import { OrderItemEntity } from '../orders/order-item.entity'
+import { isInMemoryStorage } from '../common/runtime-mode'
 
 @Module({})
 export class DatabaseModule {
   static register(): DynamicModule {
-    if (process.env.NODE_ENV === 'test') return { module: DatabaseModule }
+    if (isInMemoryStorage()) return { module: DatabaseModule }
 
     return {
       module: DatabaseModule,

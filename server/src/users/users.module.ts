@@ -2,12 +2,13 @@ import { DynamicModule, Module } from '@nestjs/common'
 import { TypeOrmModule } from '@nestjs/typeorm'
 
 import { UserEntity } from './user.entity'
+import { isInMemoryStorage } from '../common/runtime-mode'
 import { InMemoryUsersRepository, TypeOrmUsersRepository, USERS_REPOSITORY } from './users.repository'
 
 @Module({})
 export class UsersModule {
   static register(): DynamicModule {
-    if (process.env.NODE_ENV === 'test') {
+    if (isInMemoryStorage()) {
       return {
         module: UsersModule,
         providers: [{ provide: USERS_REPOSITORY, useClass: InMemoryUsersRepository }],

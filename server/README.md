@@ -4,6 +4,31 @@
 
 > 需要 Docker Desktop（或已运行的 MySQL 8）。当前仓库不使用 Redis。
 
+### 无 Docker 的快速浏览器测试
+
+用于原型、交互与全链路手工验收；所有用户、购物车、地址和订单数据只在内存中保存，重启服务后自动清空，不能用于真实支付或部署。
+
+```powershell
+cd server
+Copy-Item .env.local-test.example .env
+npm run build
+npm run start
+```
+
+再打开另一个终端：
+
+```powershell
+cd frontend
+Copy-Item .env.local.example .env.local
+npm run dev
+```
+
+访问 `http://127.0.0.1:5173`。点击获取验证码后，从第一个终端的“开发短信验证码”日志中复制验证码登录；随后可完成加购、地址实名、预检、创建和取消待支付订单。
+
+测试完成后删除本地 `.env` 与 `frontend/.env.local`，或分别改回 MySQL 和 mock 配置。
+
+### MySQL 持久化联调
+
 ```powershell
 cd server
 Copy-Item .env.example .env

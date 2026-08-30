@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm'
 
 import { AuthModule } from '../auth/auth.module'
 import { SecurityModule } from '../security/security.module'
+import { isInMemoryStorage } from '../common/runtime-mode'
 
 import { AddressEntity } from './address.entity'
 import { ProfileController } from './profile.controller'
@@ -20,7 +21,7 @@ import { ProfileService } from './profile.service'
 @Module({})
 export class ProfileModule {
   static register(): DynamicModule {
-    const isTest = process.env.NODE_ENV === 'test'
+    const isTest = isInMemoryStorage()
     return {
       module: ProfileModule,
       imports: isTest

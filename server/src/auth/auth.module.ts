@@ -9,6 +9,7 @@ import { MySqlSmsCodeStore } from './mysql-sms-code.store'
 import { MemorySmsCodeStore, SMS_CODE_STORE } from './sms-code.store'
 import { ConsoleSmsProvider, MemorySmsProvider, SMS_PROVIDER, UnconfiguredSmsProvider } from './sms-provider'
 import { UsersModule } from '../users/users.module'
+import { isInMemoryStorage } from '../common/runtime-mode'
 
 @Module({
   imports: [
@@ -30,9 +31,9 @@ import { UsersModule } from '../users/users.module'
     AuthService,
     {
       provide: SMS_CODE_STORE,
-      inject: process.env.NODE_ENV === 'test' ? [] : [DataSource],
+      inject: isInMemoryStorage() ? [] : [DataSource],
       useFactory: (dataSource?: DataSource) =>
-        process.env.NODE_ENV === 'test'
+        isInMemoryStorage()
           ? new MemorySmsCodeStore()
           : new MySqlSmsCodeStore(dataSource as DataSource),
     },
@@ -40,7 +41,7 @@ import { UsersModule } from '../users/users.module'
       provide: SMS_PROVIDER,
       useFactory: () => {
         if (process.env.NODE_ENV === 'test') return new MemorySmsProvider()
-        if (process.env.NODE_ENV === 'development') return new ConsoleSmsProvider()
+        if (process.env.NODE_ENV === 'development' || process.env.LOCAL_TEST_MODE === '1') return new ConsoleSmsProvider()
         return new UnconfiguredSmsProvider()
       },
     },

@@ -2,6 +2,7 @@ import { DynamicModule, Module } from '@nestjs/common'
 import { TypeOrmModule } from '@nestjs/typeorm'
 
 import { AuthModule } from '../auth/auth.module'
+import { isInMemoryStorage } from '../common/runtime-mode'
 import { CartController } from './cart.controller'
 import { CartItemEntity } from './cart-item.entity'
 import { CART_REPOSITORY, InMemoryCartRepository, TypeOrmCartRepository } from './cart.repository'
@@ -10,7 +11,7 @@ import { CartService } from './cart.service'
 @Module({})
 export class CartModule {
   static register(): DynamicModule {
-    const isTest = process.env.NODE_ENV === 'test'
+    const isTest = isInMemoryStorage()
     return {
       module: CartModule,
       imports: isTest ? [AuthModule] : [AuthModule, TypeOrmModule.forFeature([CartItemEntity])],

@@ -5,6 +5,7 @@ import { AuthModule } from '../auth/auth.module'
 import { CartModule } from '../cart/cart.module'
 import { ProfileModule } from '../profile/profile.module'
 import { SecurityModule } from '../security/security.module'
+import { isInMemoryStorage } from '../common/runtime-mode'
 
 import { LocalPaymentAdapter, PAYMENT_ADAPTER } from './local-payment.adapter'
 import { LocalWarehouseAdapter } from './local-warehouse.adapter'
@@ -18,7 +19,7 @@ import { WAREHOUSE_ADAPTER } from './warehouse.adapter'
 @Module({})
 export class OrdersModule {
   static register(): DynamicModule {
-    const isTest = process.env.NODE_ENV === 'test'
+    const isTest = isInMemoryStorage()
     return {
       module: OrdersModule,
       imports: isTest
