@@ -9,6 +9,7 @@ import { HttpExceptionFilter } from './common/http-exception.filter'
 import { DatabaseModule } from './database/database.module'
 import { HomeModule } from './home/home.module'
 import { ProductsModule } from './products/products.module'
+import { ProfileModule } from './profile/profile.module'
 import { SecurityModule } from './security/security.module'
 
 @Module({
@@ -20,6 +21,7 @@ import { SecurityModule } from './security/security.module'
     SecurityModule,
     HomeModule,
     ProductsModule,
+    ProfileModule.register(),
   ],
   providers: [
     { provide: APP_INTERCEPTOR, useClass: ApiResponseInterceptor },
