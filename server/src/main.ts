@@ -5,7 +5,7 @@ import { AppModule } from './app.module'
 
 async function bootstrap(): Promise<void> {
   if (process.env.NODE_ENV === 'production') {
-    const required = ['JWT_SECRET', 'MYSQL_HOST', 'MYSQL_USER', 'MYSQL_PASSWORD', 'MYSQL_DATABASE']
+    const required = ['JWT_SECRET', 'PERSONAL_DATA_KEY', 'MYSQL_HOST', 'MYSQL_USER', 'MYSQL_PASSWORD', 'MYSQL_DATABASE']
     const missing = required.filter((key) => !process.env[key])
     if (missing.length > 0) throw new Error(`生产环境缺少配置：${missing.join(', ')}`)
   }
