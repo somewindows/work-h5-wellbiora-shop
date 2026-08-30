@@ -51,6 +51,8 @@ export function getProduct(id: string): Promise<ProductDetail> {
 
 // mock 模式下用内存拷贝模拟服务端购物车
 let mockCart: CartItem[] = MOCK_CART.map((i) => ({ ...i }))
+let mockAddresses: Address[] = MOCK_ADDRESSES.map((item) => ({ ...item }))
+let mockRealname: RealnameInfo | null = { ...MOCK_REALNAME }
 
 export function getCart(): Promise<CartItem[]> {
   if (USE_MOCK) return delay(mockCart)
@@ -103,13 +105,42 @@ export function removeCartItem(id: string): Promise<CartItem[]> {
 /* ===== 地址与实名 ===== */
 
 export function getAddresses(): Promise<Address[]> {
-  if (USE_MOCK) return delay(MOCK_ADDRESSES)
+  if (USE_MOCK) return delay(mockAddresses)
   return request.get('/addresses')
 }
 
-export function getRealname(): Promise<RealnameInfo> {
-  if (USE_MOCK) return delay(MOCK_REALNAME)
+export function createAddress(input: Omit<Address, 'id'>): Promise<Address> {
+  if (USE_MOCK) {
+    if (input.isDefault) mockAddresses = mockAddresses.map((item) => ({ ...item, isDefault: false }))
+    const address = { id: `a${Date.now()}`, ...input, isDefault: input.isDefault || mockAddresses.length === 0 }
+    mockAddresses.push(address)
+    return delay(address)
+  }
+  return request.post('/addresses', input)
+}
+
+export function updateAddress(id: string, input: Partial<Omit<Address, 'id'>>): Promise<Address> {
+  if (USE_MOCK) {
+    const index = mockAddresses.findIndex((item) => item.id === id)
+    if (index < 0) return Promise.reject(new Error('收货地址不存在'))
+    if (input.isDefault) mockAddresses = mockAddresses.map((item) => ({ ...item, isDefault: false }))
+    mockAddresses[index] = { ...mockAddresses[index], ...input }
+    return delay(mockAddresses[index])
+  }
+  return request.patch(`/addresses/${id}`, input)
+}
+
+export function getRealname(): Promise<RealnameInfo | null> {
+  if (USE_MOCK) return delay(mockRealname)
   return request.get('/realname')
+}
+
+export function saveRealname(input: RealnameInfo): Promise<RealnameInfo> {
+  if (USE_MOCK) {
+    mockRealname = { ...input }
+    return delay(mockRealname)
+  }
+  return request.post('/realname', input)
 }
 
 /* ===== 订单 ===== */
@@ -138,7 +169,27 @@ export function getOrder(orderNo: string): Promise<Order> {
  * mock：由购物车勾选商品 + 默认地址生成「待付款」订单，返回订单号；
  * 真实微信支付参数由后端返回，mock 阶段前端拿到 orderNo 后直接跳订单详情
  */
-export function createOrder(requestId: string): Promise<{ orderNo: string }> {
+export interface OrderPrecheck {
+  items: Order['items']
+  goodsFen: number
+  taxFen: number
+  payableFen: number
+}
+
+export function precheckOrder(): Promise<OrderPrecheck> {
+  if (USE_MOCK) {
+    const items = mockCart.filter((item) => item.checked).map((item) => ({
+      productId: item.productId, name: item.name, spec: item.spec, priceFen: item.priceFen,
+      quantity: item.quantity, img: item.img, themeLight: item.themeLight,
+    }))
+    if (!items.length) return Promise.reject(new Error('请先选择要结算的商品'))
+    const goodsFen = items.reduce((sum, item) => sum + item.priceFen * item.quantity, 0)
+    return delay({ items, goodsFen, taxFen: 0, payableFen: goodsFen })
+  }
+  return request.post('/orders/precheck', {})
+}
+
+export function createOrder(requestId: string): Promise<{ orderNo: string; payParams?: Record<string, string> }> {
   if (USE_MOCK) {
     const checked = mockCart.filter((i) => i.checked)
     if (!checked.length) return Promise.reject(new Error('没有勾选的商品'))
@@ -169,6 +220,18 @@ export function createOrder(requestId: string): Promise<{ orderNo: string }> {
     return delay({ orderNo })
   }
   return request.post('/orders', { requestId })
+}
+
+export function cancelOrder(orderNo: string): Promise<Order> {
+  if (USE_MOCK) {
+    const order = mockOrders.find((item) => item.orderNo === orderNo)
+    if (!order) return Promise.reject(new Error('订单不存在'))
+    if (order.status !== 'pay') return Promise.reject(new Error('当前订单状态不支持取消'))
+    order.status = 'cancelled'
+    order.cancelledReason = '用户取消订单'
+    return delay(order)
+  }
+  return request.post(`/orders/${orderNo}/cancel`, {})
 }
 
 /* ===== 认证 ===== */

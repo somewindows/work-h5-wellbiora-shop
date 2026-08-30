@@ -8,7 +8,7 @@
 import { onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
-import { getAddresses } from '@/api'
+import { createAddress, getAddresses, saveRealname, updateAddress } from '@/api'
 
 const router = useRouter()
 
@@ -19,6 +19,7 @@ const region = ref('')
 const detail = ref('')
 const idcard = ref('')
 const pasteText = ref('')
+const loadedAddressId = ref('')
 
 /** 三单对碰：支付人与收货人为同一人（默认开启，支付人姓名自动同步） */
 const samePerson = ref(true)
@@ -48,6 +49,7 @@ onMounted(async () => {
   const addrs = await getAddresses()
   const def = addrs.find((a) => a.isDefault) ?? addrs[0]
   if (def) {
+    loadedAddressId.value = def.id
     name.value = def.name
     phone.value = def.phone
     region.value = def.region
@@ -122,7 +124,7 @@ function pickRegion(r: string) {
 }
 
 /* ---------- 校验 + 保存 ---------- */
-function onSave() {
+async function onSave() {
   clearErrors()
   const n = name.value.trim()
   const p = phone.value.trim()
@@ -163,9 +165,18 @@ function onSave() {
     return
   }
 
-  // TODO(联调)：API 层暂无保存接口，接入时调用 POST /addresses 与 POST /realname
-  showToast('已保存')
-  setTimeout(() => router.back(), 900)
+  try {
+    const addressInput = { name: n, phone: p, region: r, detail: d, isDefault: true }
+    const savedAddress = loadedAddressId.value
+      ? await updateAddress(loadedAddressId.value, addressInput)
+      : await createAddress(addressInput)
+    loadedAddressId.value = savedAddress.id
+    await saveRealname({ name: py, idcard: idc })
+    showToast('已保存')
+    setTimeout(() => router.back(), 900)
+  } catch (e) {
+    showToast(e instanceof Error ? e.message : '保存失败，请重试')
+  }
 }
 </script>
 

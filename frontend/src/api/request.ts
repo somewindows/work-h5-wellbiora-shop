@@ -6,7 +6,7 @@ import type { ApiResponse } from '@/types'
  * 鉴权：登录后 JWT 放 Authorization 头
  */
 export const request = axios.create({
-  baseURL: '/api/v1',
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
   timeout: 10000,
 })
 

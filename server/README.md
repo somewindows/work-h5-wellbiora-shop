@@ -1,6 +1,8 @@
 # WELLBIORA 服务端
 
-## 本地启动
+## 本地启动与 H5 联调
+
+> 需要 Docker Desktop（或已运行的 MySQL 8）。当前仓库不使用 Redis。
 
 ```powershell
 cd server
@@ -11,6 +13,27 @@ npm run start:dev
 ```
 
 服务端默认监听 `http://localhost:3000`，H5 接口前缀为 `/api/v1`。开发阶段验证码只写入服务端日志，HTTP 响应不会返回验证码；验证码、错误次数和发送限频均持久化在 MySQL。
+
+### 浏览器手工验证路径
+
+另开一个终端启动 H5，并显式关闭前端 mock：
+
+```powershell
+cd frontend
+Copy-Item .env.local.example .env.local
+npm install
+npm run dev
+```
+
+打开终端显示的 `http://localhost:5173` 后，按以下顺序操作：
+
+1. 访问「我的」并输入任意中国大陆测试手机号，点击获取验证码。
+2. 从 `server` 的启动终端复制“开发短信验证码”，完成登录。
+3. 从商品详情加入购物车，进入结算；首次结算会要求填写地址和实名信息。
+4. 地址保存后返回结算，勾选跨境购买协议并创建订单。
+5. 在订单详情中可取消待支付订单；本地支付确认入口仅给自动化测试使用，前端不会伪造支付成功。
+
+`frontend/.env.development` 仍保持 `VITE_USE_MOCK=1`，删除 `.env.local` 即可恢复静态 mock 演示。
 
 ## 校验
 

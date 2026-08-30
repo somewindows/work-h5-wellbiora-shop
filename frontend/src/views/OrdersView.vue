@@ -7,7 +7,7 @@
 import { onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showToast } from 'vant'
-import { getOrders } from '@/api'
+import { cancelOrder as requestCancelOrder, getOrders } from '@/api'
 import type { Order, OrderStatus } from '@/types'
 import { ORDER_STATUS_MAP } from '../../mock/orders'
 import { fenToYuan } from '@/utils/format'
@@ -90,8 +90,14 @@ function payOrder() {
   showToast('拉起微信支付（mock）')
 }
 
-function cancelOrder() {
-  showToast('取消订单：需二次确认弹窗（后续迭代）')
+async function cancelOrder(order: Order) {
+  try {
+    await requestCancelOrder(order.orderNo)
+    showToast('订单已取消')
+    await load()
+  } catch (e) {
+    showToast(e instanceof Error ? e.message : '取消订单失败')
+  }
 }
 
 function remindShip() {
@@ -172,7 +178,7 @@ onMounted(() => {
         <!-- 操作按钮：阻止冒泡，不触发卡片跳详情 -->
         <div class="o-actions" @click.stop>
           <template v-if="o.status === 'pay'">
-            <button class="btn-ghost" @click="cancelOrder">取消订单</button>
+            <button class="btn-ghost" @click="cancelOrder(o)">取消订单</button>
             <button class="btn-main" @click="payOrder">去支付</button>
           </template>
           <template v-else-if="o.status === 'ship'">

@@ -13,5 +13,11 @@ export default defineConfig({
   server: {
     host: true, // 局域网可访问，方便手机真机预览
     port: 5173,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
+    },
   },
 })

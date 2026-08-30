@@ -8,7 +8,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showToast } from 'vant'
-import { getOrder } from '@/api'
+import { cancelOrder as requestCancelOrder, getOrder } from '@/api'
 import type { Order, OrderStatus } from '@/types'
 import { ORDER_STATUS_MAP } from '../../mock/orders'
 import { fenToYuan } from '@/utils/format'
@@ -48,8 +48,15 @@ function payOrder() {
   showToast('拉起微信支付（mock）')
 }
 
-function cancelOrder() {
-  showToast('取消订单：需二次确认弹窗（后续迭代）')
+async function cancelOrder() {
+  const current = order.value
+  if (!current) return
+  try {
+    order.value = await requestCancelOrder(current.orderNo)
+    showToast('订单已取消')
+  } catch (e) {
+    showToast(e instanceof Error ? e.message : '取消订单失败')
+  }
 }
 
 function remindShip() {

@@ -9,7 +9,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import PriceText from '@/components/PriceText.vue'
-import { createOrder, getAddresses, getRealname } from '@/api'
+import { createOrder, getAddresses, getRealname, precheckOrder } from '@/api'
 import { useCartStore } from '@/stores/cart'
 import { fenToYuan } from '@/utils/format'
 import type { Address, RealnameInfo } from '@/types'
@@ -73,6 +73,7 @@ async function onPay() {
   if (paying.value) return
   paying.value = true
   try {
+    await precheckOrder()
     const { orderNo } = await createOrder(genRequestId())
     router.replace(`/order/${orderNo}`)
   } catch (e) {
