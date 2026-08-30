@@ -28,6 +28,14 @@ describe('ProfileService', () => {
     expect(profile).toEqual({ name: '张三', idcard: '110***********1234' })
     expect(JSON.stringify(profile)).not.toContain('110101199001011234')
   })
+
+  it('已有实名资料时省略身份证号会保留原加密值', async () => {
+    await service.saveRealname('user-1', { name: '张三', idcard: '110101199001011234' })
+
+    const saved = await service.saveRealname('user-1', { name: '张三', idcard: '' } as never)
+
+    expect(saved).toEqual({ name: '张三', idcard: '110***********1234' })
+  })
 })
 
 function address(name: string) {

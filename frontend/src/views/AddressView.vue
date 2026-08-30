@@ -2,13 +2,13 @@
 /**
  * 地址+实名页（路由 /address）
  * 视觉 1:1 来源：prototype/app/address.html
- * mock 阶段：进入时回填默认地址；保存仅 Toast 不落库
- * TODO(联调)：保存时接 POST /addresses（收货地址）与 POST /realname（支付人实名）
+ * 已实名用户只回显脱敏身份证号；修改地址时不需要重复输入完整身份证号。
  */
 import { onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
-import { createAddress, getAddresses, saveRealname, updateAddress } from '@/api'
+import { createAddress, getAddresses, getRealname, saveRealname, updateAddress } from '@/api'
+import { validateIdcardForSave } from './address-realname'
 
 const router = useRouter()
 
@@ -18,6 +18,8 @@ const phone = ref('')
 const region = ref('')
 const detail = ref('')
 const idcard = ref('')
+const idcardMask = ref('')
+const hasSavedRealname = ref(false)
 const pasteText = ref('')
 const loadedAddressId = ref('')
 
@@ -44,9 +46,9 @@ function clearErrors() {
   Object.keys(errors).forEach((k) => delete errors[k])
 }
 
-/* 进入时回填默认地址（实名信息接口返回为脱敏数据，不回填身份证号） */
+/* 进入时回填默认地址和实名状态；身份证号只展示服务端返回的脱敏值。 */
 onMounted(async () => {
-  const addrs = await getAddresses()
+  const [addrs, realname] = await Promise.all([getAddresses(), getRealname()])
   const def = addrs.find((a) => a.isDefault) ?? addrs[0]
   if (def) {
     loadedAddressId.value = def.id
@@ -55,6 +57,11 @@ onMounted(async () => {
     region.value = def.region
     detail.value = def.detail
     payer.value = def.name
+  }
+  if (realname) {
+    hasSavedRealname.value = true
+    idcardMask.value = realname.idcard
+    if (!def) payer.value = realname.name
   }
 })
 
@@ -154,9 +161,10 @@ async function onSave() {
     showToast('请输入支付人真实姓名')
     return
   }
-  if (!/^\d{17}[\dXx]$/.test(idc)) {
-    errors.idcard = '身份证号格式不正确（18 位，末位可为 X）'
-    showToast('身份证号格式不正确')
+  const idcardError = validateIdcardForSave(idc, hasSavedRealname.value)
+  if (idcardError) {
+    errors.idcard = idcardError
+    showToast(idcardError)
     return
   }
   // 三单对碰：同一人模式下姓名强一致（前端提示，后端复核）
@@ -171,7 +179,9 @@ async function onSave() {
       ? await updateAddress(loadedAddressId.value, addressInput)
       : await createAddress(addressInput)
     loadedAddressId.value = savedAddress.id
-    await saveRealname({ name: py, idcard: idc })
+    const savedRealname = await saveRealname({ name: py, ...(idc ? { idcard: idc } : {}) })
+    hasSavedRealname.value = true
+    idcardMask.value = savedRealname.idcard
     showToast('已保存')
     setTimeout(() => router.back(), 900)
   } catch (e) {
@@ -299,10 +309,15 @@ async function onSave() {
       <div class="field" :class="{ err: errors.idcard }">
         <div class="f-label">身份证号<span class="req">*</span></div>
         <div class="f-row">
-          <input v-model="idcard" class="f-input" placeholder="用于海关申报，加密存储" maxlength="18" />
+          <input
+            v-model="idcard"
+            class="f-input"
+            :placeholder="idcardMask ? `已实名：${idcardMask}，如需更换请重新输入` : '用于海关申报，加密存储'"
+            maxlength="18"
+          />
         </div>
         <div class="f-hint">
-          {{ errors.idcard || '仅用于跨境电商清关申报，平台加密存储，不会用于其他用途' }}
+          {{ errors.idcard || (idcardMask && !idcard ? '已完成实名认证；留空可仅保存地址' : '仅用于跨境电商清关申报，平台加密存储，不会用于其他用途') }}
         </div>
       </div>
     </div>

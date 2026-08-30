@@ -30,6 +30,7 @@
 |---|---|---|
 | POST | `/api/v1/auth/sms-code` | 发验证码 `{ phone }` |
 | POST | `/api/v1/auth/login` | 验证码登录 `{ phone, code }` → `{ token, user }` |
+| GET | `/api/v1/users/me` | 查询当前登录用户 |
 | GET | `/api/v1/auth/wechat-silent` | 微信静默授权换登录态（服务号网页授权） |
 
 ### 商品与页面内容（只读，后台配置的数据从这里出）
@@ -51,7 +52,7 @@
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | GET/POST/PATCH/DELETE | `/api/v1/addresses[/{id}]` | 收货地址 CRUD |
-| GET/POST | `/api/v1/realname` | 实名信息查询/提交（姓名+身份证号，存密文） |
+| GET/POST | `/api/v1/realname` | 查询返回脱敏身份证号；首次提交必须含姓名+身份证号（存密文），已有实名资料后可省略 `idcard` 以仅更新姓名 |
 
 ### 订单
 | 方法 | 路径 | 说明 |

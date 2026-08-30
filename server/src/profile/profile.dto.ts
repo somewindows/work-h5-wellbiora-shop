@@ -1,4 +1,4 @@
-import { IsBoolean, IsNotEmpty, IsOptional, IsString, Matches, MaxLength } from 'class-validator'
+import { IsBoolean, IsNotEmpty, IsOptional, IsString, Matches, MaxLength, ValidateIf } from 'class-validator'
 
 export class CreateAddressDto {
   @IsString()
@@ -58,6 +58,10 @@ export class SaveRealnameDto {
   @MaxLength(20)
   name!: string
 
+  @IsOptional()
+  @IsString()
+  @MaxLength(18)
+  @ValidateIf((dto: SaveRealnameDto) => Boolean(dto.idcard?.trim()))
   @Matches(/^\d{17}[\dXx]$/)
-  idcard!: string
+  idcard?: string
 }

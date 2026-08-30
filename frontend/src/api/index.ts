@@ -135,9 +135,15 @@ export function getRealname(): Promise<RealnameInfo | null> {
   return request.get('/realname')
 }
 
-export function saveRealname(input: RealnameInfo): Promise<RealnameInfo> {
+export interface SaveRealnameInput {
+  name: string
+  idcard?: string
+}
+
+export function saveRealname(input: SaveRealnameInput): Promise<RealnameInfo> {
   if (USE_MOCK) {
-    mockRealname = { ...input }
+    if (!input.idcard && !mockRealname) return Promise.reject(new Error('请填写身份证号'))
+    mockRealname = input.idcard ? { name: input.name, idcard: input.idcard } : { ...mockRealname!, name: input.name }
     return delay(mockRealname)
   }
   return request.post('/realname', input)

@@ -33,5 +33,8 @@ describe('地址与实名接口（e2e）', () => {
     const realname = await agent.get('/api/v1/realname').set('Authorization', `Bearer ${token}`).expect(200)
     expect(addresses.body.data).toMatchObject([{ name: '张三', isDefault: true }])
     expect(realname.body).toEqual({ code: 0, data: { name: '张三', idcard: '110***********1234' } })
+
+    const preserved = await agent.post('/api/v1/realname').set('Authorization', `Bearer ${token}`).send({ name: '张三' }).expect(201)
+    expect(preserved.body).toEqual({ code: 0, data: { name: '张三', idcard: '110***********1234' } })
   })
 })
