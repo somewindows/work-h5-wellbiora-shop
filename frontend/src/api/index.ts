@@ -54,8 +54,12 @@ let mockCart: CartItem[] = MOCK_CART.map((i) => ({ ...i }))
 let mockAddresses: Address[] = MOCK_ADDRESSES.map((item) => ({ ...item }))
 let mockRealname: RealnameInfo | null = { ...MOCK_REALNAME }
 
+function snapshotCart(): CartItem[] {
+  return mockCart.map((item) => ({ ...item }))
+}
+
 export function getCart(): Promise<CartItem[]> {
-  if (USE_MOCK) return delay(mockCart)
+  if (USE_MOCK) return delay(snapshotCart())
   return request.get('/cart')
 }
 
@@ -63,11 +67,11 @@ export function addCartItem(productId: string, quantity: number): Promise<CartIt
   if (USE_MOCK) {
     const exist = mockCart.find((i) => i.productId === productId)
     if (exist) {
-      exist.quantity += quantity
+      mockCart = mockCart.map((item) => (item.id === exist.id ? { ...item, quantity: item.quantity + quantity } : item))
     } else {
       const p = MOCK_PRODUCTS.find((x) => x.id === productId)
       if (!p) return Promise.reject(new Error('商品不存在'))
-      mockCart.push({
+      mockCart = [...mockCart, {
         id: `c${Date.now()}`,
         productId: p.id,
         name: p.name,
@@ -78,18 +82,17 @@ export function addCartItem(productId: string, quantity: number): Promise<CartIt
         img: p.cardImg,
         themeLight: p.themeLight,
         inStock: true,
-      })
+      }]
     }
-    return delay(mockCart)
+    return delay(snapshotCart())
   }
   return request.post('/cart/items', { productId, quantity })
 }
 
 export function updateCartItem(id: string, patch: { quantity?: number; checked?: boolean }): Promise<CartItem[]> {
   if (USE_MOCK) {
-    const item = mockCart.find((i) => i.id === id)
-    if (item) Object.assign(item, patch)
-    return delay(mockCart)
+    mockCart = mockCart.map((item) => (item.id === id ? { ...item, ...patch } : item))
+    return delay(snapshotCart())
   }
   return request.patch(`/cart/items/${id}`, patch)
 }
@@ -97,7 +100,7 @@ export function updateCartItem(id: string, patch: { quantity?: number; checked?:
 export function removeCartItem(id: string): Promise<CartItem[]> {
   if (USE_MOCK) {
     mockCart = mockCart.filter((i) => i.id !== id)
-    return delay(mockCart)
+    return delay(snapshotCart())
   }
   return request.delete(`/cart/items/${id}`)
 }

@@ -21,6 +21,20 @@ describe('ProfileService', () => {
     expect(addresses).toMatchObject([{ id: first.id, isDefault: false }, { id: second.id, isDefault: true }])
   })
 
+  it('局部更新地址时保留未提交字段和默认地址标记', async () => {
+    const first = await service.createAddress('user-1', address('张三'))
+
+    const updated = await service.updateAddress('user-1', first.id, { detail: '稠城街道 2 号' })
+
+    expect(updated).toMatchObject({
+      name: '张三',
+      phone: '13800000000',
+      region: '浙江省 金华市 义乌市',
+      detail: '稠城街道 2 号',
+      isDefault: true,
+    })
+  })
+
   it('实名查询只返回脱敏身份证号', async () => {
     await service.saveRealname('user-1', { name: '张三', idcard: '110101199001011234' })
     const profile = await service.getRealname('user-1')

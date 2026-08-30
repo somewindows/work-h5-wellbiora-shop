@@ -55,10 +55,11 @@ export class ProfileService {
     if (dto.isDefault) await this.addressRepository.clearDefault(userId)
     return this.addressRepository.save({
       ...address,
-      ...dto,
       name: dto.name?.trim() ?? address.name,
+      phone: dto.phone ?? address.phone,
       region: dto.region?.trim() ?? address.region,
       detail: dto.detail?.trim() ?? address.detail,
+      isDefault: dto.isDefault ?? address.isDefault,
     })
   }
 

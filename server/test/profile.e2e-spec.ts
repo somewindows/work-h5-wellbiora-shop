@@ -1,4 +1,4 @@
-import { INestApplication } from '@nestjs/common'
+import { INestApplication, ValidationPipe } from '@nestjs/common'
 import { Test } from '@nestjs/testing'
 import request from 'supertest'
 
@@ -13,6 +13,7 @@ describe('地址与实名接口（e2e）', () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile()
     app = moduleRef.createNestApplication()
     app.setGlobalPrefix('api/v1')
+    app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true }))
     await app.init()
     const smsProvider = app.get<MemorySmsProvider>(SMS_PROVIDER)
     await request(app.getHttpServer()).post('/api/v1/auth/sms-code').send({ phone: '13700000000' }).expect(200)
@@ -33,6 +34,10 @@ describe('地址与实名接口（e2e）', () => {
     const realname = await agent.get('/api/v1/realname').set('Authorization', `Bearer ${token}`).expect(200)
     expect(addresses.body.data).toMatchObject([{ name: '张三', isDefault: true }])
     expect(realname.body).toEqual({ code: 0, data: { name: '张三', idcard: '110***********1234' } })
+
+    await agent.patch(`/api/v1/addresses/${addresses.body.data[0].id}`).set('Authorization', `Bearer ${token}`).send({ detail: '稠城街道 2 号' }).expect(200)
+    const afterPartialUpdate = await agent.get('/api/v1/addresses').set('Authorization', `Bearer ${token}`).expect(200)
+    expect(afterPartialUpdate.body.data).toMatchObject([{ phone: '13700000000', detail: '稠城街道 2 号', isDefault: true }])
 
     const preserved = await agent.post('/api/v1/realname').set('Authorization', `Bearer ${token}`).send({ name: '张三' }).expect(201)
     expect(preserved.body).toEqual({ code: 0, data: { name: '张三', idcard: '110***********1234' } })
