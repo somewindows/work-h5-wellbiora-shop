@@ -132,7 +132,7 @@ async function onBuyNow() {
 
     <template v-else-if="detail">
       <!-- 图廊块 -->
-      <BlockRenderer :blocks="galleryBlocks" context="detail" />
+      <BlockRenderer :blocks="galleryBlocks" context="detail" :theme-light="detail.themeLight" />
 
       <!-- 摘要卡 -->
       <section class="summary">

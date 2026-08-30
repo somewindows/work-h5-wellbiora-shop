@@ -8,6 +8,7 @@
 import { computed, ref, watch, type Component } from 'vue'
 import type { ContentBlock, Product } from '@/types'
 import { getProducts } from '@/api'
+import { getBlockExtra } from './block-extra'
 import BlockGallery from './BlockGallery.vue'
 import BlockImage from './BlockImage.vue'
 import BlockBadges from './BlockBadges.vue'
@@ -29,6 +30,7 @@ const props = withDefaults(
     blocks: ContentBlock[]
     products?: Product[] // 可选：页面已持有商品数据时直接传入，避免重复请求
     context?: 'home' | 'detail' // 仅影响 stats 块布局
+    themeLight?: string // 详情页产品浅色主题底，仅供 gallery 块使用
   }>(),
   { context: 'home' },
 )
@@ -83,14 +85,7 @@ const renderList = computed(() =>
       console.warn(`[BlockRenderer] 未知内容块类型: ${(block as ContentBlock).type}，已跳过`)
       return []
     }
-    // 商品引用块注入商品数据；stats 按 context 决定布局
-    const extra: Record<string, unknown> = {}
-    if (block.type === 'product_rail' || block.type === 'product_grid') {
-      extra.products = products.value
-    }
-    if (block.type === 'stats') {
-      extra.layout = props.context === 'detail' ? 'card' : 'page'
-    }
+    const extra = getBlockExtra(block, props.context, products.value, props.themeLight)
     return [{ key: `${block.type}-${i}`, block, comp, extra }]
   }),
 )

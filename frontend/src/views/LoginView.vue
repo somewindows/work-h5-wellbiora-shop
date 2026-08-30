@@ -2,7 +2,7 @@
 /**
  * 登录/注册页（路由 /login，手机号 + 验证码免密登录，无密码）
  * 视觉来源：prototype/app/login.html（品牌深绿系 + 杂志式标题 + 表单白卡 + 协议弹层）
- * mock 阶段：sendSmsCode 直接成功，任意 6 位验证码可登录；不做强制登录拦截（路由守卫后续统一加）
+ * mock 阶段：sendSmsCode 直接成功，任意 6 位验证码可登录；受保护页面由全局路由守卫统一拦截
  */
 import { onBeforeUnmount, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
