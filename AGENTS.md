@@ -16,7 +16,7 @@
 ## 二、当前仓库状态（重要）
 
 - **前端工程已建立（2026-08-27，T7）**：`frontend/`（Vue 3 + Vite + TS + Vant 4 + Tailwind 3 + Pinia + hash 路由），MVP 9 页已按 V3 原型 1:1 实现，走 mock 数据。T9 的登录路由守卫和详情图库 `themeLight` 底色透传已于 2026-08-30 完成并补充 Vitest 回归测试，剩余视觉走查。启动：`cd frontend && npm install && npm run dev`（mock 开关在 `.env.development` 的 `VITE_USE_MOCK=1`）。
-- **后端本地联调闭环已建立（2026-08-30，T8）**：`server/`（NestJS + TypeScript + TypeORM + MySQL 8），已实现统一 `/api/v1` 响应层、认证（开发短信验证码/JWT/`GET /users/me`）、首页商品、购物车、地址实名和订单预检/创建/查询/取消；验证码与限频存 MySQL，不使用 Redis。身份证号 AES-256-GCM 密文保存、HMAC 指纹用于年度额度查询；已实名用户编辑地址时仅回显脱敏号码、可留空保留原密文，局部地址更新会保留未提交字段与默认标记。支付和仓库均为仅本地的 mock 适配器，真实微信/君梦待接入。`LOCAL_TEST_MODE=1` 时全模块转为内存仓储并保留开发验证码日志，供无 Docker 的浏览器测试（重启清空数据）；该模式已与前端 `VITE_USE_MOCK=0` 代理实际启动验证，并实际跑通登录、加购、地址实名、地址修改、下单及取消订单的 API 冒烟。服务端单元 30/30、e2e 9/9、lint 和生产构建已验证通过。`admin/` 尚未创建。
+- **后端本地联调闭环已建立（2026-08-30，T8）**：`server/`（NestJS + TypeScript + TypeORM + MySQL 8），已实现统一 `/api/v1` 响应层、认证（开发短信验证码/JWT/`GET /users/me`）、首页商品、购物车、地址实名和订单预检/创建/查询/取消；验证码与限频存 MySQL，不使用 Redis。身份证号 AES-256-GCM 密文保存、HMAC 指纹用于年度额度查询；已实名用户编辑地址时仅回显脱敏号码、可留空保留原密文，局部地址更新会保留未提交字段与默认标记。支付和仓库均为仅本地的 mock 适配器，真实微信/君梦待接入。`LOCAL_TEST_MODE=1` 时全模块转为内存仓储并保留开发验证码日志，供无 Docker 的浏览器测试（重启清空数据）；该模式已与前端 `VITE_USE_MOCK=0` 代理实际启动验证，并实际跑通登录、加购、地址实名、地址修改、下单及取消订单的 API 冒烟。服务端单元 30/30、e2e 9/9、lint 和生产构建已验证通过。`admin/` 尚未创建（分支 `feat/admin-init` 已建，动工前待确认内容持久化方案与管理员账号初始化方式，见 TODO.md）。
 - **已是 Git 仓库**（2026-08-25 初始化，默认分支 `main`），有 `.gitignore`（忽略 node_modules/dist/日志/.env 等）。
 - 仓库内容：设计/需求文档（`docs/`）、静态 HTML 高保真原型（`prototype/app/`，**V3 统一版**）、前端工程（`frontend/`）、产品图片素材、方法论沉淀（`docs/methodology/`）、一个打包归档（`H5商城原型与文档/H5商城原型与文档.zip`）。
 - 原型页直接用浏览器打开 `prototype/app/index-v2.html` 即可预览。
