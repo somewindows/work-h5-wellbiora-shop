@@ -61,10 +61,10 @@ export class AdminCatalogService {
   async publishDraft(id: string, actor: AdminActor = { id: 'system', username: 'system' }): Promise<CatalogProductRecord> {
     const product = await this.getProduct(id)
     this.validateBlocks(product.draftBlocks)
-    await this.history.save({ productId: id, version: product.contentVersion, blocks: product.blocks, createdBy: actor.id })
+    await this.saveVersionIfMissing(product, actor)
     await this.repository.publishDraft(id)
     const published = await this.getProduct(id)
-    await this.history.save({ productId: id, version: published.contentVersion, blocks: published.blocks, createdBy: actor.id })
+    await this.saveVersionIfMissing(published, actor)
     await this.audit.record(actor, 'publish', 'catalog_product', id, product.blocks, published.blocks)
     return published
   }
@@ -183,5 +183,10 @@ export class AdminCatalogService {
   private toAuditProduct(product: CatalogProductRecord): Record<string, unknown> {
     const { id, name, en, priceFen, theme, themeLight, cardImg, tags, spec, flavor, ingredients, originCert, usage, goodsNo, warehouseCode, isActive } = product
     return { id, name, en, priceFen, theme, themeLight, cardImg, tags, spec, flavor, ingredients, originCert, usage, goodsNo, warehouseCode, isActive }
+  }
+
+  private async saveVersionIfMissing(product: CatalogProductRecord, actor: AdminActor): Promise<void> {
+    const existing = await this.history.findByProductAndVersion(product.id, product.contentVersion)
+    if (!existing) await this.history.save({ productId: product.id, version: product.contentVersion, blocks: product.blocks, createdBy: actor.id })
   }
 }

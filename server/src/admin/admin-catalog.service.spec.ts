@@ -56,4 +56,23 @@ describe('AdminCatalogService', () => {
       { action: 'publish', beforeData: [{ type: 'gallery', images: ['/assets/test.jpg'] }], afterData: [{ type: 'gallery', images: ['/assets/next.jpg'] }] },
     ])
   })
+
+  it('连续发布时每个版本只保留一份快照', async () => {
+    const repository = new InMemoryCatalogRepository()
+    const versions = new InMemoryContentVersionRepository()
+    const auditLogs = new InMemoryAuditLogRepository()
+    await repository.seed([product])
+    const service = new (AdminCatalogService as unknown as new (
+      catalog: InMemoryCatalogRepository, history: typeof versions, audit: AuditLogService,
+    ) => { publishDraft(id: string, actor: { id: string; username: string }): Promise<unknown> })(repository, versions, new AuditLogService(auditLogs))
+
+    await repository.saveDraftBlocks('p1', [{ type: 'gallery', images: ['/assets/next.jpg'] }])
+    await service.publishDraft('p1', { id: 'admin-1', username: 'operator' })
+    await repository.saveDraftBlocks('p1', [{ type: 'gallery', images: ['/assets/final.jpg'] }])
+    await service.publishDraft('p1', { id: 'admin-1', username: 'operator' })
+
+    await expect(versions.findByProduct('p1')).resolves.toMatchObject([
+      { version: 1 }, { version: 2 }, { version: 3 },
+    ])
+  })
 })
