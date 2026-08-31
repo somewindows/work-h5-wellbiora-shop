@@ -3,6 +3,8 @@ import { ConfigModule } from '@nestjs/config'
 import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core'
 
 import { AuthModule } from './auth/auth.module'
+import { AdminModule } from './admin/admin.module'
+import { CatalogModule } from './catalog/catalog.module'
 import { ApiResponseInterceptor } from './common/api-response.interceptor'
 import { HttpExceptionFilter } from './common/http-exception.filter'
 import { DatabaseModule } from './database/database.module'
@@ -15,7 +17,9 @@ import { SecurityModule } from './security/security.module'
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     DatabaseModule.register(),
+    CatalogModule.register(),
     AuthModule,
+    AdminModule.register(),
     SecurityModule,
     HomeModule,
     ProductsModule,

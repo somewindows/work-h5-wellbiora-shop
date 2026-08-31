@@ -19,7 +19,7 @@
   - [x] 购物车、地址和实名模块（身份证 AES-256-GCM 密文存储、脱敏展示与 HMAC 年度额度指纹）
   - [x] 订单预检、创建、查询、取消；服务端强制限额、实名收货人一致性和请求幂等校验（本地 mock 支付/仓库）
   - 微信支付 sandbox → 君梦 OMS 测试环境；保税仓仅经 `WarehouseAdapter` 接入
-  - 后台管理工程 `admin/`（Vue 3 + Element Plus，见 `docs/tech/admin-backend.md`）
+  - **后台管理服务端首期已完成（2026-08-31，`feat/admin-init`）**：商品与内容块迁移至 MySQL `catalog_products`，服务首次启动自动从现有 seed 初始化空目录；H5 `GET /products`/`GET /products/:id` 已改读已发布数据。新增管理员账号密码登录、`.env` 首次管理员播种、JWT 守卫，以及商品详情草稿保存/发布接口（`/admin/products/:id/draft-blocks`、`/publish`）；发布时校验内容块类型、必填字段与带 `*` 数据宣称的来源脚注。管理员桌面端 `admin/`（Vue 3 + Element Plus）、商品基础字段编辑、操作日志、首页配置和订单管理待后续分批实现，详见 `docs/tech/admin-backend.md`。
   - 上线前订单生产加固：MySQL 下单事务、库存预占/扣减、支付回调后仓库推送与状态补偿；同时评估 Nginx `trust proxy`、年度额度查询索引和生产密钥占位配置
 
 ## 已归档

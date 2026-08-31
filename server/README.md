@@ -60,6 +60,10 @@ npm run dev
 
 `frontend/.env.development` 仍保持 `VITE_USE_MOCK=1`，删除 `.env.local` 即可恢复静态 mock 演示。
 
+### 后台首个管理员
+
+复制 `.env.example` 后，必须为 `ADMIN_INITIAL_USERNAME` 和 `ADMIN_INITIAL_PASSWORD` 配置账号及不少于 12 位的随机强密码。服务首次连接空数据库时只播种一次，数据库中已有同名账号不会被环境变量覆盖。后台登录接口为 `POST /api/v1/admin/auth/login`；后台内容块草稿保存和发布接口均要求管理员 Bearer Token。
+
 ## 校验
 
 ```powershell

@@ -9,12 +9,12 @@ export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
   @Get()
-  findAll(): Product[] {
+  findAll(): Promise<Product[]> {
     return this.productsService.findAll()
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string): ProductDetail {
+  findOne(@Param('id') id: string): Promise<ProductDetail> {
     return this.productsService.findOne(id)
   }
 }

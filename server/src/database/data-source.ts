@@ -4,6 +4,8 @@ import { DataSource } from 'typeorm'
 import { UserEntity } from '../users/user.entity'
 import { SmsIpRateLimitEntity } from '../auth/sms-ip-rate-limit.entity'
 import { SmsVerificationCodeEntity } from '../auth/sms-verification-code.entity'
+import { AdminAccountEntity } from '../admin/admin-account.entity'
+import { CatalogProductEntity } from '../catalog/catalog-product.entity'
 
 export default new DataSource({
   type: 'mysql',
@@ -12,7 +14,7 @@ export default new DataSource({
   username: process.env.MYSQL_USER ?? 'wellbiora',
   password: process.env.MYSQL_PASSWORD ?? '',
   database: process.env.MYSQL_DATABASE ?? 'wellbiora_shop',
-  entities: [UserEntity, SmsVerificationCodeEntity, SmsIpRateLimitEntity],
+  entities: [UserEntity, SmsVerificationCodeEntity, SmsIpRateLimitEntity, AdminAccountEntity, CatalogProductEntity],
   migrations: [`${__dirname}/migrations/*.{js,ts}`],
   synchronize: false,
 })
