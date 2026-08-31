@@ -4,6 +4,11 @@ import { BusinessException } from '../common/business.exception'
 import { CATALOG_REPOSITORY, type CatalogProductRecord, type CatalogRepository } from '../catalog/catalog.repository'
 import type { ContentBlock } from '../catalog/catalog.types'
 
+import { type AdminActor, AuditLogService } from './audit-log.service'
+import { InMemoryAuditLogRepository } from './audit-log.repository'
+import { CONTENT_VERSION_REPOSITORY, InMemoryContentVersionRepository, type ContentVersionRepository } from './content-version.repository'
+import type { AdminProductQueryDto } from './dto/admin-product-query.dto'
+import type { UpdateAdminProductDto } from './dto/update-admin-product.dto'
 const CONTENT_BLOCK_TYPES = new Set([
   'gallery', 'image', 'badges', 'nutrition', 'nutrition_image', 'stats', 'scenario', 'text',
   'hero', 'notice_bar', 'product_rail', 'product_grid', 'image_banner', 'cert_wall', 'brand_block',
@@ -11,12 +16,39 @@ const CONTENT_BLOCK_TYPES = new Set([
 
 @Injectable()
 export class AdminCatalogService {
-  constructor(@Inject(CATALOG_REPOSITORY) private readonly repository: CatalogRepository) {}
+  constructor(
+    @Inject(CATALOG_REPOSITORY) private readonly repository: CatalogRepository,
+    @Inject(CONTENT_VERSION_REPOSITORY) private readonly history: ContentVersionRepository = new InMemoryContentVersionRepository(),
+    private readonly audit: AuditLogService = new AuditLogService(new InMemoryAuditLogRepository()),
+  ) {}
 
   async getProduct(id: string): Promise<CatalogProductRecord> {
     const product = await this.repository.findById(id)
     if (!product) throw new BusinessException(40404, '商品不存在', HttpStatus.NOT_FOUND)
     return product
+  }
+
+  listProducts(query: AdminProductQueryDto): Promise<{ total: number; list: CatalogProductRecord[] }> {
+    const raw = query as unknown as { keyword?: string; isActive?: boolean | string; page?: number | string; pageSize?: number | string }
+    const page = Math.max(1, Number(raw.page) || 1)
+    const pageSize = Math.min(100, Math.max(1, Number(raw.pageSize) || 20))
+    const isActive = raw.isActive === undefined ? undefined : raw.isActive === true || raw.isActive === 'true'
+    return this.repository.findAdminPage({ keyword: raw.keyword, isActive, page, pageSize })
+  }
+
+  async updateProduct(id: string, dto: UpdateAdminProductDto, actor: AdminActor): Promise<CatalogProductRecord> {
+    const product = await this.getProduct(id)
+    const saved = await this.repository.save({
+      ...product,
+      ...dto,
+      tags: dto.tags?.map((tag) => tag.trim()).filter(Boolean) ?? product.tags,
+      flavor: dto.flavor?.trim() || undefined,
+      usage: dto.usage?.trim() || undefined,
+      goodsNo: dto.goodsNo?.trim() || null,
+      warehouseCode: dto.warehouseCode?.trim() || null,
+    })
+    await this.audit.record(actor, 'update_product', 'catalog_product', id, this.toAuditProduct(product), this.toAuditProduct(saved))
+    return saved
   }
 
   async saveDraftBlocks(id: string, blocks: ContentBlock[]): Promise<CatalogProductRecord> {
@@ -26,11 +58,15 @@ export class AdminCatalogService {
     return this.getProduct(id)
   }
 
-  async publishDraft(id: string): Promise<CatalogProductRecord> {
+  async publishDraft(id: string, actor: AdminActor = { id: 'system', username: 'system' }): Promise<CatalogProductRecord> {
     const product = await this.getProduct(id)
     this.validateBlocks(product.draftBlocks)
+    await this.history.save({ productId: id, version: product.contentVersion, blocks: product.blocks, createdBy: actor.id })
     await this.repository.publishDraft(id)
-    return this.getProduct(id)
+    const published = await this.getProduct(id)
+    await this.history.save({ productId: id, version: published.contentVersion, blocks: published.blocks, createdBy: actor.id })
+    await this.audit.record(actor, 'publish', 'catalog_product', id, product.blocks, published.blocks)
+    return published
   }
 
   private validateBlocks(blocks: ContentBlock[]): void {
@@ -142,5 +178,10 @@ export class AdminCatalogService {
 
   private isNonEmptyString(value: unknown): value is string {
     return typeof value === 'string' && value.trim().length > 0
+  }
+
+  private toAuditProduct(product: CatalogProductRecord): Record<string, unknown> {
+    const { id, name, en, priceFen, theme, themeLight, cardImg, tags, spec, flavor, ingredients, originCert, usage, goodsNo, warehouseCode, isActive } = product
+    return { id, name, en, priceFen, theme, themeLight, cardImg, tags, spec, flavor, ingredients, originCert, usage, goodsNo, warehouseCode, isActive }
   }
 }

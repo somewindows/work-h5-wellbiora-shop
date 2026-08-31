@@ -2,6 +2,10 @@ import { InMemoryCatalogRepository } from '../catalog/catalog.repository'
 import type { ProductDetail } from '../catalog/catalog.types'
 
 import { AdminCatalogService } from './admin-catalog.service'
+import { InMemoryAuditLogRepository } from './audit-log.repository'
+import { AuditLogService } from './audit-log.service'
+import { InMemoryContentVersionRepository } from './content-version.repository'
+
 
 describe('AdminCatalogService', () => {
   const product: ProductDetail = {
@@ -29,5 +33,27 @@ describe('AdminCatalogService', () => {
     const service = new AdminCatalogService(repository)
 
     await expect(service.saveDraftBlocks('p1', [{}] as never)).rejects.toMatchObject({ code: 42201 })
+  })
+
+  it('发布时保留前后版本并记录操作日志', async () => {
+    const repository = new InMemoryCatalogRepository()
+    const versions = new InMemoryContentVersionRepository()
+    const auditLogs = new InMemoryAuditLogRepository()
+    await repository.seed([product])
+    await repository.saveDraftBlocks('p1', [{ type: 'gallery', images: ['/assets/next.jpg'] }])
+    const service = new (AdminCatalogService as unknown as new (
+      catalog: InMemoryCatalogRepository,
+      history: typeof versions,
+      audit: AuditLogService,
+    ) => { publishDraft(id: string, actor: { id: string; username: string }): Promise<unknown> })(repository, versions, new AuditLogService(auditLogs))
+
+    await service.publishDraft('p1', { id: 'admin-1', username: 'operator' })
+
+    await expect(versions.findByProduct('p1')).resolves.toMatchObject([
+      { version: 1 }, { version: 2 },
+    ])
+    await expect(auditLogs.findByTarget('catalog_product', 'p1')).resolves.toMatchObject([
+      { action: 'publish', beforeData: [{ type: 'gallery', images: ['/assets/test.jpg'] }], afterData: [{ type: 'gallery', images: ['/assets/next.jpg'] }] },
+    ])
   })
 })

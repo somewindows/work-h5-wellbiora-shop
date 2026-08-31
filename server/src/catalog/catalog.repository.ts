@@ -23,6 +23,7 @@ export interface CatalogRepository {
   findAllPublished(): Promise<Product[]>
   findPublishedById(id: string): Promise<ProductDetail | null>
   findById(id: string): Promise<CatalogProductRecord | null>
+  findAdminPage(options: { keyword?: string; isActive?: boolean; page: number; pageSize: number }): Promise<{ total: number; list: CatalogProductRecord[] }>
   save(record: CatalogProductRecord): Promise<CatalogProductRecord>
   saveDraftBlocks(id: string, blocks: ContentBlock[]): Promise<void>
   publishDraft(id: string): Promise<void>
@@ -119,6 +120,17 @@ export class TypeOrmCatalogRepository implements CatalogRepository {
     return product ? toRecord(product) : null
   }
 
+  async findAdminPage(options: { keyword?: string; isActive?: boolean; page: number; pageSize: number }): Promise<{ total: number; list: CatalogProductRecord[] }> {
+    const all = (await this.repository.find({ order: { updatedAt: 'DESC' } })).map(toRecord)
+    const keyword = options.keyword?.trim().toLowerCase()
+    const filtered = all.filter((product) =>
+      (options.isActive === undefined || product.isActive === options.isActive) &&
+      (!keyword || `${product.id} ${product.name} ${product.en}`.toLowerCase().includes(keyword)),
+    )
+    const start = (options.page - 1) * options.pageSize
+    return { total: filtered.length, list: filtered.slice(start, start + options.pageSize) }
+  }
+
   async save(record: CatalogProductRecord): Promise<CatalogProductRecord> {
     return toRecord(await this.repository.save(this.repository.create(toEntityInput(record))))
   }
@@ -162,6 +174,16 @@ export class InMemoryCatalogRepository implements CatalogRepository {
   async findById(id: string): Promise<CatalogProductRecord | null> {
     const product = this.products.get(id)
     return product ? structuredClone(product) : null
+  }
+
+  async findAdminPage(options: { keyword?: string; isActive?: boolean; page: number; pageSize: number }): Promise<{ total: number; list: CatalogProductRecord[] }> {
+    const keyword = options.keyword?.trim().toLowerCase()
+    const filtered = [...this.products.values()].filter((product) =>
+      (options.isActive === undefined || product.isActive === options.isActive) &&
+      (!keyword || `${product.id} ${product.name} ${product.en}`.toLowerCase().includes(keyword)),
+    )
+    const start = (options.page - 1) * options.pageSize
+    return { total: filtered.length, list: filtered.slice(start, start + options.pageSize).map((product) => structuredClone(product)) }
   }
 
   async save(record: CatalogProductRecord): Promise<CatalogProductRecord> {

@@ -53,4 +53,25 @@ describe('后台管理员认证（e2e）', () => {
     const detail = await request(app.getHttpServer()).get('/api/v1/products/p1').expect(200)
     expect(detail.body.data).toMatchObject({ blocks })
   })
+
+  it('管理员可修改商品基础信息并查询商品列表', async () => {
+    const login = await request(app.getHttpServer())
+      .post('/api/v1/admin/auth/login')
+      .send({ username: 'operator', password: 'AdminPass!2026' })
+      .expect(200)
+    const token = login.body.data.token as string
+
+    await request(app.getHttpServer())
+      .patch('/api/v1/admin/products/p1')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ priceFen: 31900, isActive: false })
+      .expect(200)
+      .expect(({ body }) => expect(body.data).toMatchObject({ id: 'p1', priceFen: 31900, isActive: false }))
+
+    await request(app.getHttpServer())
+      .get('/api/v1/admin/products?isActive=false')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200)
+      .expect(({ body }) => expect(body.data).toMatchObject({ total: 1, list: [expect.objectContaining({ id: 'p1', isActive: false })] }))
+  })
 })
