@@ -21,7 +21,7 @@ Method:jm.two.store.in.get.batch
 | timestamp | string | Y | body | 1732505563913 | 时间戳，允许5分钟内的请求 |
 | method | string | Y | body | jm.two.store.in.get | 方法名 |
 | params | object | Y | body |  |  |
-| type | integer | Y | params | 1 | 业务单据类型 一线入库:1 区间调入:2 区内调入:4 其他入库:5 |
+| type | integer | Y | params | 1 | 业务单据类型 一线入库:1 区间调入:2 退货入库:3 区内调入:4 其他入库:5 |
 | tradeNo | string | N | params | AP123456 | 业务单据号 |
 | status | number | N | params | 100 | 100：已完成 |
 | pageNo | number | N | params | 1 | 页码，不填默认为1 |
