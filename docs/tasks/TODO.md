@@ -18,9 +18,17 @@
 - **T8 · 后端与后台后续模块**（服务端首期已归档：`archive/2026-08-29-T8-服务端首期.md`）
   - [x] 购物车、地址和实名模块（身份证 AES-256-GCM 密文存储、脱敏展示与 HMAC 年度额度指纹）
   - [x] 订单预检、创建、查询、取消；服务端强制限额、实名收货人一致性和请求幂等校验（本地 mock 支付/仓库）
+  - [x] **后台管理服务端 P0 全部完成（2026-09-02，分支 `feat/admin-init`）**：管理员登录（scrypt 哈希 + IP/账号双维度失败锁定，阈值走 `ADMIN_LOGIN_MAX_FAILURES`/`ADMIN_LOGIN_LOCK_MINUTES`）+ `.env` 首次播种；商品目录持久化（新建/改价/上下架，初始未发布草稿）；内容块草稿（半成品可存）/发布（校验块类型、必填、带 `*` 宣称脚注）/版本快照/回滚上一版；订单管理（分页列表三状态并排 + 海关退单标记、详情身份证脱敏 + 状态事件流、手动 sync 按 order-flow.md 状态机收敛、取消/退款 confirm 二次确认 + 窗口校验：清关起拒 API 取消、退款≤实付不重复）；审计日志写入与分页查询；下单链路已接通 catalog 仓储（改价实时生效、下架拒单 40006）。单测 66/66、e2e 36/36、lint/build/LOCAL_TEST_MODE 冒烟全过。注意：新表 `admin_login_rate_limits`/`order_status_events` 及 orders 新字段上正式库需跑 migration:run。
   - 微信支付 sandbox → 君梦 OMS 测试环境；保税仓仅经 `WarehouseAdapter` 接入
-  - **后台管理服务端推进中（2026-08-31，`feat/admin-init`）**：商品与内容块迁移至 MySQL `catalog_products`，服务首次启动自动从现有 seed 初始化空目录；H5 `GET /products`/`GET /products/:id` 已改读已发布数据。管理员账号密码登录（scrypt 哈希 + IP/账号双维度失败锁定，阈值走 `ADMIN_LOGIN_MAX_FAILURES`/`ADMIN_LOGIN_LOCK_MINUTES`）、`.env` 首次管理员播种、JWT 守卫。商品接口：新建（POST，初始未发布草稿）、PATCH 基础信息/改价/上下架、详情块草稿保存（半成品可存）/发布（发布前校验块类型、必填字段、带 `*` 宣称脚注）/版本快照/回滚上一版、审计日志写入与分页查询。**下单链路已接通 catalog 仓储**：改价对 precheck/下单实时生效，下架商品加购/下单拒 40006。**admin 订单管理已完成（2026-09-02）**：订单分页列表（状态/关键字/时间过滤，本地+支付+仓储三状态并排、海关退单标记）、详情（身份证脱敏、状态历史事件流）、手动 sync（按 order-flow.md 状态机收敛）、取消/退款（confirm 二次确认 + 窗口校验：清关起拒 API 取消、退款≤实付不重复），mock 仓储/支付适配器补齐 pushOrder/getOrderStatus/cancelOrder/refund。单测 66/66、e2e 36/36、lint/build/LOCAL_TEST_MODE 冒烟全过。待办：管理员桌面端 `admin/`（Vue 3 + Element Plus）、JWT 独立 secret、发布事务化、首页配置（P1）、真实君梦/微信适配器接入，详见 `docs/tech/admin-backend.md`。注意：新表 `admin_login_rate_limits`/`order_status_events` 及 orders 新字段上正式库需跑 migration:run。
   - 上线前订单生产加固：MySQL 下单事务、库存预占/扣减、支付回调后仓库推送与状态补偿；同时评估 Nginx `trust proxy`、年度额度查询索引和生产密钥占位配置
+
+## 下一步计划（开发顺序）
+
+1. **T10 · 管理员桌面端 `admin/`（下一个开发任务）**：Vue 3 + Vite + TS + Element Plus（设计见 `docs/tech/admin-backend.md`）。页面 = 登录、商品管理（基础信息/价格/上下架）、详情内容块编辑器（排序/增删/草稿/发布/回滚）、订单管理（列表/详情/sync/取消退款/海关退单标记）、操作日志查看；对接 `feat/admin-init` 已就绪的 `/api/v1/admin/*` 接口
+2. `feat/admin-init` 合并回主干（admin 前端就绪后）
+3. 微信支付 sandbox 接入（等商户号核实）
+4. 君梦 OMS 测试环境接入（等 appId/appSecret/shopId/warehouseNo + 商品 goods_no）
+5. 上线加固：发布事务化、admin JWT 独立 secret、MySQL 自动备份、生产密钥配置
 
 ## 已归档
 
@@ -34,12 +42,13 @@
 
 > 2026-08-27 确认：**前期只做微信支付，支付宝暂不接入**（后期要接再评估：需单独申请支付宝商户 + 「手机网站支付」产品 + 支付宝报关接口，后端支付层已按适配层设计，届时不动业务代码）。
 
-- [ ] ICP 备案（域名 + 国内服务器；周期约 2~4 周，是支付授权目录、回调 URL、公众号绑定的前置条件，**最优先启动**）
+- [x] ICP 备案（**已完成**，2026-09-02 负责人确认）
 - [ ] 微信服务号「泽芃铭Zevon」（gh_75de7e368f9b，主体成都泽芃铭贸易有限公司）**已注册**（2026-08-27 截图确认）；待确认：①是否已做**微信认证**（mp.weixin.qq.com → 设置与开发 → 微信认证，未认证不能用于 JSAPI）②认证是否在有效期内
 - [ ] 微信支付商户号：待登录 pay.weixin.qq.com 确认是否已注册成功（2026-08-27 截图显示商户平台已关联服务号，疑似已有商户号，需登录后台核实 mchid）；成功后开通 **JSAPI 支付**产品，配置 API v3 密钥、商户证书、支付授权目录
 - [ ] 商户平台提交**海关备案信息** + 开通「自助清关」（报关前置，详见 docs/tech/payment-and-funds.md 第四节）
-- [ ] 君梦 OMS 测试环境账号与参数（appId / appSecret / shopId / warehouseNo）
-- [ ] 4 款在售商品的仓库 `goods_no` 与效期/批次属性（联系仓库商务）
+- [ ] 君梦 OMS 参数（appId / appSecret / shopId / warehouseNo）：登录**君梦客户端**获取——appId/appSecret 在「账号 → 君梦API接口对接」，shopId/warehouseNo 在「店铺管理 → 添加店铺」（文档截图见 `docs/vendor/junmeng/00-接入指南.md`）。测试环境地址与示例参数已在 `docs/vendor/junmeng/README.md`，签名算法与读接口（商品/库存查询）可先用文档示例参数联调，不必等正式账号
+- [ ] 4 款在售商品的仓库 `goods_no` 与效期/批次属性（联系仓库商务；流程 = 商品海关备案 → 备货入保税仓 → OMS 建商品档案，已与君梦客服确认 2026-09-02）
 - [ ] 综合税缴纳模式与君梦/义乌保税仓商务确认（代缴还是自缴、是否预存税金）
-- [ ] 短信服务商选型（登录手机号验证码用）
+- [ ] 短信服务：申请**签名 + 模板**（阿里云/腾讯云，用已备案域名提交，审核 1~3 天）+ 买小额测试包；后端已抽象验证码通道，届时只实现一个 adapter
+- [ ] 远程 MySQL（部署前准备）：MySQL 8 实例 + `utf8mb4` 空库 + 专用账号（非 root，仅授权本库）+ IP 白名单；**表不用手工建**，服务端 `npm run migration:run` 自动建全部表；开通后务必配置**每日自动备份**（上线后数据丢失 = 事故）
 - [x] ~~设计稿最终确认版本~~ → 2026-08-27 降级：**不阻塞开发**；首页/详情页内容后期随运营调整，走内容块数据层即可；设计规范 v0.3（色值/圆角/字号/间距）已定稿不变
