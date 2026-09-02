@@ -19,7 +19,7 @@
   - [x] 购物车、地址和实名模块（身份证 AES-256-GCM 密文存储、脱敏展示与 HMAC 年度额度指纹）
   - [x] 订单预检、创建、查询、取消；服务端强制限额、实名收货人一致性和请求幂等校验（本地 mock 支付/仓库）
   - 微信支付 sandbox → 君梦 OMS 测试环境；保税仓仅经 `WarehouseAdapter` 接入
-  - **后台管理服务端首期已完成（2026-08-31，`feat/admin-init`）**：商品与内容块迁移至 MySQL `catalog_products`，服务首次启动自动从现有 seed 初始化空目录；H5 `GET /products`/`GET /products/:id` 已改读已发布数据。新增管理员账号密码登录、`.env` 首次管理员播种、JWT 守卫，以及商品详情草稿保存/发布接口（`/admin/products/:id/draft-blocks`、`/publish`）；发布时校验内容块类型、必填字段与带 `*` 数据宣称的来源脚注。管理员桌面端 `admin/`（Vue 3 + Element Plus）、商品基础字段编辑、操作日志、首页配置和订单管理待后续分批实现，详见 `docs/tech/admin-backend.md`。
+  - **后台管理服务端推进中（2026-08-31，`feat/admin-init`）**：商品与内容块迁移至 MySQL `catalog_products`，服务首次启动自动从现有 seed 初始化空目录；H5 `GET /products`/`GET /products/:id` 已改读已发布数据。管理员账号密码登录（scrypt 哈希 + IP/账号双维度失败锁定，阈值走 `ADMIN_LOGIN_MAX_FAILURES`/`ADMIN_LOGIN_LOCK_MINUTES`）、`.env` 首次管理员播种、JWT 守卫。商品接口：新建（POST，初始未发布草稿）、PATCH 基础信息/改价/上下架、详情块草稿保存（半成品可存）/发布（发布前校验块类型、必填字段、带 `*` 宣称脚注）/版本快照/回滚上一版、审计日志写入与分页查询。**下单链路已接通 catalog 仓储**：改价对 precheck/下单实时生效，下架商品加购/下单拒 40006。单测 57/57、e2e 24/24、lint/build/LOCAL_TEST_MODE 冒烟全过（含端到端：登录→新建→改价→下架拒单→回滚→日志查询）。待办：admin 订单管理（P0-3）、管理员桌面端 `admin/`（Vue 3 + Element Plus）、JWT 独立 secret、发布事务化、首页配置（P1），详见 `docs/tech/admin-backend.md`。注意：新表 `admin_login_rate_limits` 上正式库需跑 migration:run。
   - 上线前订单生产加固：MySQL 下单事务、库存预占/扣减、支付回调后仓库推送与状态补偿；同时评估 Nginx `trust proxy`、年度额度查询索引和生产密钥占位配置
 
 ## 已归档

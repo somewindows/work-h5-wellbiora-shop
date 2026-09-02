@@ -5,6 +5,7 @@ import { BusinessException } from '../common/business.exception'
 
 import { AdminPasswordService } from './password.service'
 import { ADMIN_ACCOUNTS_REPOSITORY } from './admin-accounts.repository'
+import { ADMIN_LOGIN_RATE_LIMIT_STORE, type AdminLoginRateLimitStore } from './admin-login-rate-limit.store'
 
 export interface AdminAccountRecord {
   id: string
@@ -25,6 +26,7 @@ export class AdminAuthService {
     @Inject(ADMIN_ACCOUNTS_REPOSITORY) private readonly repository: AdminAccountsRepository,
     private readonly passwordService: AdminPasswordService,
     private readonly jwtService: JwtService,
+    @Inject(ADMIN_LOGIN_RATE_LIMIT_STORE) private readonly rateLimit: AdminLoginRateLimitStore,
   ) {}
 
   async ensureInitialAdmin(username: string, password: string): Promise<{ id: string; username: string }> {
@@ -35,12 +37,17 @@ export class AdminAuthService {
     return this.toPublicAdmin(await this.repository.create({ username, passwordHash }))
   }
 
-  async login(username: string, password: string): Promise<{ token: string; admin: { id: string; username: string } }> {
+  async login(username: string, password: string, ip: string): Promise<{ token: string; admin: { id: string; username: string } }> {
+    const rateLimitKeys = [`account:${username}`, `ip:${ip || 'unknown'}`]
+    for (const key of rateLimitKeys) await this.rateLimit.assertAllowed(key)
+
     const admin = await this.repository.findByUsername(username)
     if (!admin || !(await this.passwordService.verify(password, admin.passwordHash))) {
+      for (const key of rateLimitKeys) await this.rateLimit.recordFailure(key)
       throw new BusinessException(40101, '管理员账号或密码错误', HttpStatus.UNAUTHORIZED)
     }
 
+    for (const key of rateLimitKeys) await this.rateLimit.reset(key)
     return {
       token: await this.jwtService.signAsync({ sub: admin.id, username: admin.username, role: 'admin' }),
       admin: this.toPublicAdmin(admin),

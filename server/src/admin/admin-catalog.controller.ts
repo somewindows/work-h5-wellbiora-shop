@@ -8,6 +8,7 @@ import { SaveDraftBlocksDto } from './dto/save-draft-blocks.dto'
 import { CurrentAdmin } from './current-admin.decorator'
 import type { AdminActor } from './audit-log.service'
 import { AdminProductQueryDto } from './dto/admin-product-query.dto'
+import { CreateAdminProductDto } from './dto/create-admin-product.dto'
 import { UpdateAdminProductDto } from './dto/update-admin-product.dto'
 
 @Controller('admin/products')
@@ -25,6 +26,11 @@ export class AdminCatalogController {
     return this.adminCatalogService.getProduct(id)
   }
 
+  @Post()
+  createProduct(@Body() dto: CreateAdminProductDto, @CurrentAdmin() admin: AdminActor): Promise<CatalogProductRecord> {
+    return this.adminCatalogService.createProduct(dto, admin)
+  }
+
   @Patch(':id')
   updateProduct(@Param('id') id: string, @Body() dto: UpdateAdminProductDto, @CurrentAdmin() admin: AdminActor): Promise<CatalogProductRecord> {
     return this.adminCatalogService.updateProduct(id, dto, admin)
@@ -39,5 +45,11 @@ export class AdminCatalogController {
   @HttpCode(200)
   publishDraft(@Param('id') id: string, @CurrentAdmin() admin: AdminActor): Promise<CatalogProductRecord> {
     return this.adminCatalogService.publishDraft(id, admin)
+  }
+
+  @Post(':id/rollback')
+  @HttpCode(200)
+  rollback(@Param('id') id: string, @CurrentAdmin() admin: AdminActor): Promise<CatalogProductRecord> {
+    return this.adminCatalogService.rollback(id, admin)
   }
 }

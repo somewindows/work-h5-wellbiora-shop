@@ -1,7 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common'
 
-import { PRODUCTS } from '../catalog/catalog.seed'
-import type { Product } from '../catalog/catalog.types'
+import { CATALOG_REPOSITORY, type CatalogProductRecord, type SellableProductSource } from '../catalog/catalog.repository'
 import { BusinessException } from '../common/business.exception'
 
 import type { AddCartItemDto, UpdateCartItemDto } from './cart.dto'
@@ -22,21 +21,27 @@ export interface CartItemResponse {
 
 @Injectable()
 export class CartService {
-  constructor(@Inject(CART_REPOSITORY) private readonly repository: CartRepository) {}
+  constructor(
+    @Inject(CART_REPOSITORY) private readonly repository: CartRepository,
+    @Inject(CATALOG_REPOSITORY) private readonly products: SellableProductSource,
+  ) {}
 
   async list(userId: string): Promise<CartItemResponse[]> {
     const items = await this.repository.findByUser(userId)
-    return items.flatMap((item) => {
-      const product = this.findProduct(item.productId)
-      return product ? [this.toResponse(item, product)] : []
-    })
+    const responses: CartItemResponse[] = []
+    for (const item of items) {
+      const product = await this.products.findById(item.productId)
+      if (product) responses.push(this.toResponse(item, product))
+    }
+    return responses
   }
 
   async add(userId: string, dto: AddCartItemDto): Promise<CartItemResponse[]> {
     if (!Number.isInteger(dto.quantity) || dto.quantity < 1) {
       throw new BusinessException(40003, '商品数量必须大于 0')
     }
-    const product = this.requireProduct(dto.productId)
+    const product = await this.requireProduct(dto.productId)
+    if (!product.isActive) throw new BusinessException(40006, '商品已下架，暂不可购买')
     const existing = await this.repository.findByUserAndProduct(userId, product.id)
     const item = existing
       ? { ...existing, quantity: existing.quantity + dto.quantity }
@@ -65,17 +70,13 @@ export class CartService {
     return this.list(userId)
   }
 
-  private requireProduct(productId: string): Product {
-    const product = this.findProduct(productId)
+  private async requireProduct(productId: string) {
+    const product = await this.products.findById(productId)
     if (!product) throw new BusinessException(40404, '商品不存在', 404)
     return product
   }
 
-  private findProduct(productId: string): Product | undefined {
-    return PRODUCTS.find((product) => product.id === productId)
-  }
-
-  private toResponse(item: CartItemRecord, product: Product): CartItemResponse {
+  private toResponse(item: CartItemRecord, product: CatalogProductRecord): CartItemResponse {
     return {
       id: item.id,
       productId: product.id,
@@ -86,7 +87,7 @@ export class CartService {
       checked: item.checked,
       img: product.cardImg,
       themeLight: product.themeLight,
-      inStock: true,
+      inStock: product.isActive,
     }
   }
 }

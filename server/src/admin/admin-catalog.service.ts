@@ -5,9 +5,9 @@ import { CATALOG_REPOSITORY, type CatalogProductRecord, type CatalogRepository }
 import type { ContentBlock } from '../catalog/catalog.types'
 
 import { type AdminActor, AuditLogService } from './audit-log.service'
-import { InMemoryAuditLogRepository } from './audit-log.repository'
-import { CONTENT_VERSION_REPOSITORY, InMemoryContentVersionRepository, type ContentVersionRepository } from './content-version.repository'
+import { CONTENT_VERSION_REPOSITORY, type ContentVersionRepository } from './content-version.repository'
 import type { AdminProductQueryDto } from './dto/admin-product-query.dto'
+import type { CreateAdminProductDto } from './dto/create-admin-product.dto'
 import type { UpdateAdminProductDto } from './dto/update-admin-product.dto'
 const CONTENT_BLOCK_TYPES = new Set([
   'gallery', 'image', 'badges', 'nutrition', 'nutrition_image', 'stats', 'scenario', 'text',
@@ -18,8 +18,8 @@ const CONTENT_BLOCK_TYPES = new Set([
 export class AdminCatalogService {
   constructor(
     @Inject(CATALOG_REPOSITORY) private readonly repository: CatalogRepository,
-    @Inject(CONTENT_VERSION_REPOSITORY) private readonly history: ContentVersionRepository = new InMemoryContentVersionRepository(),
-    private readonly audit: AuditLogService = new AuditLogService(new InMemoryAuditLogRepository()),
+    @Inject(CONTENT_VERSION_REPOSITORY) private readonly history: ContentVersionRepository,
+    private readonly audit: AuditLogService,
   ) {}
 
   async getProduct(id: string): Promise<CatalogProductRecord> {
@@ -29,23 +29,54 @@ export class AdminCatalogService {
   }
 
   listProducts(query: AdminProductQueryDto): Promise<{ total: number; list: CatalogProductRecord[] }> {
-    const raw = query as unknown as { keyword?: string; isActive?: boolean | string; page?: number | string; pageSize?: number | string }
-    const page = Math.max(1, Number(raw.page) || 1)
-    const pageSize = Math.min(100, Math.max(1, Number(raw.pageSize) || 20))
-    const isActive = raw.isActive === undefined ? undefined : raw.isActive === true || raw.isActive === 'true'
-    return this.repository.findAdminPage({ keyword: raw.keyword, isActive, page, pageSize })
+    const page = Math.max(1, query.page ?? 1)
+    const pageSize = Math.min(100, Math.max(1, query.pageSize ?? 20))
+    return this.repository.findAdminPage({ keyword: query.keyword, isActive: query.isActive, page, pageSize })
+  }
+
+  async createProduct(dto: CreateAdminProductDto, actor: AdminActor): Promise<CatalogProductRecord> {
+    if (await this.repository.findById(dto.id)) throw new BusinessException(40002, '商品 ID 已存在')
+    const now = new Date()
+    const saved = await this.repository.save({
+      id: dto.id,
+      name: dto.name.trim(),
+      en: dto.en.trim(),
+      priceFen: dto.priceFen,
+      theme: dto.theme,
+      themeLight: dto.themeLight,
+      cardImg: dto.cardImg,
+      tags: dto.tags?.map((tag) => tag.trim()).filter(Boolean) ?? [],
+      spec: dto.spec,
+      flavor: dto.flavor?.trim() || undefined,
+      ingredients: dto.ingredients,
+      originCert: dto.originCert,
+      usage: dto.usage?.trim() || undefined,
+      complianceText: dto.complianceText,
+      blocks: [],
+      draftBlocks: [],
+      contentVersion: 0,
+      isActive: false,
+      goodsNo: null,
+      warehouseCode: null,
+      createdAt: now,
+      updatedAt: now,
+    })
+    await this.audit.record(actor, 'create_product', 'catalog_product', saved.id, null, this.toAuditProduct(saved))
+    return saved
   }
 
   async updateProduct(id: string, dto: UpdateAdminProductDto, actor: AdminActor): Promise<CatalogProductRecord> {
     const product = await this.getProduct(id)
+    // class-transformer 会把未提交的可选字段初始化为 undefined 的自有属性，直接展开会覆盖原值，先剔除
+    const updates = Object.fromEntries(Object.entries(dto).filter(([, value]) => value !== undefined)) as UpdateAdminProductDto
     const saved = await this.repository.save({
       ...product,
-      ...dto,
-      tags: dto.tags?.map((tag) => tag.trim()).filter(Boolean) ?? product.tags,
-      flavor: dto.flavor?.trim() || undefined,
-      usage: dto.usage?.trim() || undefined,
-      goodsNo: dto.goodsNo?.trim() || null,
-      warehouseCode: dto.warehouseCode?.trim() || null,
+      ...updates,
+      tags: updates.tags?.map((tag) => tag.trim()).filter(Boolean) ?? product.tags,
+      flavor: updates.flavor === undefined ? product.flavor : updates.flavor.trim() || undefined,
+      usage: updates.usage === undefined ? product.usage : updates.usage.trim() || undefined,
+      goodsNo: updates.goodsNo === undefined ? product.goodsNo : updates.goodsNo.trim() || null,
+      warehouseCode: updates.warehouseCode === undefined ? product.warehouseCode : updates.warehouseCode.trim() || null,
     })
     await this.audit.record(actor, 'update_product', 'catalog_product', id, this.toAuditProduct(product), this.toAuditProduct(saved))
     return saved
@@ -53,12 +84,12 @@ export class AdminCatalogService {
 
   async saveDraftBlocks(id: string, blocks: ContentBlock[]): Promise<CatalogProductRecord> {
     await this.getProduct(id)
-    this.validateBlocks(blocks)
+    this.validateDraftBlocks(blocks)
     await this.repository.saveDraftBlocks(id, blocks)
     return this.getProduct(id)
   }
 
-  async publishDraft(id: string, actor: AdminActor = { id: 'system', username: 'system' }): Promise<CatalogProductRecord> {
+  async publishDraft(id: string, actor: AdminActor): Promise<CatalogProductRecord> {
     const product = await this.getProduct(id)
     this.validateBlocks(product.draftBlocks)
     await this.saveVersionIfMissing(product, actor)
@@ -69,9 +100,42 @@ export class AdminCatalogService {
     return published
   }
 
-  private validateBlocks(blocks: ContentBlock[]): void {
+  async rollback(id: string, actor: AdminActor): Promise<CatalogProductRecord> {
+    const product = await this.getProduct(id)
+    const previous = product.contentVersion > 1
+      ? await this.history.findByProductAndVersion(id, product.contentVersion - 1)
+      : null
+    if (!previous) throw new BusinessException(40002, '没有可回滚的上一发布版本')
+    const saved = await this.repository.save({
+      ...product,
+      blocks: structuredClone(previous.blocks),
+      draftBlocks: structuredClone(previous.blocks),
+      contentVersion: product.contentVersion + 1,
+    })
+    await this.history.save({ productId: id, version: saved.contentVersion, blocks: saved.blocks, createdBy: actor.id })
+    await this.audit.record(
+      actor, 'rollback', 'catalog_product', id,
+      { contentVersion: product.contentVersion, blocks: product.blocks },
+      { contentVersion: saved.contentVersion, blocks: saved.blocks },
+    )
+    return saved
+  }
+
+  /** 草稿只校验块结构基本完整（对象 + 合法 type），允许保存半成品；完整校验在发布时进行。 */
+  private validateDraftBlocks(blocks: ContentBlock[]): void {
     for (const block of blocks) {
-      if (!CONTENT_BLOCK_TYPES.has(block.type)) throw new BusinessException(42201, `不支持的内容块类型：${block.type}`, HttpStatus.UNPROCESSABLE_ENTITY)
+      if (!block || typeof block !== 'object' || typeof block.type !== 'string') {
+        throw new BusinessException(42201, '内容块缺少 type 字段', HttpStatus.UNPROCESSABLE_ENTITY)
+      }
+      if (!CONTENT_BLOCK_TYPES.has(block.type)) {
+        throw new BusinessException(42201, `不支持的内容块类型：${block.type}`, HttpStatus.UNPROCESSABLE_ENTITY)
+      }
+    }
+  }
+
+  private validateBlocks(blocks: ContentBlock[]): void {
+    this.validateDraftBlocks(blocks)
+    for (const block of blocks) {
       this.validateRequiredFields(block)
       if (this.hasClaimMarker(block) && !this.isNonEmptyString(block.note)) {
         throw new BusinessException(42201, '带 * 的数据宣称必须填写来源脚注', HttpStatus.UNPROCESSABLE_ENTITY)

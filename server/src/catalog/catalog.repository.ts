@@ -17,7 +17,12 @@ export interface CatalogProductRecord extends ProductDetail {
   updatedAt: Date
 }
 
-export interface CatalogRepository {
+/** 加购/下单链路所需的只读商品视图：价格与上下架状态以 catalog 当前记录为准。 */
+export interface SellableProductSource {
+  findById(id: string): Promise<CatalogProductRecord | null>
+}
+
+export interface CatalogRepository extends SellableProductSource {
   count(): Promise<number>
   seed(products: ProductDetail[]): Promise<void>
   findAllPublished(): Promise<Product[]>

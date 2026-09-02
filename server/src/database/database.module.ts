@@ -14,6 +14,7 @@ import { AdminAccountEntity } from '../admin/admin-account.entity'
 import { CatalogProductEntity } from '../catalog/catalog-product.entity'
 import { AuditLogEntity } from '../admin/audit-log.entity'
 import { ContentVersionEntity } from '../admin/content-version.entity'
+import { AdminLoginRateLimitEntity } from '../admin/admin-login-rate-limit.entity'
 import { isInMemoryStorage } from '../common/runtime-mode'
 
 @Module({})
@@ -34,7 +35,7 @@ export class DatabaseModule {
             username: config.get<string>('MYSQL_USER', 'wellbiora'),
             password: config.get<string>('MYSQL_PASSWORD', ''),
             database: config.get<string>('MYSQL_DATABASE', 'wellbiora_shop'),
-            entities: [UserEntity, SmsVerificationCodeEntity, SmsIpRateLimitEntity, CartItemEntity, AddressEntity, RealnameProfileEntity, OrderEntity, OrderItemEntity, AdminAccountEntity, CatalogProductEntity, AuditLogEntity, ContentVersionEntity],
+            entities: [UserEntity, SmsVerificationCodeEntity, SmsIpRateLimitEntity, CartItemEntity, AddressEntity, RealnameProfileEntity, OrderEntity, OrderItemEntity, AdminAccountEntity, CatalogProductEntity, AuditLogEntity, ContentVersionEntity, AdminLoginRateLimitEntity],
             synchronize: false,
           }),
         }),
