@@ -55,10 +55,12 @@ export class OrderService {
       totalFen: prepared.totalFen, realnameName: prepared.realname.name, idcardEncrypted: prepared.realname.idcardEncrypted,
       idcardFingerprint: prepared.realname.idcardFingerprint, receiverName: prepared.address.name, receiverPhone: prepared.address.phone,
       receiverRegion: prepared.address.region, receiverDetail: prepared.address.detail, paidAt: null, cancelledAt: null,
+      systemRemark: null, refundFen: null, refundedAt: null,
     })
     await this.orderRepository.saveOrder(order)
     await this.orderRepository.saveItems(prepared.items.map((item) => this.orderRepository.createItem({ orderId: order.id, ...item })))
     for (const cartItem of prepared.cartItems) await this.cartRepository.remove(cartItem)
+    await this.orderRepository.recordStatusEvent({ orderId: order.id, fromStatus: null, toStatus: 'pay', source: 'user', remark: '用户提交订单' })
     return { orderNo, payParams: this.paymentAdapter.createPayParams(orderNo) }
   }
 
@@ -78,6 +80,7 @@ export class OrderService {
       throw new BusinessException(40002, '当前订单状态不支持取消，请联系客服处理')
     }
     const saved = await this.orderRepository.saveOrder({ ...order, status: 'cancelled', cancelledAt: new Date() })
+    await this.orderRepository.recordStatusEvent({ orderId: order.id, fromStatus: order.status, toStatus: 'cancelled', source: 'user', remark: '用户取消订单' })
     return this.toResponse(saved)
   }
 
@@ -93,9 +96,11 @@ export class OrderService {
     }
     const order = await this.requireOrder(userId, orderNo)
     if (order.status !== 'pay') throw new BusinessException(40002, '当前订单不能确认支付')
+    await this.warehouse.pushOrder(order.orderNo)
     const saved = await this.orderRepository.saveOrder({
       ...order, status: 'ship', paymentStatus: 'paid', warehouseStatus: 'local-accepted', paidAt: new Date(),
     })
+    await this.orderRepository.recordStatusEvent({ orderId: order.id, fromStatus: 'pay', toStatus: 'ship', source: 'system', remark: '本地 mock 支付成功' })
     return this.toResponse(saved)
   }
 

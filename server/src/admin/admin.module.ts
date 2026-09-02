@@ -1,4 +1,4 @@
-import { DynamicModule, Module } from '@nestjs/common'
+import { DynamicModule, Global, Module } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { TypeOrmModule } from '@nestjs/typeorm'
 import { DataSource } from 'typeorm'
@@ -24,11 +24,13 @@ import { AdminAuthService } from './admin-auth.service'
 import { InitialAdminBootstrapService } from './initial-admin-bootstrap.service'
 import { AdminPasswordService } from './password.service'
 
+@Global()
 @Module({})
 export class AdminModule {
   static register(): DynamicModule {
     const isTest = isInMemoryStorage()
     return {
+      global: true,
       module: AdminModule,
       imports: isTest ? [AuthModule] : [AuthModule, TypeOrmModule.forFeature([AdminAccountEntity, AuditLogEntity, ContentVersionEntity, AdminLoginRateLimitEntity])],
       controllers: [AdminAuthController, AdminCatalogController, AdminAuditLogController],
@@ -54,6 +56,8 @@ export class AdminModule {
           },
         },
       ],
+      // 全局导出给订单等模块复用（管理员鉴权守卫 + 审计日志）
+      exports: [AuditLogService, AdminJwtAuthGuard, AUDIT_LOG_REPOSITORY],
     }
   }
 }
