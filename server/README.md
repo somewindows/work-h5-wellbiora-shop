@@ -37,7 +37,7 @@ npm run migration:run
 npm run start:dev
 ```
 
-服务端默认监听 `http://localhost:3000`，H5 接口前缀为 `/api/v1`。开发阶段验证码只写入服务端日志，HTTP 响应不会返回验证码；验证码、错误次数和发送限频均持久化在 MySQL。
+服务端默认监听 `http://localhost:4000`（本机 3000 曾被其他项目占用，可用 `PORT` 覆盖），H5 接口前缀为 `/api/v1`。开发阶段验证码只写入服务端日志，HTTP 响应不会返回验证码；验证码、错误次数和发送限频均持久化在 MySQL。
 
 ### 浏览器手工验证路径
 

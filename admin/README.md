@@ -14,7 +14,7 @@ npm install
 npm run dev        # http://localhost:5174
 ```
 
-- dev 通过 vite proxy 把 `/api` 转发到 `http://localhost:3000`，**无需改动服务端 CORS**。
+- dev 通过 vite proxy 把 `/api` 转发到 `http://localhost:4000`，**无需改动服务端 CORS**。
 - 需先启动服务端（见 `server/README.md`；本地无 Docker 可用 `LOCAL_TEST_MODE=1` 内存模式）。
 
 其他脚本：
@@ -58,6 +58,6 @@ admin/
 │   ├── types/           # 与服务端 DTO 对齐的类型
 │   ├── utils/           # format（金额/日期）、status（状态映射）、block（块工具）、session；含 vitest 单测
 │   └── views/           # Login / products / orders / AuditLog
-├── vite.config.ts       # 端口 5174，/api → localhost:3000，@ → src，vitest 配置
+├── vite.config.ts       # 端口 5174，/api → localhost:4000，@ → src，vitest 配置
 └── tsconfig.json
 ```

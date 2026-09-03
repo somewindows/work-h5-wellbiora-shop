@@ -16,7 +16,7 @@ export default defineConfig({
     proxy: {
       '/api': {
         // 用 127.0.0.1 而非 localhost：曾有其他项目的 dev server 抢占 ::1:3000（localhost 优先解析 IPv6 回环），导致请求打错服务
-        target: 'http://127.0.0.1:3000',
+        target: 'http://127.0.0.1:4000',
         changeOrigin: true,
       },
     },
