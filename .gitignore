@@ -11,6 +11,7 @@ dist/
 # 本地环境配置
 .env
 .env.local
+.env.*.local
 
 # QA 截图产物与本地字体构建环境（frontend/）
 frontend/qa/
