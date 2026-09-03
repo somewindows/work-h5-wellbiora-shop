@@ -13,7 +13,7 @@ const COMPLIANCE_TEXT =
 
 export const MOCK_PRODUCTS: Product[] = [
   {
-    id: 'p1',
+    id: 'WB10001',
     name: '脂质体谷胱甘肽饮',
     en: 'Liposomal Glutathione',
     priceFen: 32900,
@@ -28,7 +28,7 @@ export const MOCK_PRODUCTS: Product[] = [
     usage: '每日 1 袋，直接饮用或加入饮品',
   },
   {
-    id: 'p2',
+    id: 'WB10002',
     name: '脂质体维生素C饮',
     en: 'Liposomal Vitamin C',
     priceFen: 25900,
@@ -42,7 +42,7 @@ export const MOCK_PRODUCTS: Product[] = [
     originCert: '欧洲制造 · GMP 生产规范',
   },
   {
-    id: 'p3',
+    id: 'WB10003',
     name: '脂质体睡眠喷雾',
     en: 'Liposomal Sleep Spray',
     priceFen: 28900,
@@ -56,7 +56,7 @@ export const MOCK_PRODUCTS: Product[] = [
     originCert: '欧洲制造 · GMP 生产规范',
   },
   {
-    id: 'p4',
+    id: 'WB10004',
     name: '脂质体D3+K2+Q10饮',
     en: 'Liposomal D3+K2+Q10',
     priceFen: 29900,
@@ -72,7 +72,7 @@ export const MOCK_PRODUCTS: Product[] = [
 ]
 
 export const MOCK_PRODUCT_DETAILS: Record<string, ProductDetail> = {
-  p1: {
+  WB10001: {
     ...MOCK_PRODUCTS[0],
     complianceText: COMPLIANCE_TEXT,
     blocks: [
@@ -99,7 +99,7 @@ export const MOCK_PRODUCT_DETAILS: Record<string, ProductDetail> = {
       { type: 'image', src: '/assets/p1-rd.jpg' },
     ],
   },
-  p2: {
+  WB10002: {
     ...MOCK_PRODUCTS[1],
     complianceText: COMPLIANCE_TEXT,
     blocks: [
@@ -142,7 +142,7 @@ export const MOCK_PRODUCT_DETAILS: Record<string, ProductDetail> = {
       { type: 'image', src: '/assets/p2-chart.jpg' },
     ],
   },
-  p3: {
+  WB10003: {
     ...MOCK_PRODUCTS[2],
     complianceText: COMPLIANCE_TEXT,
     blocks: [
@@ -184,7 +184,7 @@ export const MOCK_PRODUCT_DETAILS: Record<string, ProductDetail> = {
       },
     ],
   },
-  p4: {
+  WB10004: {
     ...MOCK_PRODUCTS[3],
     complianceText: COMPLIANCE_TEXT,
     blocks: [

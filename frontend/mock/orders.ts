@@ -18,7 +18,7 @@ export const MOCK_ORDERS: Order[] = [
     status: 'pay',
     createdAt: '2026-08-25 16:12',
     items: [
-      { productId: 'p2', name: '脂质体维生素C饮', spec: '150ml（5ml × 30袋）· 香橙味', priceFen: 25900, quantity: 1, themeLight: '#FDEED2', img: '/assets/p2-main.jpg' },
+      { productId: 'WB10002', name: '脂质体维生素C饮', spec: '150ml（5ml × 30袋）· 香橙味', priceFen: 25900, quantity: 1, themeLight: '#FDEED2', img: '/assets/p2-main.jpg' },
     ],
     address: { name: '王小也', phone: '138****8888', line: '浙江省 金华市 义乌市 北苑街道 拥军路 88 号 2 栋 501 室' },
     idName: '王*也',
@@ -32,8 +32,8 @@ export const MOCK_ORDERS: Order[] = [
     status: 'ship',
     createdAt: '2026-08-23 10:05',
     items: [
-      { productId: 'p1', name: '脂质体谷胱甘肽饮', spec: '5ml × 30袋 / 盒', priceFen: 32900, quantity: 1, themeLight: '#E3F0F3', img: '/assets/p1-main.jpg' },
-      { productId: 'p3', name: '脂质体睡眠喷雾', spec: '30ml / 瓶 · 葡萄味', priceFen: 28900, quantity: 1, themeLight: '#E4E9F6', img: '/assets/p3-box.jpg' },
+      { productId: 'WB10001', name: '脂质体谷胱甘肽饮', spec: '5ml × 30袋 / 盒', priceFen: 32900, quantity: 1, themeLight: '#E3F0F3', img: '/assets/p1-main.jpg' },
+      { productId: 'WB10003', name: '脂质体睡眠喷雾', spec: '30ml / 瓶 · 葡萄味', priceFen: 28900, quantity: 1, themeLight: '#E4E9F6', img: '/assets/p3-box.jpg' },
     ],
     address: { name: '王小也', phone: '138****8888', line: '浙江省 金华市 义乌市 北苑街道 拥军路 88 号 2 栋 501 室' },
     idName: '王*也',
@@ -47,7 +47,7 @@ export const MOCK_ORDERS: Order[] = [
     status: 'recv',
     createdAt: '2026-08-20 21:40',
     items: [
-      { productId: 'p4', name: '脂质体D3+K2+Q10饮', spec: '150ml（5ml × 30袋）· 覆盆子味', priceFen: 29900, quantity: 2, themeLight: '#F0E4EB', img: '/assets/p4-main.jpg' },
+      { productId: 'WB10004', name: '脂质体D3+K2+Q10饮', spec: '150ml（5ml × 30袋）· 覆盆子味', priceFen: 29900, quantity: 2, themeLight: '#F0E4EB', img: '/assets/p4-main.jpg' },
     ],
     address: { name: '王小也', phone: '138****8888', line: '浙江省 金华市 义乌市 北苑街道 拥军路 88 号 2 栋 501 室' },
     idName: '王*也',
@@ -70,7 +70,7 @@ export const MOCK_ORDERS: Order[] = [
     status: 'done',
     createdAt: '2026-08-12 14:22',
     items: [
-      { productId: 'p2', name: '脂质体维生素C饮', spec: '150ml（5ml × 30袋）· 香橙味', priceFen: 25900, quantity: 2, themeLight: '#FDEED2', img: '/assets/p2-main.jpg' },
+      { productId: 'WB10002', name: '脂质体维生素C饮', spec: '150ml（5ml × 30袋）· 香橙味', priceFen: 25900, quantity: 2, themeLight: '#FDEED2', img: '/assets/p2-main.jpg' },
     ],
     address: { name: '王小也', phone: '138****8888', line: '浙江省 金华市 义乌市 北苑街道 拥军路 88 号 2 栋 501 室' },
     idName: '王*也',
@@ -92,7 +92,7 @@ export const MOCK_ORDERS: Order[] = [
     status: 'cancelled',
     createdAt: '2026-08-18 09:30',
     items: [
-      { productId: 'p3', name: '脂质体睡眠喷雾', spec: '30ml / 瓶 · 葡萄味', priceFen: 28900, quantity: 1, themeLight: '#E4E9F6', img: '/assets/p3-box.jpg' },
+      { productId: 'WB10003', name: '脂质体睡眠喷雾', spec: '30ml / 瓶 · 葡萄味', priceFen: 28900, quantity: 1, themeLight: '#E4E9F6', img: '/assets/p3-box.jpg' },
     ],
     address: { name: '王小也', phone: '138****8888', line: '浙江省 金华市 义乌市 北苑街道 拥军路 88 号 2 栋 501 室' },
     idName: '王*也',

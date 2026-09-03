@@ -23,15 +23,15 @@ describe('ProductsService', () => {
     const products = await service.findAll()
     expect(products).toHaveLength(4)
     expect(products[0]).toMatchObject({
-      id: 'p1',
+      id: 'WB10001',
       priceFen: 32900,
       themeLight: '#E3F0F3',
     })
   })
 
   it('返回包含内容块和合规声明的商品详情', async () => {
-    expect(await service.findOne('p2')).toMatchObject({
-      id: 'p2',
+    expect(await service.findOne('WB10002')).toMatchObject({
+      id: 'WB10002',
       complianceText: expect.stringContaining('膳食补充剂'),
       blocks: expect.arrayContaining([expect.objectContaining({ type: 'gallery' })]),
     })

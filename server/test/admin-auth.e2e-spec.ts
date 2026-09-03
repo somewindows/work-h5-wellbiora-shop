@@ -42,16 +42,16 @@ describe('后台管理员认证（e2e）', () => {
     const blocks = [{ type: 'gallery', images: ['/assets/admin-p1.jpg'] }]
 
     await request(app.getHttpServer())
-      .put('/api/v1/admin/products/p1/draft-blocks')
+      .put('/api/v1/admin/products/WB10001/draft-blocks')
       .set('Authorization', `Bearer ${token}`)
       .send({ blocks })
       .expect(200)
     await request(app.getHttpServer())
-      .post('/api/v1/admin/products/p1/publish')
+      .post('/api/v1/admin/products/WB10001/publish')
       .set('Authorization', `Bearer ${token}`)
       .expect(200)
 
-    const detail = await request(app.getHttpServer()).get('/api/v1/products/p1').expect(200)
+    const detail = await request(app.getHttpServer()).get('/api/v1/products/WB10001').expect(200)
     expect(detail.body.data).toMatchObject({ blocks })
   })
 
@@ -63,16 +63,16 @@ describe('后台管理员认证（e2e）', () => {
     const token = login.body.data.token as string
 
     await request(app.getHttpServer())
-      .patch('/api/v1/admin/products/p1')
+      .patch('/api/v1/admin/products/WB10001')
       .set('Authorization', `Bearer ${token}`)
       .send({ priceFen: 31900, isActive: false })
       .expect(200)
-      .expect(({ body }) => expect(body.data).toMatchObject({ id: 'p1', priceFen: 31900, isActive: false }))
+      .expect(({ body }) => expect(body.data).toMatchObject({ id: 'WB10001', priceFen: 31900, isActive: false }))
 
     await request(app.getHttpServer())
       .get('/api/v1/admin/products?isActive=false')
       .set('Authorization', `Bearer ${token}`)
       .expect(200)
-      .expect(({ body }) => expect(body.data).toMatchObject({ total: 1, list: [expect.objectContaining({ id: 'p1', isActive: false })] }))
+      .expect(({ body }) => expect(body.data).toMatchObject({ total: 1, list: [expect.objectContaining({ id: 'WB10001', isActive: false })] }))
   })
 })

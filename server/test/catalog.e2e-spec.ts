@@ -29,11 +29,11 @@ describe('商品与首页接口（e2e）', () => {
 
   it('返回四个商品和完整详情', async () => {
     const list = await request(app.getHttpServer()).get('/api/v1/products').expect(200)
-    const detail = await request(app.getHttpServer()).get('/api/v1/products/p2').expect(200)
+    const detail = await request(app.getHttpServer()).get('/api/v1/products/WB10002').expect(200)
 
     expect(list.body.data).toHaveLength(4)
     expect(detail.body.data).toMatchObject({
-      id: 'p2',
+      id: 'WB10002',
       complianceText: expect.any(String),
       blocks: expect.arrayContaining([expect.objectContaining({ type: 'gallery' })]),
     })

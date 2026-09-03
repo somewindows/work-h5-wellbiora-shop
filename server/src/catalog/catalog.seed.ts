@@ -8,25 +8,25 @@ const COMPLIANCE_TEXT =
 
 export const PRODUCTS: Product[] = [
   {
-    id: 'p1', name: '脂质体谷胱甘肽饮', en: 'Liposomal Glutathione', priceFen: 32900,
+    id: 'WB10001', name: '脂质体谷胱甘肽饮', en: 'Liposomal Glutathione', priceFen: 32900,
     theme: '#88BDCB', themeLight: '#E3F0F3', cardImg: '/assets/p1-main.jpg',
     tags: ['跨境保税', '脂质体技术'], spec: '5ml × 30袋 / 盒', flavor: '清新口味',
     ingredients: '谷胱甘肽、大豆卵磷脂', originCert: '欧洲制造 · GMP 生产规范', usage: '每日 1 袋，直接饮用或加入饮品',
   },
   {
-    id: 'p2', name: '脂质体维生素C饮', en: 'Liposomal Vitamin C', priceFen: 25900,
+    id: 'WB10002', name: '脂质体维生素C饮', en: 'Liposomal Vitamin C', priceFen: 25900,
     theme: '#F8A818', themeLight: '#FDEED2', cardImg: '/assets/p2-main.jpg',
     tags: ['跨境保税', '每袋1000mg', '脂质体技术'], spec: '150ml（5ml × 30袋）', flavor: '香橙味',
     ingredients: '维生素C 1000mg、生物素、柑橘生物类黄酮', originCert: '欧洲制造 · GMP 生产规范',
   },
   {
-    id: 'p3', name: '脂质体睡眠喷雾', en: 'Liposomal Sleep Spray', priceFen: 28900,
+    id: 'WB10003', name: '脂质体睡眠喷雾', en: 'Liposomal Sleep Spray', priceFen: 28900,
     theme: '#082068', themeLight: '#E4E9F6', cardImg: '/assets/p3-box.jpg',
     tags: ['跨境保税', '无褪黑素配方', '脂质体技术'], spec: '30ml / 瓶', flavor: '葡萄味',
     ingredients: 'GABA、L-茶氨酸、藏红花提取物等 8 种', originCert: '欧洲制造 · GMP 生产规范',
   },
   {
-    id: 'p4', name: '脂质体D3+K2+Q10饮', en: 'Liposomal D3+K2+Q10', priceFen: 29900,
+    id: 'WB10004', name: '脂质体D3+K2+Q10饮', en: 'Liposomal D3+K2+Q10', priceFen: 29900,
     theme: '#702848', themeLight: '#F0E4EB', cardImg: '/assets/p4-main.jpg',
     tags: ['跨境保税', 'D3 4000IU', '脂质体技术'], spec: '150ml（5ml × 30袋）', flavor: '覆盆子味',
     ingredients: '维生素D3 4000IU、维生素K2(MK-7)、辅酶Q10', originCert: '欧洲制造 · GMP 生产规范',
@@ -40,7 +40,7 @@ const product = (index: number, blocks: ContentBlock[]): ProductDetail => ({
 })
 
 export const PRODUCT_DETAILS: Record<string, ProductDetail> = {
-  p1: product(0, [
+  WB10001: product(0, [
     { type: 'gallery', images: ['/assets/p1-main.jpg'] },
     { type: 'stats', items: [
       { n: '30', unit: '日', l: '每日一袋，一月一盒', d: '30-DAY SUPPLY' },
@@ -53,7 +53,7 @@ export const PRODUCT_DETAILS: Record<string, ProductDetail> = {
     { type: 'image', src: '/assets/p1-flavor.jpg' }, { type: 'image', src: '/assets/p1-usage.jpg' },
     { type: 'nutrition_image', src: '/assets/p1-nutrition.jpg' }, { type: 'image', src: '/assets/p1-rd.jpg' },
   ]),
-  p2: product(1, [
+  WB10002: product(1, [
     { type: 'gallery', images: ['/assets/p2-main.jpg'] },
     { type: 'stats', items: [
       { n: '4', unit: 'x', l: '同等剂量吸收利用提升*', d: 'BIOAVAILABILITY' },
@@ -72,7 +72,7 @@ export const PRODUCT_DETAILS: Record<string, ProductDetail> = {
     ], note: '† 营养素参考值（NRV）未制定。\n其他配料：纯化水、有机甘油、乳酸、天然橙子香料\n过敏原信息：含大豆成分' },
     { type: 'image', src: '/assets/p2-chart.jpg' },
   ]),
-  p3: product(2, [
+  WB10003: product(2, [
     { type: 'gallery', images: ['/assets/p3-box.jpg', '/assets/p3-main.jpg'] },
     { type: 'stats', items: [
       { n: '6', unit: '喷', l: '每次用量，睡前 30 分钟', d: 'PER SERVING' },
@@ -88,7 +88,7 @@ export const PRODUCT_DETAILS: Record<string, ProductDetail> = {
       ['藏红花提取物', '25mg', '†'], ['香蜂草提取物', '25mg', '†'], ['洋甘菊提取物', '25mg', '†'], ['大豆卵磷脂', '15mg', '†'],
     ], note: '† 营养素参考值（NRV）未制定。\n其他配料：纯化水、有机甘油、柠檬酸、天然葡萄香料\n过敏原信息：含大豆成分' },
   ]),
-  p4: product(3, [
+  WB10004: product(3, [
     { type: 'gallery', images: ['/assets/p4-main.jpg'] },
     { type: 'stats', items: [
       { n: '4000', unit: 'IU', l: '每袋维生素D3', d: 'VITAMIN D3' }, { n: '75', unit: 'mcg', l: '维生素K2（MK-7）', d: 'VITAMIN K2' },
@@ -108,12 +108,12 @@ export const PRODUCT_DETAILS: Record<string, ProductDetail> = {
 export const HOME_BLOCKS: ContentBlock[] = [
   { type: 'hero', badge: '保税仓直发', kick: 'Liposomal Delivery', title: '好营养，\n值得被真正吸收。', sub: '脂质体包裹每一剂营养，穿过消化过程，被身体充分利用。', tags: ['脂质体技术', '欧洲制造', '0 人工添加剂'], image: '/assets/p2-main.jpg' },
   { type: 'notice_bar', text: '义乌保税仓直发 · 跨境商品下单需实名申报 · 单笔限 ¥5000' },
-  { type: 'product_rail', title: '今日推荐', en: 'Quick Shop', productIds: ['p1', 'p2', 'p3', 'p4'] },
+  { type: 'product_rail', title: '今日推荐', en: 'Quick Shop', productIds: ['WB10001', 'WB10002', 'WB10003', 'WB10004'] },
   { type: 'stats', title: '为什么选择我们？', en: 'Why Wellbiora', items: [
     { n: '4', unit: 'x', l: '同等剂量吸收利用提升*', d: 'BIOAVAILABILITY' }, { n: '100', unit: '%', l: '植物来源成分', d: 'PLANT-BASED' },
     { n: '0', unit: '', l: '人工添加剂 · 无糖', d: 'CLEAN LABEL' }, { n: '30', unit: '日', l: '每日一份，一月一盒', d: 'DAILY PACKS' },
   ], note: '* 数据来源于品牌方提供的吸收对比研究文献，个体存在差异。' },
-  { type: 'product_grid', title: '全部产品', en: 'All Products', productIds: ['p1', 'p2', 'p3', 'p4'] },
+  { type: 'product_grid', title: '全部产品', en: 'All Products', productIds: ['WB10001', 'WB10002', 'WB10003', 'WB10004'] },
   { type: 'cert_wall', title: '品质承诺', en: 'Our Promise', items: [
     { icon: 'leaf', label: '纯素配方' }, { icon: 'dna', label: '非转基因' }, { icon: 'sugar-free', label: '无糖' },
     { icon: 'gluten-free', label: '无麸质' }, { icon: 'check-circle', label: 'GMP 规范' }, { icon: 'clock', label: '欧洲制造' },

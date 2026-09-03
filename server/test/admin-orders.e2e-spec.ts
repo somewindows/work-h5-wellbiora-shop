@@ -55,7 +55,7 @@ describe('后台订单管理（e2e）', () => {
   /** 用户侧造一单（待支付）并返回订单号 */
   const createOrder = async (): Promise<string> => {
     seq += 1
-    await request(app.getHttpServer()).post('/api/v1/cart/items').set(user()).send({ productId: 'p3', quantity: 1 }).expect(201)
+    await request(app.getHttpServer()).post('/api/v1/cart/items').set(user()).send({ productId: 'WB10003', quantity: 1 }).expect(201)
     const created = await request(app.getHttpServer()).post('/api/v1/orders').set(user()).send({ requestId: `admin-orders-e2e-${seq}` }).expect(201)
     return created.body.data.orderNo as string
   }
@@ -100,7 +100,7 @@ describe('后台订单管理（e2e）', () => {
     const detail = await request(app.getHttpServer()).get(`/api/v1/admin/orders/${orderNo}`).set(admin()).expect(200)
     expect(detail.body.data).toMatchObject({
       orderNo, status: 'pay', idName: '孙八', idcard: '110***********1234',
-      items: [expect.objectContaining({ productId: 'p3' })],
+      items: [expect.objectContaining({ productId: 'WB10003' })],
       statusEvents: [expect.objectContaining({ toStatus: 'pay', source: 'user' })],
     })
     expect(JSON.stringify(detail.body)).not.toContain('110101199001011234')

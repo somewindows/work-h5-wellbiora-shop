@@ -25,7 +25,7 @@ describe('订单接口（e2e）', () => {
   it('完成预检、创建、查询和取消待支付订单', async () => {
     const agent = request(app.getHttpServer())
     const auth = { Authorization: `Bearer ${token}` }
-    await agent.post('/api/v1/cart/items').set(auth).send({ productId: 'p1', quantity: 1 }).expect(201)
+    await agent.post('/api/v1/cart/items').set(auth).send({ productId: 'WB10001', quantity: 1 }).expect(201)
     await agent.post('/api/v1/addresses').set(auth).send({ name: '王五', phone: '13600000000', region: '浙江省 金华市 义乌市', detail: '北苑街道 1 号' }).expect(201)
     await agent.post('/api/v1/realname').set(auth).send({ name: '王五', idcard: '110101199001011234' }).expect(201)
 

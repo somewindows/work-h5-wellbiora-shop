@@ -87,20 +87,20 @@ describe('后台商品目录管理（e2e）', () => {
 
   it('改价后公开详情、购物车与预检都使用新价', async () => {
     await request(app.getHttpServer())
-      .patch('/api/v1/admin/products/p2')
+      .patch('/api/v1/admin/products/WB10002')
       .set(admin())
       .send({ priceFen: 11111 })
       .expect(200)
 
-    const detail = await request(app.getHttpServer()).get('/api/v1/products/p2').expect(200)
+    const detail = await request(app.getHttpServer()).get('/api/v1/products/WB10002').expect(200)
     expect(detail.body.data).toMatchObject({ priceFen: 11111 })
 
     const cart = await request(app.getHttpServer())
       .post('/api/v1/cart/items')
       .set(user())
-      .send({ productId: 'p2', quantity: 1 })
+      .send({ productId: 'WB10002', quantity: 1 })
       .expect(201)
-    expect(cart.body.data).toMatchObject([{ productId: 'p2', priceFen: 11111 }])
+    expect(cart.body.data).toMatchObject([{ productId: 'WB10002', priceFen: 11111 }])
 
     await request(app.getHttpServer())
       .post('/api/v1/addresses')
@@ -119,7 +119,7 @@ describe('后台商品目录管理（e2e）', () => {
 
   it('下架后禁止加购与下单', async () => {
     await request(app.getHttpServer())
-      .patch('/api/v1/admin/products/p2')
+      .patch('/api/v1/admin/products/WB10002')
       .set(admin())
       .send({ isActive: false })
       .expect(200)
@@ -127,7 +127,7 @@ describe('后台商品目录管理（e2e）', () => {
     const add = await request(app.getHttpServer())
       .post('/api/v1/cart/items')
       .set(user())
-      .send({ productId: 'p2', quantity: 1 })
+      .send({ productId: 'WB10002', quantity: 1 })
       .expect(400)
     expect(add.body).toMatchObject({ code: 40006 })
 
@@ -143,7 +143,7 @@ describe('后台商品目录管理（e2e）', () => {
 
     // 恢复上架，避免影响后续用例
     await request(app.getHttpServer())
-      .patch('/api/v1/admin/products/p2')
+      .patch('/api/v1/admin/products/WB10002')
       .set(admin())
       .send({ isActive: true, priceFen: 25900 })
       .expect(200)
@@ -174,7 +174,7 @@ describe('后台商品目录管理（e2e）', () => {
 
   it('没有上一发布版时回滚报错', async () => {
     const response = await request(app.getHttpServer())
-      .post('/api/v1/admin/products/p1/rollback')
+      .post('/api/v1/admin/products/WB10001/rollback')
       .set(admin())
       .expect(400)
     expect(response.body).toMatchObject({ code: 40002 })

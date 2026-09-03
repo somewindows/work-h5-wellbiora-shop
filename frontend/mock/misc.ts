@@ -6,7 +6,7 @@ import type { Address, CartItem, RealnameInfo, UserInfo } from '../src/types'
 export const MOCK_CART: CartItem[] = [
   {
     id: 'c1',
-    productId: 'p1',
+    productId: 'WB10001',
     name: '脂质体谷胱甘肽饮',
     spec: '5ml × 30袋 / 盒',
     priceFen: 32900,
@@ -18,7 +18,7 @@ export const MOCK_CART: CartItem[] = [
   },
   {
     id: 'c2',
-    productId: 'p3',
+    productId: 'WB10003',
     name: '脂质体睡眠喷雾',
     spec: '30ml / 瓶 · 葡萄味',
     priceFen: 28900,

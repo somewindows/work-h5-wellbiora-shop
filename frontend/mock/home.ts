@@ -15,7 +15,7 @@ export const MOCK_HOME_BLOCKS: ContentBlock[] = [
     image: '/assets/p2-main.jpg',
   },
   { type: 'notice_bar', text: '义乌保税仓直发 · 跨境商品下单需实名申报 · 单笔限 ¥5000' },
-  { type: 'product_rail', title: '今日推荐', en: 'Quick Shop', productIds: ['p1', 'p2', 'p3', 'p4'] },
+  { type: 'product_rail', title: '今日推荐', en: 'Quick Shop', productIds: ['WB10001', 'WB10002', 'WB10003', 'WB10004'] },
   {
     type: 'stats',
     title: '为什么选择我们？',
@@ -28,7 +28,7 @@ export const MOCK_HOME_BLOCKS: ContentBlock[] = [
     ],
     note: '* 数据来源于品牌方提供的吸收对比研究文献，个体存在差异。',
   },
-  { type: 'product_grid', title: '全部产品', en: 'All Products', productIds: ['p1', 'p2', 'p3', 'p4'] },
+  { type: 'product_grid', title: '全部产品', en: 'All Products', productIds: ['WB10001', 'WB10002', 'WB10003', 'WB10004'] },
   {
     type: 'cert_wall',
     title: '品质承诺',

@@ -35,34 +35,34 @@ describe('CartService', () => {
   })
 
   it('同一用户再次加入相同 SKU 时合并数量', async () => {
-    await service.add('user-1', { productId: 'p1', quantity: 1 })
-    const result = await service.add('user-1', { productId: 'p1', quantity: 2 })
+    await service.add('user-1', { productId: 'WB10001', quantity: 1 })
+    const result = await service.add('user-1', { productId: 'WB10001', quantity: 2 })
 
-    expect(result).toMatchObject([{ productId: 'p1', quantity: 3 }])
+    expect(result).toMatchObject([{ productId: 'WB10001', quantity: 3 }])
   })
 
   it('数量小于一时拒绝加入购物车', async () => {
-    await expect(service.add('user-1', { productId: 'p1', quantity: 0 })).rejects.toBeInstanceOf(BusinessException)
+    await expect(service.add('user-1', { productId: 'WB10001', quantity: 0 })).rejects.toBeInstanceOf(BusinessException)
   })
 
   it('已下架商品不允许加入购物车', async () => {
-    const product = await catalog.findById('p1')
+    const product = await catalog.findById('WB10001')
     await catalog.save({ ...product!, isActive: false })
 
-    await expect(service.add('user-1', { productId: 'p1', quantity: 1 })).rejects.toMatchObject({ code: 40006 })
+    await expect(service.add('user-1', { productId: 'WB10001', quantity: 1 })).rejects.toMatchObject({ code: 40006 })
   })
 
   it('购物车价格以 catalog 当前价为准', async () => {
-    const product = await catalog.findById('p1')
+    const product = await catalog.findById('WB10001')
     await catalog.save({ ...product!, priceFen: 12345 })
 
-    const result = await service.add('user-1', { productId: 'p1', quantity: 1 })
+    const result = await service.add('user-1', { productId: 'WB10001', quantity: 1 })
 
-    expect(result).toMatchObject([{ productId: 'p1', priceFen: 12345 }])
+    expect(result).toMatchObject([{ productId: 'WB10001', priceFen: 12345 }])
   })
 
   it('不能更新其他用户的购物车行', async () => {
-    await service.add('user-1', { productId: 'p1', quantity: 1 })
+    await service.add('user-1', { productId: 'WB10001', quantity: 1 })
 
     await expect(service.update('user-2', 'cart-1', { quantity: 2 })).rejects.toMatchObject({ code: 40404 })
   })
