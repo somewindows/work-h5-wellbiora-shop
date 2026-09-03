@@ -21,6 +21,10 @@ export class OrderEntity {
   @Column({ name: 'receiver_detail', length: 255 }) receiverDetail!: string
   @Column({ name: 'paid_at', type: 'datetime', nullable: true }) paidAt!: Date | null
   @Column({ name: 'cancelled_at', type: 'datetime', nullable: true }) cancelledAt!: Date | null
+  /** 海关/仓储侧拦截信息（如海关退单原因），原样落库 */
+  @Column({ name: 'system_remark', type: 'text', nullable: true }) systemRemark!: string | null
+  @Column({ name: 'refund_fen', type: 'int', nullable: true }) refundFen!: number | null
+  @Column({ name: 'refunded_at', type: 'datetime', nullable: true }) refundedAt!: Date | null
   @CreateDateColumn({ name: 'created_at', type: 'datetime' }) createdAt!: Date
   @UpdateDateColumn({ name: 'updated_at', type: 'datetime' }) updatedAt!: Date
 }

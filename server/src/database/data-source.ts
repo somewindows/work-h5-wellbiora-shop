@@ -4,6 +4,14 @@ import { DataSource } from 'typeorm'
 import { UserEntity } from '../users/user.entity'
 import { SmsIpRateLimitEntity } from '../auth/sms-ip-rate-limit.entity'
 import { SmsVerificationCodeEntity } from '../auth/sms-verification-code.entity'
+import { AdminAccountEntity } from '../admin/admin-account.entity'
+import { CatalogProductEntity } from '../catalog/catalog-product.entity'
+import { AuditLogEntity } from '../admin/audit-log.entity'
+import { ContentVersionEntity } from '../admin/content-version.entity'
+import { AdminLoginRateLimitEntity } from '../admin/admin-login-rate-limit.entity'
+import { OrderEntity } from '../orders/order.entity'
+import { OrderItemEntity } from '../orders/order-item.entity'
+import { OrderStatusEventEntity } from '../orders/order-event.entity'
 
 export default new DataSource({
   type: 'mysql',
@@ -12,7 +20,7 @@ export default new DataSource({
   username: process.env.MYSQL_USER ?? 'wellbiora',
   password: process.env.MYSQL_PASSWORD ?? '',
   database: process.env.MYSQL_DATABASE ?? 'wellbiora_shop',
-  entities: [UserEntity, SmsVerificationCodeEntity, SmsIpRateLimitEntity],
+  entities: [UserEntity, SmsVerificationCodeEntity, SmsIpRateLimitEntity, AdminAccountEntity, CatalogProductEntity, AuditLogEntity, ContentVersionEntity, AdminLoginRateLimitEntity, OrderEntity, OrderItemEntity, OrderStatusEventEntity],
   migrations: [`${__dirname}/migrations/*.{js,ts}`],
   synchronize: false,
 })

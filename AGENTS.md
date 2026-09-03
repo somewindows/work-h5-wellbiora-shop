@@ -16,7 +16,8 @@
 ## 二、当前仓库状态（重要）
 
 - **前端工程已建立（2026-08-27，T7）**：`frontend/`（Vue 3 + Vite + TS + Vant 4 + Tailwind 3 + Pinia + hash 路由），MVP 9 页已按 V3 原型 1:1 实现，走 mock 数据。T9 的登录路由守卫和详情图库 `themeLight` 底色透传已于 2026-08-30 完成并补充 Vitest 回归测试，剩余视觉走查。启动：`cd frontend && npm install && npm run dev`（mock 开关在 `.env.development` 的 `VITE_USE_MOCK=1`）。
-- **后端本地联调闭环已建立（2026-08-30，T8）**：`server/`（NestJS + TypeScript + TypeORM + MySQL 8），已实现统一 `/api/v1` 响应层、认证（开发短信验证码/JWT/`GET /users/me`）、首页商品、购物车、地址实名和订单预检/创建/查询/取消；验证码与限频存 MySQL，不使用 Redis。身份证号 AES-256-GCM 密文保存、HMAC 指纹用于年度额度查询；已实名用户编辑地址时仅回显脱敏号码、可留空保留原密文，局部地址更新会保留未提交字段与默认标记。支付和仓库均为仅本地的 mock 适配器，真实微信/君梦待接入。`LOCAL_TEST_MODE=1` 时全模块转为内存仓储并保留开发验证码日志，供无 Docker 的浏览器测试（重启清空数据）；该模式已与前端 `VITE_USE_MOCK=0` 代理实际启动验证，并实际跑通登录、加购、地址实名、地址修改、下单及取消订单的 API 冒烟。服务端单元 30/30、e2e 9/9、lint 和生产构建已验证通过。`admin/` 尚未创建（分支 `feat/admin-init` 已建，动工前待确认内容持久化方案与管理员账号初始化方式，见 TODO.md）。
+- **后端本地联调闭环已建立（2026-08-30，T8）**：`server/`（NestJS + TypeScript + TypeORM + MySQL 8），已实现统一 `/api/v1` 响应层、认证（开发短信验证码/JWT/`GET /users/me`）、首页商品、购物车、地址实名和订单预检/创建/查询/取消；验证码与限频存 MySQL，不使用 Redis。身份证号 AES-256-GCM 密文保存、HMAC 指纹用于年度额度查询；已实名用户编辑地址时仅回显脱敏号码、可留空保留原密文，局部地址更新会保留未提交字段与默认标记。支付和仓库均为仅本地的 mock 适配器，真实微信/君梦待接入。`LOCAL_TEST_MODE=1` 时全模块转为内存仓储并保留开发验证码日志，供无 Docker 的浏览器测试（重启清空数据）；该模式已与前端 `VITE_USE_MOCK=0` 代理实际启动验证，并实际跑通登录、加购、地址实名、地址修改、下单及取消订单的 API 冒烟。服务端单元 30/30、e2e 9/9、lint 和生产构建已验证通过。后台管理服务端 P0 已全部完成（管理员登录+限频、商品目录持久化、内容块草稿/发布/回滚、订单管理+取消退款、审计日志；下单链路已接通 catalog），已于 2026-09-03 随 `feat/admin-init` 合并回 main。注意：新表 `admin_login_rate_limits`/`order_status_events` 及 orders 新字段上正式库需跑 `migration:run`。
+- **管理后台桌面端已建立（2026-09-03，T10）**：`admin/`（Vue 3 + Vite + TS + Element Plus 全量引入 + Pinia + Vue Router，端口 5174，`/api` 代理到 `localhost:3000`），页面 = 登录、商品管理（列表/新建/基础信息编辑/上下架）、详情内容块编辑器（15 种块 schema 驱动表单 + 排序/禁用/草稿/发布/回滚 + JSON 预览）、订单管理（三状态并排/事件流/手动同步/取消/退款，全部二次确认）、操作日志查看。安全约定：admin token 只存 sessionStorage、401 自动跳登录、全项目禁 v-html、取消/退款/发布/回滚二次确认。启动：`cd admin && npm install && npm run dev`。归档见 `docs/tasks/archive/2026-09-03-T10-管理员桌面端.md`。
 - **已是 Git 仓库**（2026-08-25 初始化，默认分支 `main`），有 `.gitignore`（忽略 node_modules/dist/日志/.env 等）。
 - 仓库内容：设计/需求文档（`docs/`）、静态 HTML 高保真原型（`prototype/app/`，**V3 统一版**）、前端工程（`frontend/`）、产品图片素材、方法论沉淀（`docs/methodology/`）、一个打包归档（`H5商城原型与文档/H5商城原型与文档.zip`）。
 - 原型页直接用浏览器打开 `prototype/app/index-v2.html` 即可预览。
@@ -32,6 +33,10 @@
 
 ### 后端（`server/` 已建，持续开发）
 - Node.js + NestJS + TypeScript + MySQL 8（不使用 Redis）
+
+### 管理后台（`admin/` 已建，T10）
+- Vue 3 + Vite + TypeScript + Element Plus + Pinia + Vue Router + Axios（桌面端，不用 Vant/Tailwind）
+- token 只存 sessionStorage；全项目禁 v-html；危险操作（取消/退款/发布/回滚）一律二次确认
 
 ### 部署
 - 国内服务器 + Nginx + HTTPS + Docker
@@ -74,9 +79,15 @@ H5-shop/
 ├── server/                        # NestJS 服务端（T8 首期已建）
 │   ├── src/auth/                  # 短信验证码/JWT 登录（MySQL 验证码、用户与限频）
 │   ├── src/home/ + src/products/  # 首页内容块、商品列表/详情只读接口
+│   ├── src/admin/ + src/catalog/  # 【feat/admin-init 分支】后台管理：管理员登录/限频、商品目录持久化、内容块发布/回滚、审计日志（订单管理在 src/orders/admin-order.*）
 │   ├── src/database/              # TypeORM 数据源与 users 初始化迁移
 │   ├── test/                      # HTTP e2e 测试
 │   └── .env.example / docker-compose.yml / Dockerfile / README.md
+├── admin/                         # 管理后台桌面端（T10 已建）：登录/商品管理/内容块编辑器/订单管理/操作日志
+│   ├── src/views/                 # LoginView + products/（列表/编辑）+ orders/（列表/详情）+ AuditLogView
+│   ├── src/components/blocks/     # BlockEditor/BlockForm/blockSchemas（15 种内容块 schema 驱动表单）
+│   ├── src/api/ + src/stores/     # axios 封装（401 跳登录）+ Pinia 会话（token 存 sessionStorage）
+│   └── README.md                  # 启动步骤与默认账号说明
 ├── assets/                        # 根目录素材夹（目前为空；实际素材在 docs/wellbiora资料夹/）
 ├── .agents/skills/baoyu-design/   # vendored 原型设计 skill（勿改，升级用 npx skills update）
 └── H5商城原型与文档/H5商城原型与文档.zip   # 文档+原型打包归档
@@ -84,7 +95,7 @@ H5-shop/
 
 > 注意：设计规范文档中写的素材目录是 `assets/wellbiora/`，但实际文件在 `docs/wellbiora资料夹/`，引用时以实际路径为准。
 > 君梦接口文档已拆分：`docs/vendor/junmeng/README.md` 是索引（环境地址/签名速查/接口清单），单个接口字段表在 `docs/vendor/junmeng/api/`，枚举值在 `docs/vendor/junmeng/reference/`。docx 更新后重跑该目录下 `_extract_docx.py` + `_split.py` 重新生成。
-> 规划中（待建）：`server/`（NestJS 后端）、`admin/`（Vue 3 + Element Plus 运营后台，与 server 同服务，设计见 docs/tech/admin-backend.md）。
+> `server/`（NestJS 后端）与 `admin/`（Vue 3 + Element Plus 运营后台，设计见 docs/tech/admin-backend.md）均已建立；admin 部署时与 server 同机、Nginx 挂 `/admin/` 路径。
 
 ## 五、硬性规则（不可违反）
 

@@ -1,8 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { randomUUID } from 'node:crypto'
 
-import { PRODUCTS } from '../catalog/catalog.seed'
-import type { Product } from '../catalog/catalog.types'
+import { CATALOG_REPOSITORY, type CatalogProductRecord, type SellableProductSource } from '../catalog/catalog.repository'
 import { BusinessException } from '../common/business.exception'
 import { CART_REPOSITORY, type CartItemRecord, type CartRepository } from '../cart/cart.repository'
 import { ProfileService } from '../profile/profile.service'
@@ -37,6 +36,7 @@ export class OrderService {
     @Inject(WAREHOUSE_ADAPTER) private readonly warehouse: WarehouseAdapter,
     private readonly crypto: PersonalDataCryptoService,
     @Inject(PAYMENT_ADAPTER) private readonly paymentAdapter: PaymentAdapter,
+    @Inject(CATALOG_REPOSITORY) private readonly products: SellableProductSource,
   ) {}
 
   async precheck(userId: string): Promise<OrderPrecheck> {
@@ -55,10 +55,12 @@ export class OrderService {
       totalFen: prepared.totalFen, realnameName: prepared.realname.name, idcardEncrypted: prepared.realname.idcardEncrypted,
       idcardFingerprint: prepared.realname.idcardFingerprint, receiverName: prepared.address.name, receiverPhone: prepared.address.phone,
       receiverRegion: prepared.address.region, receiverDetail: prepared.address.detail, paidAt: null, cancelledAt: null,
+      systemRemark: null, refundFen: null, refundedAt: null,
     })
     await this.orderRepository.saveOrder(order)
     await this.orderRepository.saveItems(prepared.items.map((item) => this.orderRepository.createItem({ orderId: order.id, ...item })))
     for (const cartItem of prepared.cartItems) await this.cartRepository.remove(cartItem)
+    await this.orderRepository.recordStatusEvent({ orderId: order.id, fromStatus: null, toStatus: 'pay', source: 'user', remark: '用户提交订单' })
     return { orderNo, payParams: this.paymentAdapter.createPayParams(orderNo) }
   }
 
@@ -78,6 +80,7 @@ export class OrderService {
       throw new BusinessException(40002, '当前订单状态不支持取消，请联系客服处理')
     }
     const saved = await this.orderRepository.saveOrder({ ...order, status: 'cancelled', cancelledAt: new Date() })
+    await this.orderRepository.recordStatusEvent({ orderId: order.id, fromStatus: order.status, toStatus: 'cancelled', source: 'user', remark: '用户取消订单' })
     return this.toResponse(saved)
   }
 
@@ -93,16 +96,19 @@ export class OrderService {
     }
     const order = await this.requireOrder(userId, orderNo)
     if (order.status !== 'pay') throw new BusinessException(40002, '当前订单不能确认支付')
+    await this.warehouse.pushOrder(order.orderNo)
     const saved = await this.orderRepository.saveOrder({
       ...order, status: 'ship', paymentStatus: 'paid', warehouseStatus: 'local-accepted', paidAt: new Date(),
     })
+    await this.orderRepository.recordStatusEvent({ orderId: order.id, fromStatus: 'pay', toStatus: 'ship', source: 'system', remark: '本地 mock 支付成功' })
     return this.toResponse(saved)
   }
 
   private async prepare(userId: string): Promise<{ cartItems: CartItemRecord[]; items: OrderItemResponse[]; totalFen: number; address: { name: string; phone: string; region: string; detail: string }; realname: { name: string; idcardEncrypted: string; idcardFingerprint: string } }> {
     const cartItems = (await this.cartRepository.findByUser(userId)).filter((item) => item.checked)
     if (!cartItems.length) throw new BusinessException(40003, '请先选择要结算的商品')
-    const products = cartItems.map((item) => ({ cartItem: item, product: this.requireProduct(item.productId) }))
+    const products: { cartItem: CartItemRecord; product: CatalogProductRecord }[] = []
+    for (const cartItem of cartItems) products.push({ cartItem, product: await this.requireProduct(cartItem.productId) })
     await this.warehouse.ensureInStock(products.map(({ product }) => product.id))
     const addresses = await this.profileService.getAddresses(userId)
     const address = addresses.find((item) => item.isDefault)
@@ -125,13 +131,14 @@ export class OrderService {
     return order
   }
 
-  private requireProduct(productId: string): Product {
-    const product = PRODUCTS.find((item) => item.id === productId)
+  private async requireProduct(productId: string): Promise<CatalogProductRecord> {
+    const product = await this.products.findById(productId)
     if (!product) throw new BusinessException(40003, '商品库存不足')
+    if (!product.isActive) throw new BusinessException(40006, '商品已下架，暂不可购买')
     return product
   }
 
-  private toOrderItem(cartItem: CartItemRecord, product: Product): OrderItemResponse {
+  private toOrderItem(cartItem: CartItemRecord, product: CatalogProductRecord): OrderItemResponse {
     return { productId: product.id, name: product.name, spec: product.flavor ? `${product.spec} · ${product.flavor}` : product.spec, priceFen: product.priceFen, quantity: cartItem.quantity, img: product.cardImg, themeLight: product.themeLight }
   }
 

@@ -1,4 +1,6 @@
 import { BusinessException } from '../common/business.exception'
+import { InMemoryCatalogRepository } from '../catalog/catalog.repository'
+import { PRODUCT_DETAILS } from '../catalog/catalog.seed'
 
 import { CartService } from './cart.service'
 import type { CartRepository } from './cart.repository'
@@ -21,11 +23,15 @@ describe('CartService', () => {
       if (index >= 0) items.splice(index, 1)
     }),
   }
-  const service = new CartService(repository)
+  let catalog: InMemoryCatalogRepository
+  let service: CartService
 
-  beforeEach(() => {
+  beforeEach(async () => {
     items.splice(0)
     jest.clearAllMocks()
+    catalog = new InMemoryCatalogRepository()
+    await catalog.seed(Object.values(PRODUCT_DETAILS))
+    service = new CartService(repository, catalog)
   })
 
   it('同一用户再次加入相同 SKU 时合并数量', async () => {
@@ -37,6 +43,22 @@ describe('CartService', () => {
 
   it('数量小于一时拒绝加入购物车', async () => {
     await expect(service.add('user-1', { productId: 'p1', quantity: 0 })).rejects.toBeInstanceOf(BusinessException)
+  })
+
+  it('已下架商品不允许加入购物车', async () => {
+    const product = await catalog.findById('p1')
+    await catalog.save({ ...product!, isActive: false })
+
+    await expect(service.add('user-1', { productId: 'p1', quantity: 1 })).rejects.toMatchObject({ code: 40006 })
+  })
+
+  it('购物车价格以 catalog 当前价为准', async () => {
+    const product = await catalog.findById('p1')
+    await catalog.save({ ...product!, priceFen: 12345 })
+
+    const result = await service.add('user-1', { productId: 'p1', quantity: 1 })
+
+    expect(result).toMatchObject([{ productId: 'p1', priceFen: 12345 }])
   })
 
   it('不能更新其他用户的购物车行', async () => {

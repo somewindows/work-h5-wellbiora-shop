@@ -1,4 +1,6 @@
 import { InMemoryCartRepository } from '../cart/cart.repository'
+import { InMemoryCatalogRepository } from '../catalog/catalog.repository'
+import { PRODUCT_DETAILS } from '../catalog/catalog.seed'
 import { PersonalDataCryptoService } from '../security/personal-data-crypto.service'
 import { ProfileService } from '../profile/profile.service'
 import { InMemoryAddressRepository, InMemoryRealnameProfileRepository } from '../profile/profile.repository'
@@ -11,13 +13,16 @@ import { LocalPaymentAdapter } from './local-payment.adapter'
 describe('OrderService', () => {
   const crypto = new PersonalDataCryptoService(Buffer.alloc(32, 5).toString('base64'))
   let cart: InMemoryCartRepository
+  let catalog: InMemoryCatalogRepository
   let profile: ProfileService
   let service: OrderService
 
   beforeEach(async () => {
     cart = new InMemoryCartRepository()
+    catalog = new InMemoryCatalogRepository()
+    await catalog.seed(Object.values(PRODUCT_DETAILS))
     profile = new ProfileService(new InMemoryAddressRepository(), new InMemoryRealnameProfileRepository(), crypto)
-    service = new OrderService(cart, profile, new InMemoryOrderRepository(), new LocalWarehouseAdapter(), crypto, new LocalPaymentAdapter())
+    service = new OrderService(cart, profile, new InMemoryOrderRepository(), new LocalWarehouseAdapter(catalog), crypto, new LocalPaymentAdapter(), catalog)
     await cart.save(cart.create({ userId: 'user-1', productId: 'p1', quantity: 1, checked: true }))
     await profile.createAddress('user-1', { name: '张三', phone: '13800000000', region: '浙江省 金华市 义乌市', detail: '稠城街道 1 号' })
     await profile.saveRealname('user-1', { name: '张三', idcard: '110101199001011234' })
@@ -52,5 +57,20 @@ describe('OrderService', () => {
     const second = await service.create('user-1', { requestId: 'request-2' })
     await service.confirmMockPayment('user-1', second.orderNo)
     await expect(service.cancel('user-1', second.orderNo)).rejects.toMatchObject({ code: 40002 })
+  })
+
+  it('预检价格以 catalog 当前价为准', async () => {
+    const product = await catalog.findById('p1')
+    await catalog.save({ ...product!, priceFen: 12345 })
+
+    await expect(service.precheck('user-1')).resolves.toMatchObject({ payableFen: 12345 })
+  })
+
+  it('商品下架后拒绝预检与下单', async () => {
+    const product = await catalog.findById('p1')
+    await catalog.save({ ...product!, isActive: false })
+
+    await expect(service.precheck('user-1')).rejects.toMatchObject({ code: 40006 })
+    await expect(service.create('user-1', { requestId: 'request-off' })).rejects.toMatchObject({ code: 40006 })
   })
 })
