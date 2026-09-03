@@ -16,8 +16,9 @@ export default defineConfig({
     port: 5174,
     proxy: {
       // dev 环境代理到本地 NestJS 服务端，无需服务端改 CORS
+      // 用 127.0.0.1 而非 localhost：避免其他进程绑定 ::1:3000 时 localhost 被解析到 IPv6 回环而打错服务
       '/api': {
-        target: 'http://localhost:3000',
+        target: 'http://127.0.0.1:3000',
         changeOrigin: true,
       },
     },
