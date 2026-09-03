@@ -8,6 +8,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Loading as VanLoading, showToast } from 'vant'
 import { getProduct } from '@/api'
+import { UnauthorizedError } from '@/api/request'
 import { useCartStore } from '@/stores/cart'
 import { fenToYuan } from '@/utils/format'
 import BlockRenderer from '@/components/blocks/BlockRenderer.vue'
@@ -75,14 +76,24 @@ function goBack() {
   else router.push('/products')
 }
 
+/** 真实模式下加购/下单需要登录态；401 时引导去登录并回跳当前页 */
+function handleActionError(e: unknown, fallback: string) {
+  if (e instanceof UnauthorizedError) {
+    showToast('请先登录')
+    router.push({ name: 'login', query: { from: route.fullPath } })
+  } else {
+    showToast(fallback)
+  }
+}
+
 async function onAddCart() {
   if (!detail.value || adding.value) return
   adding.value = true
   try {
     await cart.add(detail.value.id, 1)
     showToast('已加入购物车')
-  } catch {
-    showToast('加入购物车失败，请重试')
+  } catch (e) {
+    handleActionError(e, '加入购物车失败，请重试')
   } finally {
     adding.value = false
   }
@@ -94,8 +105,8 @@ async function onBuyNow() {
   try {
     await cart.add(detail.value.id, 1)
     router.push('/checkout')
-  } catch {
-    showToast('操作失败，请重试')
+  } catch (e) {
+    handleActionError(e, '操作失败，请重试')
   } finally {
     adding.value = false
   }

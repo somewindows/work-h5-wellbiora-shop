@@ -9,6 +9,18 @@ export function getBusinessErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : '网络请求失败，请稍后重试'
 }
 
+/** 未登录或登录失效（HTTP 401）专用错误类型，页面可识别后引导去登录 */
+export class UnauthorizedError extends Error {}
+
+/** 把 axios 错误归一化为业务 Error；401 单独映射为 UnauthorizedError */
+export function toRequestError(err: unknown): Error {
+  const message = getBusinessErrorMessage(err)
+  if (axios.isAxiosError(err) && err.response?.status === 401) {
+    return new UnauthorizedError(message)
+  }
+  return new Error(message)
+}
+
 /**
  * Axios 实例：统一前缀 /api/v1，统一响应壳 { code, data, message }
  * 鉴权：登录后 JWT 放 Authorization 头
@@ -34,5 +46,5 @@ request.interceptors.response.use(
     }
     return body.data as never
   },
-  (err: unknown) => Promise.reject(new Error(getBusinessErrorMessage(err))),
+  (err: unknown) => Promise.reject(toRequestError(err)),
 )
