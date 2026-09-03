@@ -24,14 +24,15 @@
 
 ## 下一步计划（开发顺序）
 
-1. **T10 · 管理员桌面端 `admin/`（下一个开发任务）**：Vue 3 + Vite + TS + Element Plus（设计见 `docs/tech/admin-backend.md`）。页面 = 登录、商品管理（基础信息/价格/上下架）、详情内容块编辑器（排序/增删/草稿/发布/回滚）、订单管理（列表/详情/sync/取消退款/海关退单标记）、操作日志查看；对接 `feat/admin-init` 已就绪的 `/api/v1/admin/*` 接口
-2. `feat/admin-init` 合并回主干（admin 前端就绪后）
+1. ~~T10 · 管理员桌面端 `admin/`~~ **已完成**（2026-09-03，见 `archive/2026-09-03-T10-管理员桌面端.md`）：登录、商品管理、内容块编辑器、订单管理、操作日志全部就绪，对接 `/api/v1/admin/*`；type-check/单测 21/21/build 与 LOCAL_TEST_MODE API 冒烟全过
+2. `feat/admin-init` 合并回主干（admin 前端已就绪，可安排合并 + 浏览器视觉走查）
 3. 微信支付 sandbox 接入（等商户号核实）
 4. 君梦 OMS 测试环境接入（等 appId/appSecret/shopId/warehouseNo + 商品 goods_no）
 5. 上线加固：发布事务化、admin JWT 独立 secret、MySQL 自动备份、生产密钥配置
 
 ## 已归档
 
+- T10 已完成归档（2026-09-03）：`admin/` 管理员桌面端（登录/商品/内容块编辑器/订单/操作日志），见 archive/
 - T7 已完成归档（2026-08-27）：`frontend/` 工程搭建 + MVP 9 页 mock 全链路，见 archive/
 - T6 已完成归档（2026-08-26）：技术设计 5 份文档在 `docs/tech/`
 - T8 服务端首期已完成归档（2026-08-29）：`server/` NestJS 基础、认证、首页和商品接口，见 archive/
