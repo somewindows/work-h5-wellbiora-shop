@@ -9,6 +9,7 @@
 - 跨境电商 **H5 商城**：移动端网页（**不是**微信小程序），销售海外保健品。
 - 品牌：**WELLBIORA™**，主打「脂质体包裹技术」，欧洲制造。
 - 清关模式：**1210 保税备货**（义乌保税仓，未来可能扩展成都保税仓）。
+- 正式域名：**wellbiora.com.cn**（已注册，ICP 备案已完成 2026-09-04）；生产部署方案见 `docs/WELLBIORA-WindowsServer2019部署指南.md`（同域名下 `/` = H5、`/admin/` = 后台、`/api/` = 接口）。
 - 后端对接：**君梦 OMS OpenAPI 2.0**，JSON + MD5 签名（参数按 key 排序拼接 + appSecret 后转大写）。
 - 支付：**微信支付**（含海关报关接口）。
 - 在售商品 4 款（WB10001 谷胱甘肽饮 / WB10002 维C饮 / WB10003 睡眠喷雾 / WB10004 D3+K2+Q10饮），目前价格均为示例占位价。商品 ID 规范：品牌前缀 WB + 5 位递增数字（2026-09-03 由 p1~p4 规范化，见 `docs/tasks/archive/2026-09-03-商品ID规范化.md`）。
@@ -17,7 +18,7 @@
 
 - **前端工程已建立（2026-08-27，T7）**：`frontend/`（Vue 3 + Vite + TS + Vant 4 + Tailwind 3 + Pinia + hash 路由），MVP 9 页已按 V3 原型 1:1 实现，走 mock 数据。T9 的登录路由守卫和详情图库 `themeLight` 底色透传已于 2026-08-30 完成并补充 Vitest 回归测试，剩余视觉走查。启动：`cd frontend && npm install && npm run dev`（mock 开关在 `.env.development` 的 `VITE_USE_MOCK=1`；联调真实后端要新建 `.env.development.local` 设为 0——Vite 优先级 `.env.development` > `.env.local`，用 `.env.local` 覆盖不生效）。
 - **后端本地联调闭环已建立（2026-08-30，T8）**：`server/`（NestJS + TypeScript + TypeORM + MySQL 8），已实现统一 `/api/v1` 响应层、认证（开发短信验证码/JWT/`GET /users/me`）、首页商品、购物车、地址实名和订单预检/创建/查询/取消；验证码与限频存 MySQL，不使用 Redis。身份证号 AES-256-GCM 密文保存、HMAC 指纹用于年度额度查询；已实名用户编辑地址时仅回显脱敏号码、可留空保留原密文，局部地址更新会保留未提交字段与默认标记。支付和仓库均为仅本地的 mock 适配器，真实微信/君梦待接入。`LOCAL_TEST_MODE=1` 时全模块转为内存仓储并保留开发验证码日志，供无 Docker 的浏览器测试（重启清空数据）；该模式已与前端 `VITE_USE_MOCK=0` 代理实际启动验证，并实际跑通登录、加购、地址实名、地址修改、下单及取消订单的 API 冒烟。服务端单元 30/30、e2e 9/9、lint 和生产构建已验证通过。后台管理服务端 P0 已全部完成（管理员登录+限频、商品目录持久化、内容块草稿/发布/回滚、订单管理+取消退款、审计日志；下单链路已接通 catalog），已于 2026-09-03 随 `feat/admin-init` 合并回 main。注意：新表 `admin_login_rate_limits`/`order_status_events` 及 orders 新字段上正式库需跑 `migration:run`。
-- **管理后台桌面端已建立（2026-09-03，T10）**：`admin/`（Vue 3 + Vite + TS + Element Plus 全量引入 + Pinia + Vue Router，端口 5174，`/api` 代理到 `localhost:4000`），页面 = 登录、商品管理（列表/新建/基础信息编辑/上下架）、详情内容块编辑器（15 种块 schema 驱动表单 + 排序/禁用/草稿/发布/回滚 + JSON 预览）、订单管理（三状态并排/事件流/手动同步/取消/退款，全部二次确认）、操作日志查看。安全约定：admin token 只存 sessionStorage、401 自动跳登录、全项目禁 v-html、取消/退款/发布/回滚二次确认。启动：`cd admin && npm install && npm run dev`。归档见 `docs/tasks/archive/2026-09-03-T10-管理员桌面端.md`。
+- **管理后台桌面端已建立（2026-09-03，T10）**：`admin/`（Vue 3 + Vite + TS + Element Plus 全量引入 + Pinia + Vue Router，端口 5174，`/api` 代理到 `localhost:4000`），页面 = 登录、商品管理（列表/新建/基础信息编辑/上下架）、详情内容块编辑器（15 种块 schema 驱动表单 + 排序/禁用/草稿/发布/回滚 + JSON 预览）、订单管理（三状态并排/事件流/手动同步/取消/退款，全部二次确认）、操作日志查看。安全约定：admin token 只存 sessionStorage、401 自动跳登录、全项目禁 v-html、取消/退款/发布/回滚二次确认。启动：`cd admin && npm install && npm run dev`（2026-09-04 起 `vite.config.ts` 已内置 `base: '/admin/'`、router 用 `createWebHistory(import.meta.env.BASE_URL)`，dev 访问地址为 **http://localhost:5174/admin/**，与生产 Nginx `^~ /admin/` 托管一致）。归档见 `docs/tasks/archive/2026-09-03-T10-管理员桌面端.md`。
 - **已是 Git 仓库**（2026-08-25 初始化，默认分支 `main`），有 `.gitignore`（忽略 node_modules/dist/日志/.env 等）。
 - 仓库内容：设计/需求文档（`docs/`）、静态 HTML 高保真原型（`prototype/app/`，**V3 统一版**）、前端工程（`frontend/`）、产品图片素材、方法论沉淀（`docs/methodology/`）、一个打包归档（`H5商城原型与文档/H5商城原型与文档.zip`）。
 - 原型页直接用浏览器打开 `prototype/app/index-v2.html` 即可预览。
@@ -39,7 +40,7 @@
 - token 只存 sessionStorage；全项目禁 v-html；危险操作（取消/退款/发布/回滚）一律二次确认
 
 ### 部署
-- 国内服务器 + Nginx + HTTPS + Docker
+- 生产：国内 Windows Server 2019 + Nginx（静态托管 + 反代）+ 原生安装（非 Docker：Node 22 + MySQL 8.4 + NSSM 注册 Windows 服务），步骤见 `docs/WELLBIORA-WindowsServer2019部署指南.md`；前期 HTTP 跑通，接微信支付前切 HTTPS
 
 ## 四、目录结构（以实际文件为准）
 
@@ -49,6 +50,8 @@ H5-shop/
 ├── docs/
 │   ├── H5商城设计规范_WELLBIORA_v0.2.md   # 注意：文件名是 v0.2，但内容已是 v0.3，为前端开发唯一设计依据
 │   ├── WorkBuddy原型设计任务书.md          # 原型设计任务书（含 4 款产品信息表、验收清单）
+│   ├── ICP备案通过后上线推进手册.md         # 上线推进总手册（支付/海关/君梦对接清单；域名已定 wellbiora.com.cn 且备案完成）
+│   ├── WELLBIORA-WindowsServer2019部署指南.md  # 生产部署指南（原生安装非 Docker：Node/MySQL 8.4/Nginx/NSSM，同域名 / 、/admin/、/api/ 方案）
 │   ├── wellbiora资料夹/                   # 全部产品图与 Logo 素材（P1~P4 详情图 + 8 版 Logo）
 │   ├── methodology/                     # 方法论沉淀（AI原生开发流程-宝玉.md、原型验收核查清单.md）
 │   ├── 小程序参考/乐檬/                    # LemonBox 小程序参考（目前为空目录）
@@ -138,6 +141,7 @@ H5-shop/
 
 > 君梦相关细节问题已细化到 `docs/tech/junmeng-integration-notes.md` 第四节，联调前对照处理。
 
+- [x] 正式域名 = **wellbiora.com.cn**（已注册、ICP 备案已完成，2026-09-04）；上线时页面底部需展示备案号并链接工信部备案查询站
 - [ ] 君梦 OMS 测试环境账号与正式参数（appId/appSecret/shopId/warehouseNo，客户端「账号 → 君梦API接口对接」获取）
 - [x] 自建 H5 商城的 `plaformCode` = **5101960X8F**（成都泽芃铭贸易海关注册号，君梦已确认 2026-08-26）
 - [ ] `orderDeclaNo` 报关单号由谁生成；`orderNo` 弃用字段的实际传值要求

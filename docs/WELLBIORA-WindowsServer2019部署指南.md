@@ -35,7 +35,7 @@
 ```
                         用户浏览器
                             │
-                    http://你的域名（80 端口）
+                    http://wellbiora.com.cn（80 端口）
                             │
                     ┌───────▼────────┐
                     │  Nginx（80）   │  ← 静态文件 + 反向代理
@@ -110,11 +110,11 @@ D:\www\wellbiora\
 └── logs\        # 后端与 Nginx 日志
 ```
 
-### 3.3 ⚠️ 域名 ICP 备案（重要，提前办）
+### 3.3 域名 ICP 备案（✅ 已完成：wellbiora.com.cn，2026-09-04 确认）
 
-你的服务器在国内，按监管要求，**域名必须完成 ICP 备案才能开放 80/443 端口的 Web 服务**，否则运营商会封端口。备案通常需要 1~3 周（在服务器所属云厂商的备案系统提交），请立即启动、与本部署并行推进。
+域名 `wellbiora.com.cn` 已注册且 **ICP 备案已完成**，80/443 端口可合规对外开放，本节仅作背景保留。
 
-用 IP 直接访问做内部测试不受影响，但正式对外（尤其后期接微信支付——微信支付强制要求**已备案域名 + HTTPS**）必须备案完成。
+背景：国内服务器按监管要求，**域名必须完成 ICP 备案才能开放 80/443 端口的 Web 服务**，否则运营商会封端口。正式对外（尤其后期接微信支付——微信支付强制要求**已备案域名 + HTTPS**）必须备案完成。本站已满足该前提；后续上线时记得在页面底部展示备案号并链接至工信部备案查询站。
 
 ### 3.4 确认 80 端口空闲
 
@@ -336,8 +336,8 @@ npm run build
 # 应用
 NODE_ENV=production
 PORT=4000
-# 跨域来源：写你的域名（前期 HTTP），上 HTTPS 后改成 https://你的域名
-CORS_ORIGIN=http://你的域名
+# 跨域来源：前期 HTTP 用 http://wellbiora.com.cn，上 HTTPS 后改成 https://wellbiora.com.cn
+CORS_ORIGIN=http://wellbiora.com.cn
 
 # 密钥（下面 10.3 教你生成，必须替换）
 JWT_SECRET=<第1条命令生成的随机串>
@@ -412,29 +412,28 @@ Invoke-RestMethod http://127.0.0.1:4000/api/v1/home
 
 ## 十一、构建前端 frontend 和管理后台 admin
 
-### 11.1 部署前的一处代码调整（admin 挂 /admin/ 子路径所需，只做一次）
+### 11.1 admin 挂 /admin/ 子路径的代码调整（已于 2026-09-04 内置进仓库，无需再手动改）
 
-管理后台要挂在 `https://你的域名/admin/` 下运行，但代码目前是按根路径 `/` 写的，需要改两处（这是项目既定的部署方案）：
+管理后台要挂在 `https://wellbiora.com.cn/admin/` 下运行，所需的两处改动**已提交到仓库**，`git pull` 拿到最新代码后直接构建即可：
 
-**① `admin/vite.config.ts`** —— 在 `defineConfig({` 里加一行 `base`：
+**① `admin/vite.config.ts`** —— 已加 `base`：
 
 ```ts
 export default defineConfig({
-  base: '/admin/',   // ← 新增这一行：构建产物所有资源引用自动带上 /admin/ 前缀
+  base: '/admin/',   // 构建产物所有资源引用自动带上 /admin/ 前缀
   plugins: [vue()],
   // ……以下保持不变
 })
 ```
 
-**② `admin/src/router/index.ts`** —— 路由基路径同步改：
+**② `admin/src/router/index.ts`** —— 路由基路径跟随 vite base：
 
 ```ts
 // 原来：history: createWebHistory(),
-history: createWebHistory('/admin/'),
+history: createWebHistory(import.meta.env.BASE_URL),   // BASE_URL 即 vite 的 base
 ```
 
-改完可以顺手提交 git（如 `chore: 09.04-admin支持/admin/子路径部署`）。
-
+> 对本地开发的影响：dev server 访问地址变为 `http://localhost:5174/admin/`（根路径会自动跳转过去）。
 > H5 商城（frontend）**不需要**改：它用的是 hash 路由（`/#/products` 这种），放根路径直接可用。
 
 ### 11.2 构建 H5 商城
@@ -483,12 +482,12 @@ dir D:\www\wellbiora\site\admin    # 应有 index.html、assets\ 等
 notepad C:\nginx\conf\nginx.conf
 ```
 
-找到文件里默认的 `server { ... }` 块（`listen 80;` 那个），**整个替换**为下面内容（⚠️ 把两处「你的域名」换成真实域名）：
+找到文件里默认的 `server { ... }` 块（`listen 80;` 那个），**整个替换**为下面内容（域名已填好 `wellbiora.com.cn`，直接可用）：
 
 ```nginx
     server {
         listen       80;
-        server_name  你的域名;
+        server_name  wellbiora.com.cn;
 
         # ── H5 商城（根路径） ─────────────────────────────
         root  D:/www/wellbiora/site/h5;
@@ -635,11 +634,11 @@ netsh advfirewall firewall add rule name="BLOCK-4000" dir=in action=block protoc
 
 | # | 验证项 | 操作 | 预期 |
 |---|---|---|---|
-| 1 | H5 首页 | 手机/浏览器打开 `http://你的域名` | 首页正常渲染，商品数据加载 |
+| 1 | H5 首页 | 手机/浏览器打开 `http://wellbiora.com.cn` | 首页正常渲染，商品数据加载 |
 | 2 | 接口链路 | 首页能出商品即代表 `/api/v1/home` 通了 | 无 Network 报错 |
 | 3 | 登录 | 「我的」→ 手机号获取验证码 | ⚠️ 验证码会打印在后端日志（见下方命令），生产短信服务接入前先这样登录测试 |
 | 4 | 加购下单 | 详情页加购 → 结算 → 填地址实名 → 创建订单 | 全链路跑通 |
-| 5 | 管理后台 | 打开 `http://你的域名/admin/` | 登录页正常 |
+| 5 | 管理后台 | 打开 `http://wellbiora.com.cn/admin/` | 登录页正常 |
 | 6 | 管理员登录 | 用 `.env` 里 `ADMIN_INITIAL_*` 登录 | 进入后台 |
 | 7 | 后台改价/上下架 | 商品管理里编辑并发布 | H5 端刷新后生效 |
 | 8 | 服务自启 | 服务器重启一次，什么都不动 | 三个服务自动 Running，网站直接可用 |
@@ -659,12 +658,12 @@ Get-Content D:\www\wellbiora\logs\server-err.log -Tail 50
 
 ### 16.1 购买并下载证书
 
-在云厂商（阿里云/腾讯云）或证书品牌商购买 **DV 单域名证书**（几百元/年；各云厂商也提供免费 DV 证书，一年期，可先用免费版过渡）。购买时域名填 `你的域名`，按流程完成 DNS 验证后签发。
+在云厂商（阿里云/腾讯云）或证书品牌商购买 **DV 单域名证书**（几百元/年；各云厂商也提供免费 DV 证书，一年期，可先用免费版过渡）。购买时域名填 `wellbiora.com.cn`，按流程完成 DNS 验证后签发。
 
 下载证书时选择 **Nginx 类型**，得到两个文件：
 
-- `你的域名.pem`（证书链）
-- `你的域名.key`（私钥）
+- `wellbiora.com.cn.pem`（证书链）
+- `wellbiora.com.cn.key`（私钥）
 
 ### 16.2 放置证书文件
 
@@ -675,13 +674,13 @@ mkdir C:\nginx\ssl
 
 ### 16.3 修改 Nginx 配置
 
-编辑 `C:\nginx\conf\nginx.conf`，把原 `server` 块（80）的 `server_name` 部分下方**新增**一个 443 块，并把 80 改为跳转。最终两个块长这样（域名和证书文件名替换成你的）：
+编辑 `C:\nginx\conf\nginx.conf`，把原 `server` 块（80）的 `server_name` 部分下方**新增**一个 443 块，并把 80 改为跳转。最终两个块长这样（域名与证书文件名均已按 `wellbiora.com.cn` 填好；若证书下载下来的文件名不同，改成实际文件名即可）：
 
 ```nginx
     # ── HTTP：全部跳转到 HTTPS ──
     server {
         listen       80;
-        server_name  你的域名;
+        server_name  wellbiora.com.cn;
         return 301 https://$host$request_uri;
     }
 
@@ -691,10 +690,10 @@ mkdir C:\nginx\ssl
         http2        on;
         # ⚠️ `http2 on;` 需要 nginx 1.25.1+（本文推荐的 1.28 稳定版支持）。
         #    如果你的 nginx 较旧，删掉上面这行，把 listen 改成：listen 443 ssl http2;
-        server_name  你的域名;
+        server_name  wellbiora.com.cn;
 
-        ssl_certificate      C:/nginx/ssl/你的域名.pem;
-        ssl_certificate_key  C:/nginx/ssl/你的域名.key;
+        ssl_certificate      C:/nginx/ssl/wellbiora.com.cn.pem;
+        ssl_certificate_key  C:/nginx/ssl/wellbiora.com.cn.key;
         ssl_protocols        TLSv1.2 TLSv1.3;
         ssl_ciphers          HIGH:!aNULL:!MD5;
         ssl_session_cache    shared:SSL:10m;
@@ -746,13 +745,13 @@ cd C:\nginx
 
 ```powershell
 # 编辑 D:\www\wellbiora\repo\server\.env，把
-# CORS_ORIGIN=http://你的域名
+# CORS_ORIGIN=http://wellbiora.com.cn
 # 改为
-# CORS_ORIGIN=https://你的域名
+# CORS_ORIGIN=https://wellbiora.com.cn
 C:\nssm\nssm.exe restart WellbioraServer
 ```
 
-验证：浏览器打开 `https://你的域名`，地址栏出现锁图标；`http://` 访问会自动跳到 `https://`。
+验证：浏览器打开 `https://wellbiora.com.cn`，地址栏出现锁图标；`http://` 访问会自动跳到 `https://`。
 
 ### 16.5 证书每年到期续办
 
@@ -826,7 +825,7 @@ netstat -ano | findstr ":80 :4000 :3306"     # 端口监听检查
 
 环境装好后，以下事项属于业务对接，别漏：
 
-1. **域名 ICP 备案**（第三节 3.3，最优先）。
+1. ~~域名 ICP 备案~~（✅ 已完成：wellbiora.com.cn，见 3.3）。
 2. 微信支付商户号申请 + 报关接口确认（付费证书与 HTTPS 需在此之前完成）。
 3. 君梦 OMS 测试环境参数（appId/appSecret/shopId/warehouseNo）。
 4. 生产短信服务商接入（当前验证码只打印在服务端日志，仅供内部测试，不能对外运营）。
@@ -835,4 +834,4 @@ netstat -ano | findstr ":80 :4000 :3306"     # 端口监听检查
 
 ---
 
-*文档版本：2026-09-04 v1.0 · 依据仓库当前 main 分支配置编写（server 端口 4000 / 接口前缀 /api/v1 / MySQL 8.4 / 10 个数据库迁移）*
+*文档版本：2026-09-04 v1.1 · 依据仓库当前 main 分支配置编写（server 端口 4000 / 接口前缀 /api/v1 / MySQL 8.4 / 10 个数据库迁移）。v1.1：填入真实域名 wellbiora.com.cn；ICP 备案标记已完成；11.1 节 admin 子路径改动已内置进仓库代码*

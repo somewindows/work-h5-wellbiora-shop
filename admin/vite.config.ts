@@ -6,6 +6,9 @@ import { defineConfig } from 'vite'
 
 // 运营后台构建配置（桌面端，与 frontend 移动端工程互相独立）
 export default defineConfig({
+  // 生产部署挂在 /admin/ 子路径（Nginx ^~ /admin/ 托管），资源引用统一带此前缀
+  // 本地开发访问地址相应变为 http://localhost:5174/admin/
+  base: '/admin/',
   plugins: [vue()],
   resolve: {
     alias: {

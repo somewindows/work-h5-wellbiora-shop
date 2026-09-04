@@ -5,7 +5,8 @@ import { isLoggedIn } from '@/utils/session'
 const AdminLayout = () => import('@/layout/AdminLayout.vue')
 
 export const router = createRouter({
-  history: createWebHistory(),
+  // BASE_URL 跟随 vite.config.ts 的 base（/admin/），保持两处基路径一致
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
       path: '/login',
