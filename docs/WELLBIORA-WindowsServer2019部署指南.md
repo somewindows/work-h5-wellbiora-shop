@@ -67,7 +67,7 @@
 
 | # | 软件 | 版本 | 用途 | 下载地址 |
 |---|---|---|---|---|
-| 1 | **Node.js** | **22.x LTS**（x64 MSI） | 运行 NestJS 后端、构建前端 | https://nodejs.org/zh-cn |
+| 1 | **Node.js** | **v22.23.2 LTS**（x64 MSI 安装包） | 运行 NestJS 后端、构建前端 | https://nodejs.org/zh-cn |
 | 2 | **Git** | 最新版（64-bit Setup） | 拉取项目代码 | https://git-scm.com/download/win |
 | 3 | **MySQL Community Server** | **8.4.x**（MSI 安装器） | 数据库 | https://dev.mysql.com/downloads/installer/ |
 | 4 | **Nginx for Windows** | Stable 稳定版（**zip 包，不要下源码包**） | 静态托管 + 反向代理 | https://nginx.org/en/download.html |
@@ -76,7 +76,7 @@
 
 **版本说明**：
 
-- Node.js 选 22.x LTS：与项目 `@types/node ^22` 及所有依赖版本匹配。⚠️ 不要装过新的偶数非 LTS 版本（如 25/27），也不要装老的 16/18。
+- Node.js 选 **v22.23.2（22 线最新 LTS）**：与项目 `@types/node ^22` 及所有依赖版本匹配，本指南 NSSM 服务路径、验证命令也按 22 系编写。官网下载页版本下拉框里选带蓝色 **LTS** 标签的 v22.23.2（⚠️ 不要选 Current 线的 v26.x，也不要选已 EOL 的 23/25），然后在页面底部「Windows x64」区域点 **「Windows 安装程序(.msi)」** 下载，得到 `node-v22.23.2-x64.msi`。
 - MySQL 选 **8.4**：与项目开发时用的 Docker 镜像 `mysql:8.4` 完全一致，避免版本差异。下载页选「mysql-installer-community」完整安装器（几百 MB 那个）。
 - Nginx 下载 **nginx/Windows-x.x.x** 的 zip，例如 `nginx-1.28.0.zip`。
 
@@ -131,9 +131,22 @@ netstat -ano | findstr ":80 "
 
 ## 四、安装 Node.js
 
+### 4.0 确认：服务器一律用官网 .msi 安装包（不用 winget / nvm / Docker）
+
+Node.js 在 Windows 上有多种安装方式，**本指南统一用官网 `.msi` 安装包**（即第二节下载的 `node-v22.23.2-x64.msi`）。原因：
+
+| 方式 | 服务器上用不用 | 理由 |
+|---|---|---|
+| **官网 .msi** | ✅ **用这个** | 确定性安装：装完路径固定为 `C:\Program Files\nodejs\`、自动写好 PATH 环境变量，与本文 NSSM 注册服务时填的路径完全一致，排查问题、网上搜答案都能直接对上 |
+| winget | ❌ 不用 | **Windows Server 2019 默认没有 winget**（只预装在 Win10/11 桌面版和 Server 2025）。强行装需手动补 .msixbundle + VCLibs + UI.Xaml 三个依赖，多出多个安装失败点，为一个 Node.js 不值得 |
+| nvm-windows | ❌ 不用 | 多版本切换适合开发机多项目场景；生产服务器只跑本项目、版本固定 22 LTS，多一层 `nvm use` 忘执行、服务指向错版本的风险 |
+| Docker（node:xx-alpine） | ❌ 不用 | 本项目整体为原生安装方案（非容器化），引入 Docker 需 Hyper-V，架构不匹配 |
+
+一句话原则：**开发机装 Node 随意，生产服务器用 MSI**。
+
 ### 4.1 安装
 
-1. 双击下载好的 `node-v22.x.x-x64.msi`。
+1. 双击下载好的 `node-v22.23.2-x64.msi`。
 2. 勾选「I accept the terms…」→ **Next**。
 3. 安装路径保持默认 `C:\Program Files\nodejs\` → **Next**。
 4. ⚠️ 中间出现「Tools for Native Modules」页面（问是否自动装 chocolatey 和编译工具）→ **不用勾选**，直接 Next。本项目全部是纯 JS 依赖，不需要编译工具。
@@ -143,7 +156,7 @@ netstat -ano | findstr ":80 "
 ### 4.2 验证
 
 ```powershell
-node -v      # 应输出 v22.x.x
+node -v      # 应输出 v22.23.2
 npm -v       # 应输出 10.x.x
 ```
 
