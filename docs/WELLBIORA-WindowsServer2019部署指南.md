@@ -69,7 +69,7 @@
 |---|---|---|---|---|
 | 1 | **Node.js** | **v22.23.2 LTS**（x64 MSI 安装包） | 运行 NestJS 后端、构建前端 | https://nodejs.org/zh-cn |
 | 2 | **Git** | 最新版（64-bit Setup） | 拉取项目代码 | https://git-scm.com/download/win |
-| 3 | **MySQL Community Server** | **8.4.x**（MSI 安装器） | 数据库 | https://dev.mysql.com/downloads/installer/ |
+| 3 | **MySQL Community Server** | **8.4.11 LTS**（x64 MSI 安装包，约 130M） | 数据库 | https://dev.mysql.com/downloads/mysql/ |
 | 4 | **Nginx for Windows** | Stable 稳定版（**zip 包，不要下源码包**） | 静态托管 + 反向代理 | https://nginx.org/en/download.html |
 | 5 | **NSSM** | 2.24（zip 包） | 把后端和 Nginx 注册成 Windows 服务、开机自启 | https://nssm.cc/download |
 | 6 | 7-Zip（选装） | 最新 x64 | 解压 zip（系统自带能力也够用） | https://www.7-zip.org/ |
@@ -77,7 +77,7 @@
 **版本说明**：
 
 - Node.js 选 **v22.23.2（22 线最新 LTS）**：与项目 `@types/node ^22` 及所有依赖版本匹配，本指南 NSSM 服务路径、验证命令也按 22 系编写。官网下载页版本下拉框里选带蓝色 **LTS** 标签的 v22.23.2（⚠️ 不要选 Current 线的 v26.x，也不要选已 EOL 的 23/25），然后在页面底部「Windows x64」区域点 **「Windows 安装程序(.msi)」** 下载，得到 `node-v22.23.2-x64.msi`。
-- MySQL 选 **8.4**：与项目开发时用的 Docker 镜像 `mysql:8.4` 完全一致，避免版本差异。下载页选「mysql-installer-community」完整安装器（几百 MB 那个）。
+- MySQL 选 **8.4**：与项目开发时用的 Docker 镜像 `mysql:8.4` 完全一致，避免版本差异。⚠️ 下载地址是 **https://dev.mysql.com/downloads/mysql/**（MySQL Server 的下载页），**不是** `/downloads/installer/` 那个统一安装器页——统一安装器最高只出到 8.0 系列，8.1 起官方已停止提供，页面上永远看不到 8.4。进入 Server 下载页后：`Select Version` 下拉选 **8.4.11 LTS** → `Select Operating System` 选 **Microsoft Windows** → 下载第一行 **「Windows (x86, 64-bit), MSI Installer」**（129.9M，`mysql-8.4.11-winx64.msi`；不要下 ZIP Archive 和 758.9M 的 debug-test 包）→ 中途弹出登录页点 **「No thanks, just start my download.」** 直接下载，无需注册。
 - Nginx 下载 **nginx/Windows-x.x.x** 的 zip，例如 `nginx-1.28.0.zip`。
 
 ---
@@ -194,11 +194,11 @@ git --version    # 应输出 git version 2.x.x
 
 ### 6.1 安装
 
-1. 双击 `mysql-installer-community-8.4.x.msi`。
+1. 双击 `mysql-8.4.11-winx64.msi`。
 2. ⚠️ 如果提示缺少「Visual C++ 2019 Redistributable」，安装器界面会提供下载按钮，点它装好再继续。
 3. Choosing a Setup Type → 选 **「Server only」**（只装数据库服务器，不需要 Workbench 等工具）→ Next。
 4. Check Requirements → 若有黄条提示点「Execute」补齐 → Next。
-5. Installation → **Execute** → 等待完成 → Next。
+5. Installation → **Execute** → 等待完成 → Next。安装结束后会自动弹出 **MySQL Configurator**（8.1 起官方用这个配置工具替代了老统一安装器的配置环节），以下步骤 6~10 在 Configurator 界面中完成。
 6. Type and Networking：
    - Config Type: **Standalone MySQL Server**
    - 端口保持 **3306**
@@ -847,4 +847,4 @@ netstat -ano | findstr ":80 :4000 :3306"     # 端口监听检查
 
 ---
 
-*文档版本：2026-09-04 v1.1 · 依据仓库当前 main 分支配置编写（server 端口 4000 / 接口前缀 /api/v1 / MySQL 8.4 / 10 个数据库迁移）。v1.1：填入真实域名 wellbiora.com.cn；ICP 备案标记已完成；11.1 节 admin 子路径改动已内置进仓库代码*
+*文档版本：2026-09-05 v1.2 · 依据仓库当前 main 分支配置编写（server 端口 4000 / 接口前缀 /api/v1 / MySQL 8.4 / 10 个数据库迁移）。v1.1：填入真实域名 wellbiora.com.cn；ICP 备案标记已完成；11.1 节 admin 子路径改动已内置进仓库代码。v1.2：修正 MySQL 下载入口——统一安装器页只到 8.0，改为 MySQL Server 下载页（dev.mysql.com/downloads/mysql/）的 8.4.11 LTS x64 MSI（mysql-8.4.11-winx64.msi）*
