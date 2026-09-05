@@ -70,15 +70,16 @@
 | 1 | **Node.js** | **v22.23.2 LTS**（x64 MSI 安装包） | 运行 NestJS 后端、构建前端 | https://nodejs.org/zh-cn |
 | 2 | **Git** | 最新版（64-bit Setup） | 拉取项目代码 | https://git-scm.com/download/win |
 | 3 | **MySQL Community Server** | **8.4.11 LTS**（x64 MSI 安装包，约 130M） | 数据库 | https://dev.mysql.com/downloads/mysql/ |
-| 4 | **Nginx for Windows** | Stable 稳定版（**zip 包，不要下源码包**） | 静态托管 + 反向代理 | https://nginx.org/en/download.html |
-| 5 | **NSSM** | 2.24（zip 包） | 把后端和 Nginx 注册成 Windows 服务、开机自启 | https://nssm.cc/download |
+| 4 | **Nginx for Windows** | **1.30.4 稳定版**（**zip 包，不要下源码包**） | 静态托管 + 反向代理 | https://nginx.org/en/download.html |
+| 5 | **NSSM** | **2.24-101 预发布版**（zip 包，⚠️ 不要用 2014 年的老稳定版 2.24） | 把后端和 Nginx 注册成 Windows 服务、开机自启 | https://nssm.cc/download |
 | 6 | 7-Zip（选装） | 最新 x64 | 解压 zip（系统自带能力也够用） | https://www.7-zip.org/ |
 
 **版本说明**：
 
 - Node.js 选 **v22.23.2（22 线最新 LTS）**：与项目 `@types/node ^22` 及所有依赖版本匹配，本指南 NSSM 服务路径、验证命令也按 22 系编写。官网下载页版本下拉框里选带蓝色 **LTS** 标签的 v22.23.2（⚠️ 不要选 Current 线的 v26.x，也不要选已 EOL 的 23/25），然后在页面底部「Windows x64」区域点 **「Windows 安装程序(.msi)」** 下载，得到 `node-v22.23.2-x64.msi`。
 - MySQL 选 **8.4**：与项目开发时用的 Docker 镜像 `mysql:8.4` 完全一致，避免版本差异。⚠️ 下载地址是 **https://dev.mysql.com/downloads/mysql/**（MySQL Server 的下载页），**不是** `/downloads/installer/` 那个统一安装器页——统一安装器最高只出到 8.0 系列，8.1 起官方已停止提供，页面上永远看不到 8.4。进入 Server 下载页后：`Select Version` 下拉选 **8.4.11 LTS** → `Select Operating System` 选 **Microsoft Windows** → 下载第一行 **「Windows (x86, 64-bit), MSI Installer」**（129.9M，`mysql-8.4.11-winx64.msi`；不要下 ZIP Archive 和 758.9M 的 debug-test 包）→ 中途弹出登录页点 **「No thanks, just start my download.」** 直接下载，无需注册。
-- Nginx 下载 **nginx/Windows-x.x.x** 的 zip，例如 `nginx-1.28.0.zip`。
+- Nginx 选 **Stable（稳定版）**：官网下载页「Stable version」一行，点 **`nginx/Windows-x.x.x`** 链接下载 zip（当前为 1.30.4，`nginx-1.30.4.zip`）。⚠️ 不要下最上面 Mainline（主线尝鲜版）的 zip，也不要下页面下方的 Legacy（旧版）系列。
+- NSSM 选 **2.24-101 预发布版**，不要用「Latest release」的老稳定版 2.24：官网首页顶部公告明确说明 **Windows 10 / Server 2016 及更新系统**上老 2.24 有服务无法启动的 bug，须用 2017-04-26 的预发布版。下载方式：官网下载页拉到 **「Featured pre-release」** 一行，点 **`nssm 2.24-101-g897c7ad`** 链接，得到 `nssm-2.24-101-g897c7ad.zip`。
 
 ---
 
@@ -257,8 +258,8 @@ EXIT;
 
 ### 7.1 解压
 
-1. 把 `nginx-1.28.0.zip` 复制到 `C:\` 根目录。
-2. 右键 → 全部解压（或用 7-Zip），最终得到 `C:\nginx-1.28.0\`。
+1. 把 `nginx-1.30.4.zip` 复制到 `C:\` 根目录。
+2. 右键 → 全部解压（或用 7-Zip），最终得到 `C:\nginx-1.30.4\`。
 3. 重命名为 `C:\nginx\`。
 
 ⚠️ **路径必须无空格、无中文**，所以放 `C:\nginx\`，不要放「Program Files」或桌面。
@@ -293,12 +294,12 @@ cd C:\nginx
 
 NSSM（Non-Sucking Service Manager）是个单文件小工具，用来把 `node.exe` 和 `nginx.exe` 注册成 **Windows 服务**，实现：开机自启、崩溃自动拉起、服务器管理器里可启停。
 
-1. 下载 `nssm-2.24.zip` 并解压。
-2. 进入 `nssm-2.24\win64\`，把 `nssm.exe` 复制到 `C:\nssm\`（没有这个文件夹就新建一个）。
+1. 下载 `nssm-2.24-101-g897c7ad.zip`（见第二节版本说明，官网「Featured pre-release」行）并解压。
+2. 进入解压出的 `nssm-2.24-101-g897c7ad\win64\`，把 `nssm.exe` 复制到 `C:\nssm\`（没有这个文件夹就新建一个）。
 3. 验证：
 
 ```powershell
-C:\nssm\nssm.exe version    # 应输出 2.24
+C:\nssm\nssm.exe version    # 应输出 2.24-101-g897c7ad
 ```
 
 > MySQL 不需要 NSSM——MSI 安装时已经自带了 Windows 服务（`MySQL84`）。
@@ -701,7 +702,7 @@ mkdir C:\nginx\ssl
     server {
         listen       443 ssl;
         http2        on;
-        # ⚠️ `http2 on;` 需要 nginx 1.25.1+（本文推荐的 1.28 稳定版支持）。
+        # ⚠️ `http2 on;` 需要 nginx 1.25.1+（本文推荐的 1.30 稳定版支持）。
         #    如果你的 nginx 较旧，删掉上面这行，把 listen 改成：listen 443 ssl http2;
         server_name  wellbiora.com.cn;
 
@@ -847,4 +848,4 @@ netstat -ano | findstr ":80 :4000 :3306"     # 端口监听检查
 
 ---
 
-*文档版本：2026-09-05 v1.2 · 依据仓库当前 main 分支配置编写（server 端口 4000 / 接口前缀 /api/v1 / MySQL 8.4 / 10 个数据库迁移）。v1.1：填入真实域名 wellbiora.com.cn；ICP 备案标记已完成；11.1 节 admin 子路径改动已内置进仓库代码。v1.2：修正 MySQL 下载入口——统一安装器页只到 8.0，改为 MySQL Server 下载页（dev.mysql.com/downloads/mysql/）的 8.4.11 LTS x64 MSI（mysql-8.4.11-winx64.msi）*
+*文档版本：2026-09-05 v1.3 · 依据仓库当前 main 分支配置编写（server 端口 4000 / 接口前缀 /api/v1 / MySQL 8.4 / 10 个数据库迁移）。v1.1：填入真实域名 wellbiora.com.cn；ICP 备案标记已完成；11.1 节 admin 子路径改动已内置进仓库代码。v1.2：修正 MySQL 下载入口——统一安装器页只到 8.0，改为 MySQL Server 下载页（dev.mysql.com/downloads/mysql/）的 8.4.11 LTS x64 MSI（mysql-8.4.11-winx64.msi）。v1.3：Nginx 下载版本由过时示例 1.28.0 更新为当前稳定版 1.30.4（Stable 行，nginx-1.30.4.zip）；NSSM 由老稳定版 2.24 更新为 2.24-101-g897c7ad 预发布版（Win10/Server 2016+ 上老 2.24 有服务启动 bug，官网公告要求用预发布版）*
