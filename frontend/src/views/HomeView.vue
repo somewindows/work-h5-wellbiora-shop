@@ -56,6 +56,10 @@ onMounted(async () => {
         单笔交易限值 5000 元 · 个人年度交易限值 26000 元<br />
         本产品为膳食补充剂，并非药品，不能替代药物
       </div>
+      <div class="f-beian">
+        © WELLBIORA
+        <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">蜀ICP备2026051054号-1</a>
+      </div>
     </div>
 
     <TabBar />
@@ -142,5 +146,22 @@ onMounted(async () => {
   color: #a8a29a;
   line-height: 1.9;
   margin-top: 10px;
+}
+.f-beian {
+  font-size: 10px;
+  color: #a8a29a;
+  line-height: 1.9;
+  margin-top: 8px;
+}
+.f-beian a {
+  color: inherit;
+  text-decoration: none;
+  /* 可点区域不小于 44px 高度（硬性规则），上下撑热区 */
+  display: inline-block;
+  padding: 8px 4px;
+  margin: -8px -4px;
+}
+.f-beian a:active {
+  color: #033b3c;
 }
 </style>
