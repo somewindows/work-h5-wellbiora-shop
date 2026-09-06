@@ -11,10 +11,10 @@ export class UserEntity {
   @Column({ name: 'nickname', length: 64, default: 'WELLBIORA 会员' })
   nickname!: string
 
-  @Column({ name: 'wechat_open_id', length: 64, nullable: true, unique: true })
+  @Column({ name: 'wechat_open_id', type: 'varchar', length: 64, nullable: true, unique: true })
   wechatOpenId!: string | null
 
-  @Column({ name: 'union_id', length: 64, nullable: true, unique: true })
+  @Column({ name: 'union_id', type: 'varchar', length: 64, nullable: true, unique: true })
   unionId!: string | null
 
   @CreateDateColumn({ name: 'created_at', type: 'datetime' })

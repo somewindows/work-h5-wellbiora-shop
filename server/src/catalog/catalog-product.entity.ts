@@ -29,7 +29,7 @@ export class CatalogProductEntity {
   @Column({ length: 128 })
   spec!: string
 
-  @Column({ length: 128, nullable: true })
+  @Column({ type: 'varchar', length: 128, nullable: true })
   flavor!: string | null
 
   @Column({ type: 'text' })
@@ -56,10 +56,10 @@ export class CatalogProductEntity {
   @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive!: boolean
 
-  @Column({ name: 'goods_no', length: 64, nullable: true })
+  @Column({ name: 'goods_no', type: 'varchar', length: 64, nullable: true })
   goodsNo!: string | null
 
-  @Column({ name: 'warehouse_code', length: 64, nullable: true })
+  @Column({ name: 'warehouse_code', type: 'varchar', length: 64, nullable: true })
   warehouseCode!: string | null
 
   @CreateDateColumn({ name: 'created_at', type: 'datetime' })

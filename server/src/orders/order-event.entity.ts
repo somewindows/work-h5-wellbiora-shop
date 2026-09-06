@@ -6,10 +6,10 @@ import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 
 export class OrderStatusEventEntity {
   @PrimaryGeneratedColumn('uuid') id!: string
   @Column({ name: 'order_id', length: 36 }) orderId!: string
-  @Column({ name: 'from_status', length: 16, nullable: true }) fromStatus!: string | null
+  @Column({ name: 'from_status', type: 'varchar', length: 16, nullable: true }) fromStatus!: string | null
   @Column({ name: 'to_status', length: 16 }) toStatus!: string
   /** user / admin / sync / system */
   @Column({ length: 16 }) source!: string
-  @Column({ length: 255, nullable: true }) remark!: string | null
+  @Column({ type: 'varchar', length: 255, nullable: true }) remark!: string | null
   @CreateDateColumn({ name: 'created_at', type: 'datetime' }) createdAt!: Date
 }

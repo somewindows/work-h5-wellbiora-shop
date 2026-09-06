@@ -10,7 +10,7 @@ export class OrderEntity {
   @Column({ name: 'request_id', length: 64 }) requestId!: string
   @Column({ length: 16 }) status!: string
   @Column({ name: 'payment_status', length: 16 }) paymentStatus!: string
-  @Column({ name: 'warehouse_status', length: 64, nullable: true }) warehouseStatus!: string | null
+  @Column({ name: 'warehouse_status', type: 'varchar', length: 64, nullable: true }) warehouseStatus!: string | null
   @Column({ name: 'total_fen', type: 'int' }) totalFen!: number
   @Column({ name: 'realname_name', length: 20 }) realnameName!: string
   @Column({ name: 'idcard_encrypted', type: 'text' }) idcardEncrypted!: string
