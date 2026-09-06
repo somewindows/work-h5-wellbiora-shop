@@ -33,7 +33,8 @@
 - 数据流：页面只调 `src/api/`，`VITE_USE_MOCK=1` 时走 `frontend/mock/`；内容块渲染器在 `src/components/blocks/`
 
 ### 后端（`server/` 已建，持续开发）
-- Node.js + NestJS + TypeScript + MySQL 8（不使用 Redis）
+- Node.js + NestJS + TypeScript + TypeORM + MySQL 8（不使用 Redis）
+- **迁移铁律**（2026-09-06 生产首部署教训）：新增/修改迁移脚本或实体定义后，合入前必须对真实 MySQL 跑通一次 `npm run migration:run`——内存模式（LOCAL_TEST_MODE）的单元/e2e 测试不经过 TypeORM 元数据校验，查不出 MySQL 方言兼容问题（如联合类型必须显式写 `type`、MySQL 不支持 `TableUnique` 要用唯一索引 `TableIndex({ isUnique: true })`）
 
 ### 管理后台（`admin/` 已建，T10）
 - Vue 3 + Vite + TypeScript + Element Plus + Pinia + Vue Router + Axios（桌面端，不用 Vant/Tailwind）
@@ -51,7 +52,9 @@ H5-shop/
 │   ├── H5商城设计规范_WELLBIORA_v0.2.md   # 注意：文件名是 v0.2，但内容已是 v0.3，为前端开发唯一设计依据
 │   ├── WorkBuddy原型设计任务书.md          # 原型设计任务书（含 4 款产品信息表、验收清单）
 │   ├── ICP备案通过后上线推进手册.md         # 上线推进总手册（支付/海关/君梦对接清单；域名已定 wellbiora.com.cn 且备案完成）
-│   ├── WELLBIORA-WindowsServer2019部署指南.md  # 生产部署指南（原生安装非 Docker：Node/MySQL 8.4/Nginx/NSSM，同域名 / 、/admin/、/api/ 方案）
+│   ├── WELLBIORA-WindowsServer2019部署指南.md  # 生产部署指南（原生安装非 Docker：Node/MySQL 8.4/Nginx/NSSM，同域名 / 、/admin/、/api/ 方案）＝部署类文档的提纲/总入口
+│   ├── deploy/                          # 部署图解子教程（2026-09-06 新增）：按部署指南章节编号命名，如 5.Git-for-Windows安装教程.md、4.Node.js安装教程.md；
+│   │                                    #   教程内截图存 deploy/images/<主题>/NN-屏名.png（相对路径引用）；未截图的安装屏在文中标注「未截图、保持默认」，不假装配图
 │   ├── wellbiora资料夹/                   # 全部产品图与 Logo 素材（P1~P4 详情图 + 8 版 Logo）
 │   ├── methodology/                     # 方法论沉淀（AI原生开发流程-宝玉.md、原型验收核查清单.md）
 │   ├── 小程序参考/乐檬/                    # LemonBox 小程序参考（目前为空目录）
