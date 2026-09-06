@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner, Table, TableIndex, TableUnique } from 'typeorm'
+import { MigrationInterface, QueryRunner, Table, TableIndex } from 'typeorm'
 
 export class CreateCartItems1710000002000 implements MigrationInterface {
   async up(queryRunner: QueryRunner): Promise<void> {
@@ -15,7 +15,7 @@ export class CreateCartItems1710000002000 implements MigrationInterface {
       ],
     }), true)
     await queryRunner.createIndex('cart_items', new TableIndex({ name: 'IDX_cart_items_user_id', columnNames: ['user_id'] }))
-    await queryRunner.createUniqueConstraint('cart_items', new TableUnique({ name: 'UQ_cart_items_user_product', columnNames: ['user_id', 'product_id'] }))
+    await queryRunner.createIndex('cart_items', new TableIndex({ name: 'UQ_cart_items_user_product', columnNames: ['user_id', 'product_id'], isUnique: true }))
   }
 
   async down(queryRunner: QueryRunner): Promise<void> {

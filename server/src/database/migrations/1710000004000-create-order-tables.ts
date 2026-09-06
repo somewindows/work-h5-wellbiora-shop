@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner, Table, TableIndex, TableUnique } from 'typeorm'
+import { MigrationInterface, QueryRunner, Table, TableIndex } from 'typeorm'
 
 export class CreateOrderTables1710000004000 implements MigrationInterface {
   async up(queryRunner: QueryRunner): Promise<void> {
@@ -12,7 +12,7 @@ export class CreateOrderTables1710000004000 implements MigrationInterface {
       { name: 'created_at', type: 'datetime', default: 'CURRENT_TIMESTAMP' }, { name: 'updated_at', type: 'datetime', default: 'CURRENT_TIMESTAMP', onUpdate: 'CURRENT_TIMESTAMP' },
     ] }), true)
     await queryRunner.createIndex('orders', new TableIndex({ name: 'IDX_orders_user_created', columnNames: ['user_id', 'created_at'] }))
-    await queryRunner.createUniqueConstraint('orders', new TableUnique({ name: 'UQ_orders_user_request', columnNames: ['user_id', 'request_id'] }))
+    await queryRunner.createIndex('orders', new TableIndex({ name: 'UQ_orders_user_request', columnNames: ['user_id', 'request_id'], isUnique: true }))
     await queryRunner.createTable(new Table({ name: 'order_items', columns: [
       { name: 'id', type: 'varchar', length: '36', isPrimary: true }, { name: 'order_id', type: 'varchar', length: '36' }, { name: 'product_id', type: 'varchar', length: '32' },
       { name: 'name', type: 'varchar', length: '128' }, { name: 'spec', type: 'varchar', length: '128' }, { name: 'price_fen', type: 'int' }, { name: 'quantity', type: 'int' }, { name: 'img', type: 'varchar', length: '255' }, { name: 'theme_light', type: 'varchar', length: '16' },
