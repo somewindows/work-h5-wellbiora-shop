@@ -132,6 +132,8 @@ netstat -ano | findstr ":80 "
 
 ## 四、安装 Node.js
 
+> 📸 逐屏截图版教程（每一屏该勾什么、为什么）见 `deploy/4.Node.js安装教程.md`。
+
 ### 4.0 确认：服务器一律用官网 .msi 安装包（不用 winget / nvm / Docker）
 
 Node.js 在 Windows 上有多种安装方式，**本指南统一用官网 `.msi` 安装包**（即第二节下载的 `node-v22.23.2-x64.msi`）。原因：
@@ -174,6 +176,8 @@ npm config get registry    # 确认生效
 
 ## 五、安装 Git
 
+> 📸 逐屏截图版教程（每一屏该勾什么、为什么）见 `deploy/5.Git-for-Windows安装教程.md`（各章节的图解子教程统一放在 `deploy/`，按本指南章节编号命名）。
+
 ### 5.1 安装
 
 1. 双击 `Git-x.x.x-64-bit.exe`。
@@ -193,26 +197,26 @@ git --version    # 应输出 git version 2.x.x
 
 ## 六、安装 MySQL 8.4
 
+> 📸 逐屏截图版教程（每一屏该勾什么、为什么）见 `deploy/6.MySQL-8.4安装教程.md`。2026-09-06 实测提醒：8.4.11 独立 MSI 的实际界面与下列选项名略有出入（无「Server only」选项、无 Check Requirements 屏、Config Type 无「Standalone MySQL Server」），以子教程截图为准。
+
 ### 6.1 安装
 
 1. 双击 `mysql-8.4.11-winx64.msi`。
-2. ⚠️ 如果提示缺少「Visual C++ 2019 Redistributable」，安装器界面会提供下载按钮，点它装好再继续。
-3. Choosing a Setup Type → 选 **「Server only」**（只装数据库服务器，不需要 Workbench 等工具）→ Next。
-4. Check Requirements → 若有黄条提示点「Execute」补齐 → Next。
-5. Installation → **Execute** → 等待完成 → Next。安装结束后会自动弹出 **MySQL Configurator**（8.1 起官方用这个配置工具替代了老统一安装器的配置环节），以下步骤 6~10 在 Configurator 界面中完成。
-6. Type and Networking：
-   - Config Type: **Standalone MySQL Server**
+2. ⚠️ 如果双击后弹窗提示「This application requires Visual Studio 2019 x64 Redistributable」（实测该弹窗只有 OK 按钮、没有下载入口）：点 OK 退出，先手动下载安装 VC++ 运行库 https://aka.ms/vs/17/release/vc_redist.x64.exe（2015-2022 合并版，向下兼容 2019 要求），装完重新运行 MSI。
+3. Choosing a Setup Type → 选 **「Typical」**（8.4 独立安装包本身就只含数据库服务器，Typical 即等价于旧版的「Server only」）→ Next。
+4. Ready to install → **Install** → 等待完成。8.4.11 实测没有「Check Requirements」屏（环境检查在启动时自动完成）。安装结束后会自动弹出 **MySQL Configurator**（8.1 起官方用这个配置工具替代了老统一安装器的配置环节），以下步骤 5~8 在 Configurator 界面中完成。
+5. Type and Networking：
+   - Config Type: **Server Computer**（8.4 Configurator 已无旧版的「Standalone MySQL Server」选项；本机还跑 Node/Nginx，不要选独占全部内存的 Dedicated Machine）
    - 端口保持 **3306**
    - ⚠️ 不要勾选「Open Windows Firewall port for network access」——MySQL 只给本机后端用，**不需要**对外开端口（更安全）。
    - Next。
-7. Authentication Method → 保持默认 **「Use Strong Password Encryption (Caching SHA2)」** → Next。
-8. ⚠️ **Accounts and Roles：设置 root 密码**。设一个强密码（大小写+数字+符号，建议 16 位以上），**抄到你的密码本里**，丢了只能重置。→ Next。
-9. Windows Service：
+6. ⚠️ **Accounts and Roles：设置 root 密码**（8.4 Configurator 无单独的 Authentication Method 屏，密码认证方式默认即 Caching SHA-2）。设一个强密码（大小写+数字+符号，建议 16 位以上），**抄到你的密码本里**，丢了只能重置。→ Next。
+7. Windows Service：
    - Windows Service Name: 保持默认 `MySQL84`
    - ✅ 勾选 **「Start the MySQL Server at System Startup」**（开机自启，默认已勾）
    - ⚠️ 「Run MySQL Server as... Standard System Account」保持默认（不需要 NT service 账户）。
    - Next。
-10. Apply Configuration → **Execute**，全部打绿勾 → Finish → Next 到安装器退出。
+8. Apply Configuration → **Execute**，全部打绿勾 → Finish → Next 到安装器退出。
 
 ### 6.2 把 mysql 命令加入 PATH（方便以后操作）
 
@@ -332,6 +336,8 @@ dir D:\www\wellbiora\repo       # 应能看到 frontend、server、admin、docs 
 
 ## 十、部署后端 server
 
+> 📸 逐屏实测教程（含密钥生成、`.env` 模板、迁移报错处理、成功日志样例）见 `deploy/10.部署后端server教程.md`。
+
 ### 10.1 安装依赖并构建
 
 ```powershell
@@ -426,6 +432,8 @@ Invoke-RestMethod http://127.0.0.1:4000/api/v1/home
 
 ## 十一、构建前端 frontend 和管理后台 admin
 
+> 📸 逐屏实测教程（含构建输出样例、chunk 警告定性、产物复制验证）见 `deploy/11.构建前端与管理后台教程.md`。
+
 ### 11.1 admin 挂 /admin/ 子路径的代码调整（已于 2026-09-04 内置进仓库，无需再手动改）
 
 管理后台要挂在 `https://wellbiora.com.cn/admin/` 下运行，所需的两处改动**已提交到仓库**，`git pull` 拿到最新代码后直接构建即可：
@@ -487,6 +495,8 @@ dir D:\www\wellbiora\site\admin    # 应有 index.html、assets\ 等
 ---
 
 ## 十二、配置 Nginx 站点
+
+> 📸 逐屏实测教程（含替换范围、易错点、三页面分阶段预期）见 `deploy/12.Nginx配置教程.md`。
 
 ### 12.1 编辑配置文件
 
@@ -568,6 +578,8 @@ cd C:\nginx
 ---
 
 ## 十三、注册 Windows 服务并设置开机自启
+
+> 📸 逐屏实测教程（含先停手动实例的前置、SERVICE_START_PENDING 定性、验收前后对比）见 `deploy/13.注册Windows服务教程.md`。
 
 ### 13.1 注册后端服务
 
