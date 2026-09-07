@@ -683,6 +683,8 @@ Get-Content D:\www\wellbiora\logs\server-err.log -Tail 50
 ## 十六、HTTPS 部署（后期切换教程）
 
 > 前期用 HTTP 完全可以跑通整站验证。但注意：**接入微信支付前必须上 HTTPS**（微信支付回调地址强制 HTTPS + 备案域名），所以切换要赶在支付联调之前完成。
+>
+> 📸 实测版教程（含证书包 5 文件夹鉴别、443 双门放行、验收清单）见 `deploy/16.HTTPS部署教程.md`，**已于 2026-09-07 实测完成**。实测提醒：Nginx 以 NSSM 服务运行时，普通窗口执行 `.\nginx.exe -s reload` 会报 `OpenEvent ... Access is denied`，需改用管理员 PowerShell `Restart-Service WellbioraNginx`（见子教程第四步）。
 
 ### 16.1 购买并下载证书
 
@@ -789,6 +791,8 @@ C:\nssm\nssm.exe restart WellbioraServer
 
 ## 十七、日常运维手册
 
+> 📸 展开的命令速查版（含"服务为何不依赖窗口"的解释、防火墙 block 优先于 allow 的坑、崩溃自愈加固、「现象 → 第一反应」速查表）见 `deploy/17.日常运维命令速查.md`。
+
 ### 17.1 版本更新发布流程（最常用）
 
 后端有改动时：
@@ -834,11 +838,34 @@ Get-Content C:\nginx\logs\wellbiora.access.log -Tail 100
 mysqldump -u wellbiora -p --single-transaction wellbiora_shop > D:\www\wellbiora\logs\backup-$(Get-Date -Format "yyyyMMdd").sql
 ```
 
-自动每天备份：打开「任务计划程序」→ 创建基本任务 → 名称 `MySQL每日备份` → 每天 03:00 → 启动程序：
-- 程序：`C:\Program Files\MySQL\MySQL Server 8.4\bin\mysqldump.exe`
-- 参数：`-uwellbiora -p你的密码 --single-transaction wellbiora_shop > D:\www\wellbiora\logs\backup.sql`（⚠️ 密码明文出现在参数里，仅限内网测试期临时用；正式运营建议改用 mysql_config_editor 或至少把备份脚本放受限目录）
+自动每天备份（2026-09-07 起用仓库内置脚本，密码不再出现在命令行参数里）：
 
-更好的做法是写一个 `backup.ps1` 脚本（备份后压缩、保留最近 30 份、下载到本地一份异地存放——**身份证号虽是密文存储，但备份文件同样要当敏感数据保管**）。
+**① 创建认证文件**（一次性。`server/scripts/backup-my.example.cnf` 是模板，复制到受限目录并填入真实密码）：
+
+```powershell
+mkdir D:\www\wellbiora\secure
+notepad D:\www\wellbiora\secure\my-backup.cnf
+# 内容照抄 server/scripts/backup-my.example.cnf，password 换成 wellbiora 真实密码
+```
+
+⚠️ 该文件含明文密码，属敏感文件：不提交 git、目录只给管理员访问。
+
+**② 手动跑一次验证**：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File D:\www\wellbiora\repo\server\scripts\backup.ps1
+dir D:\www\wellbiora\backups    # 应有 backup-时间戳.zip
+```
+
+**③ 注册每日 03:00 计划任务**（管理员 PowerShell）：
+
+```powershell
+$action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -File D:\www\wellbiora\repo\server\scripts\backup.ps1"
+$trigger = New-ScheduledTaskTrigger -Daily -At 03:00
+Register-ScheduledTask -TaskName "WELLBIORA-MySQL每日备份" -Action $action -Trigger $trigger -RunLevel Highest -User "SYSTEM" -Force
+```
+
+脚本行为：导出 `wellbiora_shop` 全库（`--single-transaction` 不锁表）→ 压缩成 zip → 自动清理 30 天前的备份 → 日志写在 `D:\www\wellbiora\backups\backup.log`。建议每周把最新 zip 下载一份到本地异地存放——**身份证号虽是密文存储，但备份文件同样要当敏感数据保管**。
 
 ### 17.4 服务状态速查
 

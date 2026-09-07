@@ -1,0 +1,8 @@
+# MySQL 备份专用认证文件示例（--defaults-extra-file 用，避免密码出现在命令行参数里）
+# 使用方法：
+#   1. 在服务器上复制本文件到 D:\www\wellbiora\secure\my-backup.cnf（该目录自己新建，仅限管理员访问）
+#   2. 把 password 改成 wellbiora 账号的真实密码
+#   3. 该文件含明文密码，是敏感文件：绝不提交 git、权限只给管理员、备份下载到异地时同样当敏感数据保管
+[client]
+user=wellbiora
+password=替换成wellbiora账号的真实密码
