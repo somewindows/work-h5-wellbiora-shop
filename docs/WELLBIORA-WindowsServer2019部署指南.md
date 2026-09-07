@@ -627,9 +627,11 @@ Get-Service WellbioraServer, WellbioraNginx, MySQL84
 C:\nssm\nssm.exe restart WellbioraServer    # 重启后端（更新代码后用）
 C:\nssm\nssm.exe stop    WellbioraServer    # 停止
 C:\nssm\nssm.exe start   WellbioraServer    # 启动
-# Nginx 改完配置只需重载，不用重启服务：
-C:\nginx\nginx.exe -s reload
+# Nginx 改完配置后的生效方式：
+C:\nssm\nssm.exe restart WellbioraNginx     # 重启 Nginx 服务（瞬间完成）
 ```
+
+⚠️ **Nginx 注册成 Windows 服务后，不要再在桌面会话里用 `nginx.exe -s reload`**：reload 靠 Windows 命名事件通知主进程，而服务运行在系统账户下（Session 0），桌面会话打不开该事件，会报 `OpenEvent("Global\ngx_reload_xxxx") failed (5: Access is denied)`。改配置后的标准流程：`nginx.exe -t` 检查语法 → `nssm restart WellbioraNginx` 生效。（仅手动 `.\nginx.exe` 前台运行时才能用 `-s reload`。）
 
 ---
 
@@ -763,8 +765,8 @@ mkdir C:\nginx\ssl
 
 ```powershell
 cd C:\nginx
-.\nginx.exe -t          # 语法检查
-.\nginx.exe -s reload   # 平滑重载，不断线
+.\nginx.exe -t                                # 语法检查
+C:\nssm\nssm.exe restart WellbioraNginx       # 服务化后 reload 会 Access denied，用重启服务生效（见 13.4）
 ```
 
 然后**别忘了改后端跨域配置**：
@@ -860,4 +862,4 @@ netstat -ano | findstr ":80 :4000 :3306"     # 端口监听检查
 
 ---
 
-*文档版本：2026-09-05 v1.3 · 依据仓库当前 main 分支配置编写（server 端口 4000 / 接口前缀 /api/v1 / MySQL 8.4 / 10 个数据库迁移）。v1.1：填入真实域名 wellbiora.com.cn；ICP 备案标记已完成；11.1 节 admin 子路径改动已内置进仓库代码。v1.2：修正 MySQL 下载入口——统一安装器页只到 8.0，改为 MySQL Server 下载页（dev.mysql.com/downloads/mysql/）的 8.4.11 LTS x64 MSI（mysql-8.4.11-winx64.msi）。v1.3：Nginx 下载版本由过时示例 1.28.0 更新为当前稳定版 1.30.4（Stable 行，nginx-1.30.4.zip）；NSSM 由老稳定版 2.24 更新为 2.24-101-g897c7ad 预发布版（Win10/Server 2016+ 上老 2.24 有服务启动 bug，官网公告要求用预发布版）*
+*文档版本：2026-09-07 v1.4 · 依据仓库当前 main 分支配置编写（server 端口 4000 / 接口前缀 /api/v1 / MySQL 8.4 / 10 个数据库迁移）。v1.1：填入真实域名 wellbiora.com.cn；ICP 备案标记已完成；11.1 节 admin 子路径改动已内置进仓库代码。v1.2：修正 MySQL 下载入口——统一安装器页只到 8.0，改为 MySQL Server 下载页（dev.mysql.com/downloads/mysql/）的 8.4.11 LTS x64 MSI（mysql-8.4.11-winx64.msi）。v1.3：Nginx 下载版本由过时示例 1.28.0 更新为当前稳定版 1.30.4（Stable 行，nginx-1.30.4.zip）；NSSM 由老稳定版 2.24 更新为 2.24-101-g897c7ad 预发布版（Win10/Server 2016+ 上老 2.24 有服务启动 bug，官网公告要求用预发布版）。v1.4（2026-09-07 实际部署踩坑修正）：Nginx 注册为 Windows 服务后桌面会话执行 `nginx -s reload` 会报 Access denied（命名事件跨会话打不开），13.4/16.4 改为 `nssm restart WellbioraNginx` 生效*
