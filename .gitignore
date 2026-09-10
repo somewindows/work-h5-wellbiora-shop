@@ -13,6 +13,11 @@ dist/
 .env.local
 .env.*.local
 
+# 支付证书与密钥（微信支付商户证书等，绝不入库）
+server/certs/
+*.pem
+*.p12
+
 # QA 截图产物与本地字体构建环境（frontend/）
 frontend/qa/
 frontend/.venv-fonts/
