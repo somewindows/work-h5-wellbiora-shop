@@ -105,7 +105,7 @@
   - JSAPI 支付产品**已开通**；AppID `wx2591892b548a6565` 与商户号**已关联**
   - 支付授权目录已配置 `https://wellbiora.com.cn/`（误加的 `http://https//...` 已删除）
   - 公众号 **AppSecret 已启用**（微信开发者平台，「设置与开发-开发接口管理」2025-12-01 起已迁移至此）；**API v3 密钥已设置**——两者均由负责人离线保存，仅部署时写入服务端 `.env`，不入库不入文档
-  - 商户 **API 证书已申请**：序列号 `3EE4E7FE6F1300AC6872A8A97B15464109E1D72A`，有效期至 2031-09-09；`apiclient_cert.pem` + `apiclient_key.pem` 已放 `server/certs/wechatpay/`（已加 .gitignore）；原件在负责人本机 `桌面\123\新建文件夹 (4)\1117333649_20260910_cert\`
+  - 商户 **API 证书已申请**：序列号 `3EE4E7FE6F1300AC6872A8A97B15464109E1D72A`，有效期至 2031-09-09；开发机（kt02）已放 `server/certs/wechatpay/`（已加 .gitignore）；**生产服务器已上传至 `D:\www\wellbiora\certs\`（repo 外，2026-09-10）**，支付部署时 `.env` 证书路径指向 `D:\www\wellbiora\certs\apiclient_key.pem` / `apiclient_cert.pem`；原件在负责人本机 `桌面\123\新建文件夹 (4)\1117333649_20260910_cert\`
 - [ ] H5 支付是否申请（取决于微信外投放渠道要不要做）
 - [ ] 商户号签约类目与费率、结算周期（申请后回填实际值）
 - [ ] 海关备案信息：以哪个海关（义乌？）提交，备案主体名称/编码
