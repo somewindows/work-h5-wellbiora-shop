@@ -5,16 +5,20 @@ import { DataSource } from 'typeorm'
 
 import { AuthController } from './auth.controller'
 import { CurrentUserController } from './current-user.controller'
+import { WechatOAuthController } from './wechat-oauth.controller'
+import { WechatOAuthService } from './wechat-oauth.service'
 import { AuthService } from './auth.service'
 import { MySqlSmsCodeStore } from './mysql-sms-code.store'
 import { MemorySmsCodeStore, SMS_CODE_STORE } from './sms-code.store'
 import { ConsoleSmsProvider, MemorySmsProvider, SMS_PROVIDER, UnconfiguredSmsProvider } from './sms-provider'
 import { UsersModule } from '../users/users.module'
 import { isInMemoryStorage } from '../common/runtime-mode'
+import { PaymentsModule } from '../payments/payments.module'
 
 @Module({
   imports: [
     UsersModule.register(),
+    PaymentsModule.register(),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -27,9 +31,10 @@ import { isInMemoryStorage } from '../common/runtime-mode'
       }),
     }),
   ],
-  controllers: [AuthController, CurrentUserController],
+  controllers: [AuthController, CurrentUserController, WechatOAuthController],
   providers: [
     AuthService,
+    WechatOAuthService,
     {
       provide: SMS_CODE_STORE,
       inject: isInMemoryStorage() ? [] : [DataSource],

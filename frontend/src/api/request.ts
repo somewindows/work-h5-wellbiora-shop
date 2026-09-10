@@ -42,7 +42,8 @@ request.interceptors.response.use(
   (res) => {
     const body = res.data as ApiResponse<unknown>
     if (body.code !== 0) {
-      return Promise.reject(new Error(body.message || `请求失败（${body.code}）`))
+      // 业务码透传给调用方（如 40007 = 需要微信授权），便于页面分支处理
+      return Promise.reject(Object.assign(new Error(body.message || `请求失败（${body.code}）`), { code: body.code }))
     }
     return body.data as never
   },

@@ -11,6 +11,8 @@ export interface UsersRepository {
   findById(id: string): Promise<UserEntity | null>
   findByPhone(phone: string): Promise<UserEntity | null>
   create(phone: string): Promise<UserEntity>
+  /** 网页授权换到 openid 后幂等回写；值相同或无变化时静默成功 */
+  updateWechatOpenId(id: string, wechatOpenId: string): Promise<void>
 }
 
 @Injectable()
@@ -27,6 +29,10 @@ export class TypeOrmUsersRepository implements UsersRepository {
 
   async create(phone: string): Promise<UserEntity> {
     return this.repository.save(this.repository.create({ phone }))
+  }
+
+  async updateWechatOpenId(id: string, wechatOpenId: string): Promise<void> {
+    await this.repository.update({ id }, { wechatOpenId })
   }
 }
 
@@ -53,5 +59,13 @@ export class InMemoryUsersRepository implements UsersRepository {
     }
     this.users.set(phone, user)
     return user
+  }
+
+  async updateWechatOpenId(id: string, wechatOpenId: string): Promise<void> {
+    const user = await this.findById(id)
+    if (user) {
+      user.wechatOpenId = wechatOpenId
+      user.updatedAt = new Date()
+    }
   }
 }

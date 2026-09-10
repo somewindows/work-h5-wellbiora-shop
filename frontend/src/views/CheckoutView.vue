@@ -3,7 +3,7 @@
  * 结算页「确认订单」（路由 /checkout）
  * 视觉 1:1 来源：prototype/app/checkout.html
  * 数据：默认地址 getAddresses / 实名 getRealname / 商品清单 cart.checkedItems
- * 下单：createOrder(requestId 幂等键)，成功跳 /order/{orderNo}
+ * 下单：createOrder(requestId 幂等键)，成功跳 /order/{orderNo}?autopay=1 自动拉起支付
  */
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
@@ -75,7 +75,8 @@ async function onPay() {
   try {
     await precheckOrder()
     const { orderNo } = await createOrder(genRequestId())
-    router.replace(`/order/${orderNo}`)
+    // 下单成功直达订单详情并自动拉起支付（微信内无缝；微信外会引导）
+    router.replace(`/order/${orderNo}?autopay=1`)
   } catch (e) {
     showToast(e instanceof Error ? e.message : '下单失败，请稍后重试')
   } finally {

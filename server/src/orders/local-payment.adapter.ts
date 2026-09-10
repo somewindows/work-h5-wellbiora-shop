@@ -7,10 +7,17 @@ export interface PaymentRefundResult {
   refundNo: string
 }
 
+/** 发起支付时的上下文：微信 JSAPI 需要 openid 与订单金额/描述；本地 mock 全部忽略。 */
+export interface PayContext {
+  openid?: string | null
+  totalFen?: number
+  description?: string
+}
+
 export interface PaymentAdapter {
-  createPayParams(orderNo: string): Record<string, string>
-  /** 原路退款；金额单位：分 */
-  refund(orderNo: string, amountFen: number): Promise<PaymentRefundResult>
+  createPayParams(orderNo: string, ctx?: PayContext): Promise<Record<string, string>>
+  /** 原路退款；金额单位：分；totalFen 为原订单实付（微信退款接口要求） */
+  refund(orderNo: string, amountFen: number, totalFen?: number): Promise<PaymentRefundResult>
 }
 
 export interface LocalRefundRecord {
@@ -25,14 +32,14 @@ export interface LocalRefundRecord {
 export class LocalPaymentAdapter implements PaymentAdapter {
   private readonly refunds: LocalRefundRecord[] = []
 
-  createPayParams(orderNo: string): Record<string, string> {
-    return { provider: 'mock', orderNo, message: '本地联调订单，请在测试接口确认支付' }
+  createPayParams(orderNo: string): Promise<Record<string, string>> {
+    return Promise.resolve({ provider: 'mock', orderNo, message: '本地联调订单，请在测试接口确认支付' })
   }
 
-  async refund(orderNo: string, amountFen: number): Promise<PaymentRefundResult> {
+  refund(orderNo: string, amountFen: number): Promise<PaymentRefundResult> {
     const record: LocalRefundRecord = { refundNo: `RF${randomUUID().replaceAll('-', '').slice(0, 16).toUpperCase()}`, orderNo, amountFen, createdAt: new Date() }
     this.refunds.push(record)
-    return { refundNo: record.refundNo }
+    return Promise.resolve({ refundNo: record.refundNo })
   }
 
   /** 测试/联调用：查看已记录的退款单。 */

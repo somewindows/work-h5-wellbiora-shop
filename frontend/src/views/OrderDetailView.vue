@@ -12,9 +12,11 @@ import { cancelOrder as requestCancelOrder, getOrder } from '@/api'
 import type { Order, OrderStatus } from '@/types'
 import { ORDER_STATUS_MAP } from '../../mock/orders'
 import { fenToYuan } from '@/utils/format'
+import { useWechatPay } from '@/composables/useWechatPay'
 
 const route = useRoute()
 const router = useRouter()
+const wechatPay = useWechatPay()
 
 const order = ref<Order | null>(null)
 const notFound = ref(false)
@@ -43,9 +45,20 @@ const totalFen = computed(() =>
   order.value ? order.value.items.reduce((sum, i) => sum + i.priceFen * i.quantity, 0) : 0,
 )
 
-/* ---- 底部操作（按原型各状态主操作；mock 阶段均为演示动作） ---- */
+/* ---- 底部操作（按原型各状态主操作；支付走微信支付链路） ---- */
+async function loadOrder(orderNo: string) {
+  try {
+    order.value = await getOrder(orderNo)
+  } catch {
+    notFound.value = true
+  }
+}
+
 function payOrder() {
-  showToast('拉起微信支付（mock）')
+  const current = order.value
+  if (!current) return
+  // 支付成功后刷新订单状态（回调已把订单置为已支付）
+  void wechatPay.payOrder(current.orderNo, () => void loadOrder(current.orderNo))
 }
 
 async function cancelOrder() {
@@ -83,10 +96,16 @@ function goBack() {
 
 onMounted(async () => {
   const orderNo = String(route.params.id || '')
-  try {
-    order.value = await getOrder(orderNo)
-  } catch {
-    notFound.value = true
+  // 微信授权回跳：绑定 openid，若有待支付订单则授权完成后自动续起支付
+  const pendingOrderNo = await wechatPay.handleAuthCallback()
+  await loadOrder(orderNo)
+  if (pendingOrderNo && pendingOrderNo === orderNo && order.value?.status === 'pay') {
+    payOrder()
+    return
+  }
+  // 结算页下单后带 autopay=1 直达：自动拉起支付
+  if (route.query.autopay === '1' && order.value?.status === 'pay') {
+    payOrder()
   }
 })
 </script>

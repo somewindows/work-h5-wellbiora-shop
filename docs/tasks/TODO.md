@@ -6,6 +6,14 @@
 
 ## 活跃任务
 
+- **T12 · 微信支付模块**（2026-09-10 开发中；参数已全部就绪：AppID/AppSecret/mchid 1117333649/v3 密钥/证书）
+  - [x] 服务端 `src/payments/`：V3 签名/验签/AES-256-GCM 解密（node:crypto 手写，零新依赖）、平台证书下载缓存、JSAPI 下单适配器（未配置自动回落 local mock）、退款（v3）、支付/退款回调控制器（验签 + 5 分钟时间窗防重放 + 金额比对 + 幂等）、自助清关报关封装（v2 XML MD5，含三单对碰身份校验字段；自助清关未开通，仅代码 + 单测）
+  - [x] openid 获取：`GET /auth/wechat/authorize-url`（snsapi_base，redirect 限站内）+ `POST /auth/wechat/openid`（code 换 openid 写 users.wechat_open_id，列早已预留）
+  - [x] 订单联动：`handleWechatPaid`/`handleWechatRefundNotified`、orders 新列 `wechat_transaction_id`（迁移 1710000009000）、支付成功自动推仓库 + 触发报关（失败不阻塞主流程）
+  - [x] 前端：`src/composables/useWechatPay.ts` 编排（40007 → 静默授权跳转 → 回跳绑定 openid 自动续付；WeixinJSBridge 调起；微信外弹「复制链接去微信打开」）；Checkout 下单后 `?autopay=1` 直达拉起；request.ts 透传业务码
+  - [ ] 全量测试 + 真 MySQL `migration:run` 验证（kt02 无 Node，用便携版跑；**迁移铁律未过前不得合入**）
+  - [ ] 真实联调（部署后）：服务器 `.env` 填 AppSecret/v3 密钥 → 0.01 元真实单 → 验证回调 `https://wellbiora.com.cn/api/v1/payments/wechat/notify` → 退款 → 报关（需先开通自助清关 + 配置 WXPAY_API_V2_KEY/WXPAY_CUSTOMS_CODE/WXPAY_MCH_CUSTOMS_NO）
+
 - **T9 · 前端收尾与联调准备**（T7 遗留，详见 `archive/2026-08-27-T7-前端工程初始化.md` 遗留点）
   - 视觉走查：`npm run dev` 对照 `prototype/app/` 逐页目检
   - [x] 登录路由守卫：订单列表/详情、结算页、我的页面未登录时跳转 `/login`，并保留来源路径

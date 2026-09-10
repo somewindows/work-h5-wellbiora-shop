@@ -140,7 +140,7 @@ export class AdminOrderService {
         throw new BusinessException(40002, '订单已申报清关，不可线上取消，请走人工拦截/拒收流程')
       }
       await this.warehouse.cancelOrder(orderNo)
-      const refund = await this.paymentAdapter.refund(orderNo, order.totalFen)
+      const refund = await this.paymentAdapter.refund(orderNo, order.totalFen, order.totalFen)
       saved = await this.orderRepository.saveOrder({
         ...order, status: 'cancelled', paymentStatus: 'refunded', refundFen: order.totalFen, refundedAt: now, cancelledAt: now,
       })
@@ -161,7 +161,7 @@ export class AdminOrderService {
     const amountFen = dto.amountFen ?? order.totalFen
     if (amountFen > order.totalFen) throw new BusinessException(40003, '退款金额不能超过实付金额')
 
-    const result = await this.paymentAdapter.refund(orderNo, amountFen)
+    const result = await this.paymentAdapter.refund(orderNo, amountFen, order.totalFen)
     const saved = await this.orderRepository.saveOrder({
       ...order, paymentStatus: 'refunded', refundFen: amountFen, refundedAt: new Date(),
     })

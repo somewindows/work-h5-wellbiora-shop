@@ -77,15 +77,17 @@ H5-shop/
 ├── frontend/                      # H5 前端工程（T7 已建，MVP 9 页 mock 全链路）
 │   ├── src/views/                 # 9 页：Home/Products/ProductDetail/Cart/Checkout/Address/Orders/OrderDetail/Mine/Login
 │   ├── src/components/            # TabBar/ProductCard/SectionHead/PriceText + blocks/（BlockRenderer + 16 种块组件）
-│   ├── src/api/                   # API 层（mock 开关）+ axios 封装（统一响应壳、JWT 头）
+│   ├── src/api/                   # API 层（mock 开关）+ axios 封装（统一响应壳、JWT 头、业务码透传）
+│   ├── src/composables/           # useWechatPay：微信支付编排（授权回跳续付/WeixinJSBridge 调起/微信外引导）
 │   ├── src/stores/                # Pinia：cart / user
 │   ├── src/types/                 # ContentBlock 联合类型、Product/Order 等（金额一律分）
 │   ├── mock/                      # mock 数据（搬自原型 data.js/data-v2.js/orders-data.js）
 │   └── public/assets/             # 产品与 Logo 图片（复制自 prototype/app/assets/）
 ├── server/                        # NestJS 服务端（T8 首期已建）
-│   ├── src/auth/                  # 短信验证码/JWT 登录（MySQL 验证码、用户与限频）
+│   ├── src/auth/                  # 短信验证码/JWT 登录（MySQL 验证码、用户与限频）+ 微信网页授权 openid（wechat-oauth.*）
+│   ├── src/payments/              # 微信支付（T12）：V3 签名/验签/回调解密（node:crypto 手写零新依赖）、JSAPI 下单、退款、回调控制器、自助清关报关封装；.env 配齐 WXPAY_* 才启用，否则回落本地 mock；证书放 server/certs/（已 gitignore）
 │   ├── src/home/ + src/products/  # 首页内容块、商品列表/详情只读接口
-│   ├── src/admin/ + src/catalog/  # 【feat/admin-init 分支】后台管理：管理员登录/限频、商品目录持久化、内容块发布/回滚、审计日志（订单管理在 src/orders/admin-order.*）
+│   ├── src/admin/ + src/catalog/  # 后台管理：管理员登录/限频、商品目录持久化、内容块发布/回滚、审计日志（订单管理在 src/orders/admin-order.*）
 │   ├── src/database/              # TypeORM 数据源与 users 初始化迁移
 │   ├── test/                      # HTTP e2e 测试
 │   └── .env.example / docker-compose.yml / Dockerfile / README.md

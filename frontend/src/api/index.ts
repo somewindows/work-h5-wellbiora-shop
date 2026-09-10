@@ -22,6 +22,9 @@ import { MOCK_ADDRESSES, MOCK_CART, MOCK_REALNAME, MOCK_USER } from '../../mock/
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === '1'
 
+/** 当前是否 mock 模式（支付等页面分支用） */
+export const USE_MOCK_MODE = USE_MOCK
+
 /** 模拟网络延迟 */
 function delay<T>(data: T, ms = 200): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(data), ms))
@@ -241,6 +244,29 @@ export function cancelOrder(orderNo: string): Promise<Order> {
     return delay(order)
   }
   return request.post(`/orders/${orderNo}/cancel`, {})
+}
+
+/* ===== 微信支付 ===== */
+
+/** 支付参数：provider=wechat 时为 JSAPI 调起参数；provider=mock 为本地联调占位 */
+export type PayParams = Record<string, string> & { provider?: string }
+
+/** 获取订单支付参数（真实模式）；微信已启用但用户未授权时抛 code=40007 */
+export function getPayParams(orderNo: string): Promise<PayParams> {
+  if (USE_MOCK) return delay({ provider: 'mock', orderNo })
+  return request.get(`/orders/${orderNo}/pay-params`)
+}
+
+/** 生成公众号静默授权链接（redirect 为站内 hash 路径，如 /#/order/WB...） */
+export function getWechatAuthorizeUrl(redirect: string): Promise<{ url: string }> {
+  if (USE_MOCK) return delay({ url: '' })
+  return request.get('/auth/wechat/authorize-url', { params: { redirect } })
+}
+
+/** 授权回跳后 code 换 openid 并绑定当前用户 */
+export function bindWechatOpenId(code: string): Promise<{ bound: true }> {
+  if (USE_MOCK) return delay({ bound: true })
+  return request.post('/auth/wechat/openid', { code })
 }
 
 /* ===== 认证 ===== */

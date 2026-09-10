@@ -25,6 +25,8 @@ export class OrderEntity {
   @Column({ name: 'system_remark', type: 'text', nullable: true }) systemRemark!: string | null
   @Column({ name: 'refund_fen', type: 'int', nullable: true }) refundFen!: number | null
   @Column({ name: 'refunded_at', type: 'datetime', nullable: true }) refundedAt!: Date | null
+  /** 微信支付订单号（回调幂等 + 报关用） */
+  @Column({ name: 'wechat_transaction_id', type: 'varchar', length: 64, nullable: true, unique: true }) wechatTransactionId!: string | null
   @CreateDateColumn({ name: 'created_at', type: 'datetime' }) createdAt!: Date
   @UpdateDateColumn({ name: 'updated_at', type: 'datetime' }) updatedAt!: Date
 }

@@ -12,7 +12,7 @@ async function bootstrap(): Promise<void> {
     if (missing.length > 0) throw new Error(`生产环境缺少配置：${missing.join(', ')}`)
   }
 
-  const app = await NestFactory.create(AppModule)
+  const app = await NestFactory.create(AppModule, { rawBody: true })
   const origins = (process.env.CORS_ORIGIN ?? 'http://localhost:5173')
     .split(',')
     .map((origin) => origin.trim())

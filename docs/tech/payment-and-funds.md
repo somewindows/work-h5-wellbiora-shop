@@ -105,9 +105,24 @@
   - JSAPI 支付产品**已开通**；AppID `wx2591892b548a6565` 与商户号**已关联**
   - 支付授权目录已配置 `https://wellbiora.com.cn/`（误加的 `http://https//...` 已删除）
   - 公众号 **AppSecret 已启用**（微信开发者平台，「设置与开发-开发接口管理」2025-12-01 起已迁移至此）；**API v3 密钥已设置**——两者均由负责人离线保存，仅部署时写入服务端 `.env`，不入库不入文档
-  - 商户 **API 证书已申请**：序列号 `3EE4E7FE6F1300AC6872A8A97B15464109E1D72A`，有效期至 2031-09-09；开发机（kt02）已放 `server/certs/wechatpay/`（已加 .gitignore）；**生产服务器已上传至 `D:\www\wellbiora\certs\`（repo 外，2026-09-10）**，支付部署时 `.env` 证书路径指向 `D:\www\wellbiora\certs\apiclient_key.pem` / `apiclient_cert.pem`；原件在负责人本机 `桌面\123\新建文件夹 (4)\1117333649_20260910_cert\`
+  - 商户 **API 证书已申请**：序列号 `3EE4E7FE6F1300AC6872A8A97B15464109E1D72A`，有效期至 2031-09-09；开发机（kt02）已放 `server/certs/wechatpay/`（已加 .gitignore）；**生产服务器已上传至 `D:\www\wellbiora\certs\wechatpay\`（repo 外，2026-09-10）**，支付部署时 `.env` 证书路径指向 `D:\www\wellbiora\certs\wechatpay\apiclient_key.pem` / `apiclient_cert.pem`；原件在负责人本机 `桌面\123\新建文件夹 (4)\1117333649_20260910_cert\`
 - [ ] H5 支付是否申请（取决于微信外投放渠道要不要做）
 - [ ] 商户号签约类目与费率、结算周期（申请后回填实际值）
 - [ ] 海关备案信息：以哪个海关（义乌？）提交，备案主体名称/编码
 - [ ] 综合税缴纳模式：君梦/仓库代缴还是自缴？是否需预存税金保证金
 - [ ] 微信支付「自助清关」开通审核周期
+
+## 七、微信支付实现落点（T12，2026-09-10）
+
+> 代码细节以 `server/src/payments/` 为准，本节只记对外契约与配置位置。
+
+- **模块**：`server/src/payments/`（config/crypto/client/adapter/customs/notify-controller），V3 签名与回调解密用 `node:crypto` 手写，未引入第三方 SDK；`.env` 配齐 `WXPAY_*` 才启用真实支付，否则回落本地 mock（`LOCAL_TEST_MODE` 与既有测试不受影响）
+- **对外接口**（均在 `/api/v1` 前缀下）：
+  - `GET /auth/wechat/authorize-url?redirect=/#/...`：生成 snsapi_base 静默授权链接（redirect 限站内路径）
+  - `POST /auth/wechat/openid`：授权 code 换 openid，绑定登录用户（users.wechat_open_id）
+  - `POST /payments/wechat/notify`：支付回调（验签 + 5 分钟时间窗 + 金额比对 + 幂等）→ 订单置已支付 → 推仓库 → 自动报关
+  - `POST /payments/wechat/refund-notify`：退款回调
+  - 既有 `GET /orders/:orderNo/pay-params` 在微信启用后返回 JSAPI 调起参数（provider=wechat）；用户未授权时报业务码 40007 引导前端走授权
+- **报关封装**：`wechat-customs.service.ts` 走自助清关 v2 XML 接口（customdeclareorder/customdeclarequery，MD5 签名用 APIv2 密钥），下单成功后自动提交并记录身份校验结果（cert_check_result=DIFFERENT 时告警）；需 `WXPAY_API_V2_KEY` + `WXPAY_CUSTOMS_CODE` + `WXPAY_MCH_CUSTOMS_NO`，自助清关开通前仅代码就绪
+- **前端**：`frontend/src/composables/useWechatPay.ts` 统一编排（40007 → 授权跳转 → 回跳自动续付；微信外弹复制链接引导）；Checkout 下单后 `?autopay=1` 直达拉起
+- **配置与证书位置**：见第六节；`.env.example` 有全部 `WXPAY_*` 占位与注释

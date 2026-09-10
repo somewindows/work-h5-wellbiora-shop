@@ -14,6 +14,7 @@ export interface OrderRecord {
   warehouseStatus: string | null; totalFen: number; realnameName: string; idcardEncrypted: string; idcardFingerprint: string
   receiverName: string; receiverPhone: string; receiverRegion: string; receiverDetail: string
   paidAt: Date | null; cancelledAt: Date | null; systemRemark: string | null; refundFen: number | null; refundedAt: Date | null
+  wechatTransactionId: string | null
   createdAt: Date; updatedAt: Date
 }
 export interface OrderItemRecord {

@@ -11,9 +11,11 @@ import { cancelOrder as requestCancelOrder, getOrders } from '@/api'
 import type { Order, OrderStatus } from '@/types'
 import { ORDER_STATUS_MAP } from '../../mock/orders'
 import { fenToYuan } from '@/utils/format'
+import { useWechatPay } from '@/composables/useWechatPay'
 
 const route = useRoute()
 const router = useRouter()
+const wechatPay = useWechatPay()
 
 /* 状态 Tab：全部 + 五种订单状态（与原型 TABS 一致） */
 const TABS: { key: OrderStatus | 'all'; label: string }[] = [
@@ -85,9 +87,9 @@ function goDetail(o: Order) {
   router.push(`/order/${o.orderNo}`)
 }
 
-/** 去支付：mock 阶段直接 Toast，真实微信支付后续接入 */
-function payOrder() {
-  showToast('拉起微信支付（mock）')
+/** 去支付：微信支付链路（授权/调起/刷新由 useWechatPay 编排） */
+function payOrder(o: Order) {
+  void wechatPay.payOrder(o.orderNo, () => void load())
 }
 
 async function cancelOrder(order: Order) {
@@ -118,9 +120,15 @@ function goBack() {
   else router.push('/mine')
 }
 
-onMounted(() => {
+onMounted(async () => {
   curTab.value = tabFromQuery()
-  load()
+  // 微信授权回跳：绑定 openid 并自动续起待支付订单
+  const pendingOrderNo = await wechatPay.handleAuthCallback()
+  await load()
+  if (pendingOrderNo) {
+    const target = orders.value.find((item) => item.orderNo === pendingOrderNo && item.status === 'pay')
+    if (target) payOrder(target)
+  }
 })
 </script>
 
@@ -179,7 +187,7 @@ onMounted(() => {
         <div class="o-actions" @click.stop>
           <template v-if="o.status === 'pay'">
             <button class="btn-ghost" @click="cancelOrder(o)">取消订单</button>
-            <button class="btn-main" @click="payOrder">去支付</button>
+            <button class="btn-main" @click="payOrder(o)">去支付</button>
           </template>
           <template v-else-if="o.status === 'ship'">
             <button class="btn-ghost" @click="remindShip">提醒发货</button>

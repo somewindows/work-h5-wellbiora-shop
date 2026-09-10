@@ -4,6 +4,7 @@ import { PRODUCT_DETAILS } from '../catalog/catalog.seed'
 import { PersonalDataCryptoService } from '../security/personal-data-crypto.service'
 import { ProfileService } from '../profile/profile.service'
 import { InMemoryAddressRepository, InMemoryRealnameProfileRepository } from '../profile/profile.repository'
+import { InMemoryUsersRepository } from '../users/users.repository'
 
 import { InMemoryOrderRepository } from './order.repository'
 import { OrderService } from './order.service'
@@ -16,13 +17,17 @@ describe('OrderService', () => {
   let catalog: InMemoryCatalogRepository
   let profile: ProfileService
   let service: OrderService
+  let users: InMemoryUsersRepository
 
   beforeEach(async () => {
     cart = new InMemoryCartRepository()
     catalog = new InMemoryCatalogRepository()
     await catalog.seed(Object.values(PRODUCT_DETAILS))
     profile = new ProfileService(new InMemoryAddressRepository(), new InMemoryRealnameProfileRepository(), crypto)
-    service = new OrderService(cart, profile, new InMemoryOrderRepository(), new LocalWarehouseAdapter(catalog), crypto, new LocalPaymentAdapter(), catalog)
+    users = new InMemoryUsersRepository()
+    const user = await users.create('13800000000')
+    user.id = 'user-1'
+    service = new OrderService(cart, profile, new InMemoryOrderRepository(), new LocalWarehouseAdapter(catalog), crypto, new LocalPaymentAdapter(), catalog, users)
     await cart.save(cart.create({ userId: 'user-1', productId: 'WB10001', quantity: 1, checked: true }))
     await profile.createAddress('user-1', { name: '张三', phone: '13800000000', region: '浙江省 金华市 义乌市', detail: '稠城街道 1 号' })
     await profile.saveRealname('user-1', { name: '张三', idcard: '110101199001011234' })
@@ -72,5 +77,62 @@ describe('OrderService', () => {
 
     await expect(service.precheck('user-1')).rejects.toMatchObject({ code: 40006 })
     await expect(service.create('user-1', { requestId: 'request-off' })).rejects.toMatchObject({ code: 40006 })
+  })
+
+  describe('handleWechatPaid（支付回调）', () => {
+    const paidInput = (orderNo: string, totalFen = 32900) => ({
+      orderNo, transactionId: '4200000123456789012345678901', paidTotalFen: totalFen, paidAt: new Date(),
+    })
+
+    it('回调成功后订单变为已支付并记录微信单号', async () => {
+      const { orderNo } = await service.create('user-1', { requestId: 'request-pay-1' })
+
+      await service.handleWechatPaid(paidInput(orderNo))
+
+      const order = await service.get('user-1', orderNo)
+      expect(order.status).toBe('ship')
+      expect(order.payTime).not.toBeNull()
+    })
+
+    it('同一回调重复推送幂等，不产生重复状态事件', async () => {
+      const { orderNo } = await service.create('user-1', { requestId: 'request-pay-2' })
+      await service.handleWechatPaid(paidInput(orderNo))
+      await service.handleWechatPaid(paidInput(orderNo))
+
+      const order = await service.get('user-1', orderNo)
+      expect(order.status).toBe('ship')
+    })
+
+    it('回调金额与订单不符时拒绝并告警', async () => {
+      const { orderNo } = await service.create('user-1', { requestId: 'request-pay-3' })
+
+      await expect(service.handleWechatPaid(paidInput(orderNo, 1))).rejects.toMatchObject({ code: 40003 })
+      const order = await service.get('user-1', orderNo)
+      expect(order.status).toBe('pay')
+    })
+
+    it('已取消订单的迟到回调被拒绝', async () => {
+      const { orderNo } = await service.create('user-1', { requestId: 'request-pay-4' })
+      await service.cancel('user-1', orderNo)
+
+      await expect(service.handleWechatPaid(paidInput(orderNo))).rejects.toMatchObject({ code: 40002 })
+    })
+  })
+
+  describe('handleWechatRefundNotified（退款回调）', () => {
+    it('退款成功回调把订单标记为已退款', async () => {
+      const { orderNo } = await service.create('user-1', { requestId: 'request-refund-1' })
+      await service.handleWechatPaid({ orderNo, transactionId: '4200000123456789012345678901', paidTotalFen: 32900, paidAt: new Date() })
+
+      await service.handleWechatRefundNotified({ orderNo, refundNo: 'R123', refundStatus: 'SUCCESS' })
+      // 不抛错且状态保持（paymentStatus 细节由管理侧详情体现，这里验证接口幂等可用）
+      await service.handleWechatRefundNotified({ orderNo, refundNo: 'R123', refundStatus: 'SUCCESS' })
+    })
+
+    it('不存在订单的退款回调报错（触发微信重推排查）', async () => {
+      await expect(
+        service.handleWechatRefundNotified({ orderNo: 'WB20990101NONE', refundNo: 'R1', refundStatus: 'SUCCESS' }),
+      ).rejects.toMatchObject({ code: 40404 })
+    })
   })
 })

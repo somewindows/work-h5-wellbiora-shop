@@ -26,7 +26,7 @@ describe('AdminOrderService', () => {
       status: 'pay', paymentStatus: 'pending', warehouseStatus: null, totalFen: 32900,
       realnameName: '张三', idcardEncrypted: crypto.encrypt('110101199001011234'), idcardFingerprint: 'fp',
       receiverName: '张三', receiverPhone: '13800000000', receiverRegion: '浙江省 金华市 义乌市', receiverDetail: '稠城街道 1 号',
-      paidAt: null, cancelledAt: null, systemRemark: null, refundFen: null, refundedAt: null,
+      paidAt: null, cancelledAt: null, systemRemark: null, refundFen: null, refundedAt: null, wechatTransactionId: null,
       ...overrides,
     })
     return orders.saveOrder(order)
