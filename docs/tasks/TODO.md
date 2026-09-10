@@ -11,7 +11,7 @@
   - [x] openid 获取：`GET /auth/wechat/authorize-url`（snsapi_base，redirect 限站内）+ `POST /auth/wechat/openid`（code 换 openid 写 users.wechat_open_id，列早已预留）
   - [x] 订单联动：`handleWechatPaid`/`handleWechatRefundNotified`、orders 新列 `wechat_transaction_id`（迁移 1710000009000）、支付成功自动推仓库 + 触发报关（失败不阻塞主流程）
   - [x] 前端：`src/composables/useWechatPay.ts` 编排（40007 → 静默授权跳转 → 回跳绑定 openid 自动续付；WeixinJSBridge 调起；微信外弹「复制链接去微信打开」）；Checkout 下单后 `?autopay=1` 直达拉起；request.ts 透传业务码
-  - [ ] 全量测试 + 真 MySQL `migration:run` 验证（kt02 无 Node，用便携版跑；**迁移铁律未过前不得合入**）
+  - [x] 全量测试 + 真 MySQL `migration:run` 验证（2026-09-10，kt02 便携 Node 22 + 便携 MySQL 8.4：单测 106/106、e2e 39/39（含微信支付回调全链路）、lint/build、前端 vitest 17/17 + type-check + build、迁移 run/revert/run 全过）
   - [ ] 真实联调（部署后）：服务器 `.env` 填 AppSecret/v3 密钥 → 0.01 元真实单 → 验证回调 `https://wellbiora.com.cn/api/v1/payments/wechat/notify` → 退款 → 报关（需先开通自助清关 + 配置 WXPAY_API_V2_KEY/WXPAY_CUSTOMS_CODE/WXPAY_MCH_CUSTOMS_NO）
 
 - **T9 · 前端收尾与联调准备**（T7 遗留，详见 `archive/2026-08-27-T7-前端工程初始化.md` 遗留点）
