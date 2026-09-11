@@ -36,9 +36,8 @@ export interface AdminProduct {
   updatedAt: string
 }
 
-/** 新建商品入参（CreateAdminProductDto，全部字段） */
+/** 新建商品入参（CreateAdminProductDto；商品 ID 由服务端自动生成，无需提交） */
 export interface CreateProductPayload {
-  id: string
   name: string
   en: string
   priceFen: number

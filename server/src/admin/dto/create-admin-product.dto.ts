@@ -1,11 +1,7 @@
-import { IsArray, IsHexColor, IsInt, IsOptional, IsString, Matches, MaxLength, Min, MinLength } from 'class-validator'
+import { IsArray, IsHexColor, IsInt, IsOptional, IsString, MaxLength, Min, MinLength } from 'class-validator'
 
+/** 商品 ID 不再由运营填写，由服务端按 WB + 5 位递增数字自动生成 */
 export class CreateAdminProductDto {
-  /** 运营自填商品 ID：小写字母开头，仅小写字母/数字/中划线，需在库内唯一 */
-  @IsString()
-  @Matches(/^[a-z][a-z0-9-]{0,31}$/)
-  id!: string
-
   @IsString() @MinLength(1) @MaxLength(128) name!: string
   @IsString() @MinLength(1) @MaxLength(128) en!: string
   @IsInt() @Min(0) priceFen!: number

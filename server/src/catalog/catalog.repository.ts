@@ -29,9 +29,19 @@ export interface CatalogRepository extends SellableProductSource {
   findPublishedById(id: string): Promise<ProductDetail | null>
   findById(id: string): Promise<CatalogProductRecord | null>
   findAdminPage(options: { keyword?: string; isActive?: boolean; page: number; pageSize: number }): Promise<{ total: number; list: CatalogProductRecord[] }>
+  /** 生成下一个商品 ID：WB + 5 位递增数字，取 10001 起最小未占用的编号（删除商品后编号可回收复用） */
+  nextProductId(): Promise<string>
   save(record: CatalogProductRecord): Promise<CatalogProductRecord>
   saveDraftBlocks(id: string, blocks: ContentBlock[]): Promise<void>
   publishDraft(id: string): Promise<void>
+}
+
+function computeNextProductId(ids: string[]): string {
+  const used = new Set(ids)
+  for (let n = 10001; ; n++) {
+    const id = `WB${String(n).padStart(5, '0')}`
+    if (!used.has(id)) return id
+  }
 }
 
 function cloneBlocks(blocks: ContentBlock[]): ContentBlock[] {
@@ -125,6 +135,11 @@ export class TypeOrmCatalogRepository implements CatalogRepository {
     return product ? toRecord(product) : null
   }
 
+  async nextProductId(): Promise<string> {
+    const rows = await this.repository.find({ select: { id: true } })
+    return computeNextProductId(rows.map((row) => row.id))
+  }
+
   async findAdminPage(options: { keyword?: string; isActive?: boolean; page: number; pageSize: number }): Promise<{ total: number; list: CatalogProductRecord[] }> {
     const all = (await this.repository.find({ order: { updatedAt: 'DESC' } })).map(toRecord)
     const keyword = options.keyword?.trim().toLowerCase()
@@ -179,6 +194,10 @@ export class InMemoryCatalogRepository implements CatalogRepository {
   async findById(id: string): Promise<CatalogProductRecord | null> {
     const product = this.products.get(id)
     return product ? structuredClone(product) : null
+  }
+
+  async nextProductId(): Promise<string> {
+    return computeNextProductId([...this.products.keys()])
   }
 
   async findAdminPage(options: { keyword?: string; isActive?: boolean; page: number; pageSize: number }): Promise<{ total: number; list: CatalogProductRecord[] }> {

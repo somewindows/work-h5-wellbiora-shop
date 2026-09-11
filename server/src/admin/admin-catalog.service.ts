@@ -35,10 +35,9 @@ export class AdminCatalogService {
   }
 
   async createProduct(dto: CreateAdminProductDto, actor: AdminActor): Promise<CatalogProductRecord> {
-    if (await this.repository.findById(dto.id)) throw new BusinessException(40002, '商品 ID 已存在')
     const now = new Date()
     const saved = await this.repository.save({
-      id: dto.id,
+      id: await this.repository.nextProductId(),
       name: dto.name.trim(),
       en: dto.en.trim(),
       priceFen: dto.priceFen,

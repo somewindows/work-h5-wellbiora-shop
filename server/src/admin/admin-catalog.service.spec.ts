@@ -66,29 +66,46 @@ describe('AdminCatalogService', () => {
     expect(saved).toMatchObject({ id: 'WB10001', name: '测试商品', priceFen: 200, theme: '#000000', flavor: '莓果', goodsNo: 'G-1', isActive: true })
   })
 
-  it('新建商品初始为未发布草稿（contentVersion 0、isActive false）并记审计日志', async () => {
+  it('新建商品初始为未发布草稿（contentVersion 0、isActive false），ID 由服务端生成并记审计日志', async () => {
     const { service, auditLogs } = await createService([])
     const dto = plainToInstance(CreateAdminProductDto, {
-      id: 'p-new-1', name: '新品', en: 'New Product', priceFen: 9900,
+      name: '新品', en: 'New Product', priceFen: 9900,
       theme: '#033B3C', themeLight: '#D9EDE2', cardImg: '/assets/new.jpg',
       spec: '10ml × 10袋', ingredients: '测试成分', originCert: '欧洲制造', complianceText: '固定合规声明',
     })
 
     const saved = await service.createProduct(dto, actor)
 
-    expect(saved).toMatchObject({ id: 'p-new-1', isActive: false, contentVersion: 0, blocks: [], draftBlocks: [], tags: [] })
-    await expect(auditLogs.findByTarget('catalog_product', 'p-new-1')).resolves.toMatchObject([{ action: 'create_product' }])
+    expect(saved).toMatchObject({ id: 'WB10001', isActive: false, contentVersion: 0, blocks: [], draftBlocks: [], tags: [] })
+    await expect(auditLogs.findByTarget('catalog_product', 'WB10001')).resolves.toMatchObject([{ action: 'create_product' }])
   })
 
-  it('新建商品拒绝重复 ID', async () => {
+  it('商品 ID 按 WB + 5 位数字取最小未占用编号递增', async () => {
     const { service } = await createService()
     const dto = plainToInstance(CreateAdminProductDto, {
-      id: 'WB10001', name: '重复', en: 'Dup', priceFen: 100,
-      theme: '#033B3C', themeLight: '#D9EDE2', cardImg: '/assets/dup.jpg',
+      name: '新品', en: 'New Product', priceFen: 100,
+      theme: '#033B3C', themeLight: '#D9EDE2', cardImg: '/assets/new.jpg',
       spec: '1 件', ingredients: '成分', originCert: '产地', complianceText: '声明',
     })
 
-    await expect(service.createProduct(dto, actor)).rejects.toMatchObject({ code: 40002 })
+    const first = await service.createProduct(dto, actor)
+    const second = await service.createProduct(dto, actor)
+
+    expect(first.id).toBe('WB10002')
+    expect(second.id).toBe('WB10003')
+  })
+
+  it('中间编号被删除（不再占用）时新建商品填补空位', async () => {
+    const { service } = await createService([product, { ...product, id: 'WB10003', name: '另一个商品' }])
+    const dto = plainToInstance(CreateAdminProductDto, {
+      name: '填坑新品', en: 'Gap Product', priceFen: 100,
+      theme: '#033B3C', themeLight: '#D9EDE2', cardImg: '/assets/gap.jpg',
+      spec: '1 件', ingredients: '成分', originCert: '产地', complianceText: '声明',
+    })
+
+    const saved = await service.createProduct(dto, actor)
+
+    expect(saved.id).toBe('WB10002')
   })
 
   it('发布时保留前后版本并记录操作日志', async () => {

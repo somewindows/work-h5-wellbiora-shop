@@ -41,6 +41,9 @@ describe('后台商品目录管理（e2e）', () => {
   const admin = () => ({ Authorization: `Bearer ${adminToken}` })
   const user = () => ({ Authorization: `Bearer ${userToken}` })
 
+  // 第一个新建用例由服务端分配 ID，后续用例复用
+  let createdId: string
+
   it('未登录访问后台接口返回 401', async () => {
     const response = await request(app.getHttpServer()).get('/api/v1/admin/products').expect(401)
     expect(response.body).toMatchObject({ code: 40101 })
@@ -54,35 +57,36 @@ describe('后台商品目录管理（e2e）', () => {
     expect(response.body).toMatchObject({ code: 40101 })
   })
 
-  it('新建商品初始为未发布草稿，公开列表与详情不可见', async () => {
+  it('新建商品初始为未发布草稿，ID 由服务端生成，公开列表与详情不可见', async () => {
     const created = await request(app.getHttpServer())
       .post('/api/v1/admin/products')
       .set(admin())
       .send({
-        id: 'p9', name: '新品测试饮', en: 'New Test Drink', priceFen: 9900,
+        name: '新品测试饮', en: 'New Test Drink', priceFen: 9900,
         theme: '#033B3C', themeLight: '#D9EDE2', cardImg: '/assets/p9-main.jpg',
         spec: '5ml × 10袋 / 盒', ingredients: '测试成分', originCert: '欧洲制造 · GMP 生产规范',
         complianceText: '固定合规声明',
       })
       .expect(201)
-    expect(created.body.data).toMatchObject({ id: 'p9', isActive: false, contentVersion: 0, blocks: [], draftBlocks: [] })
+    expect(created.body.data).toMatchObject({ id: 'WB10005', isActive: false, contentVersion: 0, blocks: [], draftBlocks: [] })
+    createdId = created.body.data.id
 
     const list = await request(app.getHttpServer()).get('/api/v1/products').expect(200)
-    expect(list.body.data.map((item: { id: string }) => item.id)).not.toContain('p9')
-    await request(app.getHttpServer()).get('/api/v1/products/p9').expect(404)
+    expect(list.body.data.map((item: { id: string }) => item.id)).not.toContain(createdId)
+    await request(app.getHttpServer()).get(`/api/v1/products/${createdId}`).expect(404)
   })
 
-  it('重复 ID 新建商品被拒绝', async () => {
-    const response = await request(app.getHttpServer())
+  it('再次新建商品 ID 自动递增', async () => {
+    const created = await request(app.getHttpServer())
       .post('/api/v1/admin/products')
       .set(admin())
       .send({
-        id: 'p9', name: '重复', en: 'Dup', priceFen: 100,
-        theme: '#033B3C', themeLight: '#D9EDE2', cardImg: '/assets/dup.jpg',
+        name: '递增测试', en: 'Increment', priceFen: 100,
+        theme: '#033B3C', themeLight: '#D9EDE2', cardImg: '/assets/inc.jpg',
         spec: '1 件', ingredients: '成分', originCert: '产地', complianceText: '声明',
       })
-      .expect(400)
-    expect(response.body).toMatchObject({ code: 40002 })
+      .expect(201)
+    expect(created.body.data.id).toBe('WB10006')
   })
 
   it('改价后公开详情、购物车与预检都使用新价', async () => {
@@ -151,7 +155,7 @@ describe('后台商品目录管理（e2e）', () => {
 
   it('非法块类型在保存草稿时即被拒绝', async () => {
     const response = await request(app.getHttpServer())
-      .put('/api/v1/admin/products/p9/draft-blocks')
+      .put(`/api/v1/admin/products/${createdId}/draft-blocks`)
       .set(admin())
       .send({ blocks: [{ type: 'unknown_block' }] })
       .expect(422)
@@ -160,13 +164,13 @@ describe('后台商品目录管理（e2e）', () => {
 
   it('草稿可保存半成品，发布时才做完整校验', async () => {
     await request(app.getHttpServer())
-      .put('/api/v1/admin/products/p9/draft-blocks')
+      .put(`/api/v1/admin/products/${createdId}/draft-blocks`)
       .set(admin())
       .send({ blocks: [{ type: 'image' }] })
       .expect(200)
 
     const response = await request(app.getHttpServer())
-      .post('/api/v1/admin/products/p9/publish')
+      .post(`/api/v1/admin/products/${createdId}/publish`)
       .set(admin())
       .expect(422)
     expect(response.body).toMatchObject({ code: 42201 })
@@ -182,20 +186,20 @@ describe('后台商品目录管理（e2e）', () => {
 
   it('发布两版后回滚恢复上一版内容并写审计日志', async () => {
     await request(app.getHttpServer())
-      .put('/api/v1/admin/products/p9/draft-blocks')
+      .put(`/api/v1/admin/products/${createdId}/draft-blocks`)
       .set(admin())
       .send({ blocks: [{ type: 'gallery', images: ['/assets/p9-v1.jpg'] }] })
       .expect(200)
-    await request(app.getHttpServer()).post('/api/v1/admin/products/p9/publish').set(admin()).expect(200)
+    await request(app.getHttpServer()).post(`/api/v1/admin/products/${createdId}/publish`).set(admin()).expect(200)
     await request(app.getHttpServer())
-      .put('/api/v1/admin/products/p9/draft-blocks')
+      .put(`/api/v1/admin/products/${createdId}/draft-blocks`)
       .set(admin())
       .send({ blocks: [{ type: 'text', body: '第二版文案' }] })
       .expect(200)
-    await request(app.getHttpServer()).post('/api/v1/admin/products/p9/publish').set(admin()).expect(200)
+    await request(app.getHttpServer()).post(`/api/v1/admin/products/${createdId}/publish`).set(admin()).expect(200)
 
     const rolledBack = await request(app.getHttpServer())
-      .post('/api/v1/admin/products/p9/rollback')
+      .post(`/api/v1/admin/products/${createdId}/rollback`)
       .set(admin())
       .expect(200)
     expect(rolledBack.body.data).toMatchObject({
@@ -208,7 +212,7 @@ describe('后台商品目录管理（e2e）', () => {
       .set(admin())
       .expect(200)
     expect(logs.body.data.total).toBe(1)
-    expect(logs.body.data.list[0]).toMatchObject({ action: 'rollback', targetId: 'p9', adminUsername: 'operator' })
+    expect(logs.body.data.list[0]).toMatchObject({ action: 'rollback', targetId: createdId, adminUsername: 'operator' })
   })
 
   it('操作日志支持分页与动作过滤', async () => {

@@ -49,7 +49,6 @@ const createVisible = ref(false)
 const creating = ref(false)
 const createFormRef = ref<FormInstance>()
 const createForm = reactive({
-  id: '',
   name: '',
   en: '',
   priceYuan: 0,
@@ -68,10 +67,6 @@ const createForm = reactive({
 const HEX_COLOR = /^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/
 
 const createRules: FormRules = {
-  id: [
-    { required: true, message: '请输入商品 ID', trigger: 'blur' },
-    { pattern: /^[a-z][a-z0-9-]{0,31}$/, message: '小写字母开头，仅小写字母/数字/中划线，最长 32 位', trigger: 'blur' },
-  ],
   name: [{ required: true, message: '请输入商品名称', trigger: 'blur' }],
   en: [{ required: true, message: '请输入英文名', trigger: 'blur' }],
   priceYuan: [{ required: true, type: 'number', min: 0, message: '价格不能为负', trigger: 'blur' }],
@@ -101,7 +96,6 @@ async function submitCreate(): Promise<void> {
   creating.value = true
   try {
     const payload: CreateProductPayload = {
-      id: createForm.id.trim(),
       name: createForm.name.trim(),
       en: createForm.en.trim(),
       priceFen: yuanToFen(createForm.priceYuan),
@@ -117,7 +111,7 @@ async function submitCreate(): Promise<void> {
       complianceText: createForm.complianceText.trim(),
     }
     const created = await createProduct(payload)
-    ElMessage.success('商品已创建（默认下架状态，请编辑后上架）')
+    ElMessage.success(`商品 ${created.id} 已创建（默认下架状态，请编辑后上架）`)
     createVisible.value = false
     await router.push(`/products/${created.id}`)
   } catch (error) {
@@ -186,8 +180,8 @@ onMounted(fetchList)
     <!-- 新建商品对话框：complianceText 仅创建时可设置 -->
     <el-dialog v-model="createVisible" title="新建商品" width="640px" :close-on-click-modal="false">
       <el-form ref="createFormRef" :model="createForm" :rules="createRules" label-width="110px">
-        <el-form-item label="商品 ID" prop="id">
-          <el-input v-model="createForm.id" placeholder="如 p5（创建后不可修改）" />
+        <el-form-item label="商品 ID">
+          <span class="id-hint">由服务端自动生成（WB + 5 位递增数字，如 WB10005；删除商品后编号可回收复用）</span>
         </el-form-item>
         <el-form-item label="商品名称" prop="name">
           <el-input v-model="createForm.name" maxlength="128" />
@@ -242,6 +236,11 @@ onMounted(fetchList)
 <style scoped>
 .en-name {
   font-size: 12px;
+  color: #909399;
+}
+
+.id-hint {
+  font-size: 13px;
   color: #909399;
 }
 
