@@ -7,6 +7,7 @@ import { PersonalDataCryptoService } from '../security/personal-data-crypto.serv
 import type { AdminOrderQueryDto, AdminOrderConfirmDto, AdminOrderRefundDto } from './admin-order.dto'
 import { PAYMENT_ADAPTER, type PaymentAdapter } from './local-payment.adapter'
 import { ORDER_REPOSITORY, type OrderRecord, type OrderRepository, type OrderStatusEventRecord } from './order.repository'
+import { OrderService } from './order.service'
 import { WAREHOUSE_ADAPTER, type WarehouseAdapter } from './warehouse.adapter'
 
 /**
@@ -67,6 +68,7 @@ export class AdminOrderService {
     @Inject(PAYMENT_ADAPTER) private readonly paymentAdapter: PaymentAdapter,
     private readonly crypto: PersonalDataCryptoService,
     private readonly audit: AuditLogService,
+    private readonly orderService: OrderService,
   ) {}
 
   async list(query: AdminOrderQueryDto): Promise<{ total: number; list: AdminOrderListItem[] }> {
@@ -123,8 +125,31 @@ export class AdminOrderService {
     return this.detail(orderNo)
   }
 
-  async cancel(orderNo: string, dto: AdminOrderConfirmDto, actor: AdminActor): Promise<AdminOrderDetail> {
-    this.requireConfirm(dto)
+  /**
+   * 主动查单补状态：支付回调漏单/失败时的兜底入口。
+   * 幂等：已支付/已退款直接返回详情；微信侧已支付则复用回调同一套登记逻辑（金额比对 + 推仓 + 报关）。
+   */
+  async syncPayment(orderNo: string, actor: AdminActor): Promise<AdminOrderDetail> {
+    const order = await this.requireOrder(orderNo)
+    if (order.paymentStatus !== 'pending') return this.detail(orderNo)
+    if (!this.paymentAdapter.queryPayment) throw new BusinessException(40002, '当前支付通道不支持主动查单')
+
+    const remote = await this.paymentAdapter.queryPayment(orderNo)
+    if (!remote) throw new BusinessException(40002, '微信侧查无该订单（可能未调起支付）')
+    if (remote.tradeState !== 'SUCCESS') throw new BusinessException(40002, `微信侧订单未支付成功（交易状态 ${remote.tradeState}）`)
+
+    await this.orderService.handleWechatPaid({
+      orderNo,
+      transactionId: remote.transactionId ?? '',
+      paidTotalFen: remote.paidTotalFen ?? -1,
+      paidAt: remote.paidAt ?? new Date(),
+    })
+    const saved = await this.requireOrder(orderNo)
+    await this.audit.record(actor, 'sync_payment', 'order', orderNo, this.toAuditOrder(order), this.toAuditOrder(saved))
+    return this.detail(orderNo)
+  }
+
+  async cancel(orderNo: string, dto: AdminOrderConfirmDto, actor: AdminActor): Promise<AdminOrderDetail> {    this.requireConfirm(dto)
     const order = await this.requireOrder(orderNo)
     if (order.status === 'cancelled') throw new BusinessException(40002, '订单已取消')
 

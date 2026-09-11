@@ -5,9 +5,10 @@ import { AuditLogService } from '../admin/audit-log.service'
 import { InMemoryAuditLogRepository } from '../admin/audit-log.repository'
 
 import { AdminOrderService } from './admin-order.service'
-import { LocalPaymentAdapter } from './local-payment.adapter'
+import { LocalPaymentAdapter, type PaymentAdapter } from './local-payment.adapter'
 import { LocalWarehouseAdapter } from './local-warehouse.adapter'
 import { InMemoryOrderRepository, type OrderRecord } from './order.repository'
+import type { OrderService, WechatPaidInput } from './order.service'
 
 describe('AdminOrderService', () => {
   const actor = { id: 'admin-1', username: 'operator' }
@@ -16,6 +17,7 @@ describe('AdminOrderService', () => {
   let warehouse: LocalWarehouseAdapter
   let payment: LocalPaymentAdapter
   let auditLogs: InMemoryAuditLogRepository
+  let orderService: { handleWechatPaid: jest.Mock }
   let service: AdminOrderService
   let seq = 0
 
@@ -44,7 +46,14 @@ describe('AdminOrderService', () => {
     warehouse = new LocalWarehouseAdapter(catalog)
     payment = new LocalPaymentAdapter()
     auditLogs = new InMemoryAuditLogRepository()
-    service = new AdminOrderService(orders, warehouse, payment, crypto, new AuditLogService(auditLogs))
+    // OrderService 桩：仅模拟 handleWechatPaid 的落库效果，完整回调链路由其自身测试覆盖
+    orderService = {
+      handleWechatPaid: jest.fn(async (input: WechatPaidInput) => {
+        const order = await orders.findOneByOrderNo(input.orderNo)
+        if (order) await orders.saveOrder({ ...order, status: 'ship', paymentStatus: 'paid', paidAt: input.paidAt, wechatTransactionId: input.transactionId })
+      }),
+    }
+    service = new AdminOrderService(orders, warehouse, payment, crypto, new AuditLogService(auditLogs), orderService as unknown as OrderService)
   })
 
   it('取消待支付订单：仅关单，无资金动作', async () => {
@@ -135,5 +144,50 @@ describe('AdminOrderService', () => {
     const detail = await service.detail(paid.orderNo)
     expect(detail.idcard).toBe('110***********1234')
     expect(JSON.stringify(detail)).not.toContain('110101199001011234')
+  })
+
+  describe('syncPayment（主动查单补状态）', () => {
+    const buildService = (queryPayment: jest.Mock): AdminOrderService => {
+      const adapter = { createPayParams: jest.fn(), refund: jest.fn(), queryPayment } as unknown as PaymentAdapter
+      return new AdminOrderService(orders, warehouse, adapter, crypto, new AuditLogService(auditLogs), orderService as unknown as OrderService)
+    }
+
+    it('微信侧已支付：补登记支付结果、订单转已支付并写审计', async () => {
+      const order = await createOrder()
+      const svc = buildService(jest.fn().mockResolvedValue({ tradeState: 'SUCCESS', transactionId: 'tx-1', paidTotalFen: 32900, paidAt: new Date() }))
+
+      const detail = await svc.syncPayment(order.orderNo, actor)
+
+      expect(detail).toMatchObject({ status: 'ship', paymentStatus: 'paid' })
+      expect(orderService.handleWechatPaid).toHaveBeenCalledWith(expect.objectContaining({ orderNo: order.orderNo, transactionId: 'tx-1', paidTotalFen: 32900 }))
+      await expect(auditLogs.findByTarget('order', order.orderNo)).resolves.toMatchObject([{ action: 'sync_payment' }])
+    })
+
+    it('微信侧未支付或查无此单：拒绝且不登记', async () => {
+      const order = await createOrder()
+      const notPaid = buildService(jest.fn().mockResolvedValue({ tradeState: 'NOTPAY' }))
+      const notFound = buildService(jest.fn().mockResolvedValue(null))
+
+      await expect(notPaid.syncPayment(order.orderNo, actor)).rejects.toMatchObject({ code: 40002 })
+      await expect(notFound.syncPayment(order.orderNo, actor)).rejects.toMatchObject({ code: 40002 })
+      expect(orderService.handleWechatPaid).not.toHaveBeenCalled()
+      await expect(service.detail(order.orderNo)).resolves.toMatchObject({ paymentStatus: 'pending' })
+    })
+
+    it('本地 mock 支付通道不支持查单', async () => {
+      const order = await createOrder()
+
+      await expect(service.syncPayment(order.orderNo, actor)).rejects.toMatchObject({ code: 40002 })
+    })
+
+    it('已支付订单直接返回，不重复登记（幂等）', async () => {
+      const order = await createPaidOrder()
+      const svc = buildService(jest.fn())
+
+      const detail = await svc.syncPayment(order.orderNo, actor)
+
+      expect(detail.paymentStatus).toBe('paid')
+      expect(orderService.handleWechatPaid).not.toHaveBeenCalled()
+    })
   })
 })

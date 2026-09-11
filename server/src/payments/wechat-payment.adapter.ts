@@ -4,9 +4,9 @@ import { Logger } from '@nestjs/common'
 
 import { BusinessException } from '../common/business.exception'
 
-import type { PaymentAdapter, PaymentRefundResult, PayContext } from '../orders/local-payment.adapter'
+import type { PaymentAdapter, PaymentQueryResult, PaymentRefundResult, PayContext } from '../orders/local-payment.adapter'
 import { buildV3Message, signV3 } from './wechat-pay.crypto'
-import type { WechatPayClient } from './wechat-pay.client'
+import { WechatPayError, type WechatPayClient } from './wechat-pay.client'
 import type { WechatPayConfig } from './wechat-pay.config'
 
 /** 前端拿到 provider=wechat 的 payParams 后，用 WeixinJSBridge.invoke('getBrandWCPayRequest', ...) 调起支付。 */
@@ -18,6 +18,15 @@ interface WechatRefundResponse {
   refund_id: string
   out_refund_no: string
   status: string
+}
+
+/** V3 查单（GET /v3/pay/transactions/out-trade-no）响应的关键字段 */
+interface WechatTransaction {
+  out_trade_no: string
+  transaction_id?: string
+  trade_state: string
+  amount?: { total?: number; payer_total?: number }
+  success_time?: string
 }
 
 /**
@@ -75,5 +84,22 @@ export class WechatPaymentAdapter implements PaymentAdapter {
       amount: { refund: amountFen, total: totalFen, currency: 'CNY' },
     })
     return { refundNo: result.out_refund_no }
+  }
+
+  /** 主动查单（回调漏单兜底）；path 带 mchid 查询参数，V3 签名直接签完整 path。微信侧查无此单返回 null。 */
+  async queryPayment(orderNo: string): Promise<PaymentQueryResult | null> {
+    try {
+      const result = await this.client.get<WechatTransaction>(`/v3/pay/transactions/out-trade-no/${orderNo}?mchid=${this.config.mchId}`)
+      return {
+        tradeState: result.trade_state,
+        transactionId: result.transaction_id,
+        paidTotalFen: result.amount?.payer_total ?? result.amount?.total,
+        paidAt: result.success_time ? new Date(result.success_time) : undefined,
+      }
+    } catch (error) {
+      // 微信侧查无此单（未调起支付或已关闭）时 V3 返回 404，按「查无此单」处理而非报错
+      if (error instanceof WechatPayError && error.httpStatus === 404) return null
+      throw error
+    }
   }
 }

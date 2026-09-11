@@ -14,10 +14,20 @@ export interface PayContext {
   description?: string
 }
 
+/** 主动查单结果（回调漏单时的补单依据）；tradeState 为支付通道原始状态（微信侧如 SUCCESS/NOTPAY/CLOSED） */
+export interface PaymentQueryResult {
+  tradeState: string
+  transactionId?: string
+  paidTotalFen?: number
+  paidAt?: Date
+}
+
 export interface PaymentAdapter {
   createPayParams(orderNo: string, ctx?: PayContext): Promise<Record<string, string>>
   /** 原路退款；金额单位：分；totalFen 为原订单实付（微信退款接口要求） */
   refund(orderNo: string, amountFen: number, totalFen?: number): Promise<PaymentRefundResult>
+  /** 主动查询支付结果（回调漏单兜底）；返回 null 表示通道侧查无此单。本地 mock 不实现 */
+  queryPayment?(orderNo: string): Promise<PaymentQueryResult | null>
 }
 
 export interface LocalRefundRecord {

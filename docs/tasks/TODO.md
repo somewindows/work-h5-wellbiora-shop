@@ -15,9 +15,11 @@
   - [ ] 真实联调（部署后，**进行中，2026-09-11 已跑到真实支付成功**）：
     - 已完成：服务器 .env 配齐 WXPAY_* → build/migration/restart 全过、回调端点 401 验签拒绝正常；公众号「网页授权域名」已配 `wellbiora.com.cn`（强制 https 已开，校验文件在 `D:\www\wellbiora\site\h5\MP_verify_QuZJZ925foVf0pSh.txt`）；18:00:58 微信内 0.01 元真实支付**成功**（微信交易单号 4500000380202609119885896489，商户单号 WB20260911FAD273D2E482，openid 绑定与 JSAPI 下单已通）
     - 当日修复 4 个：SMS_DEV_CONSOLE 生产联调逃生门（34367ac）、前端非 2xx 业务码透传修 40007 不跳转（2bdb51b）、支付链路服务端关键节点日志（fb6ad9c）、**微信回跳 code 在 # 前真实 query 里导致绑定静默失败的修复**（a11944a）
-    - **当前卡点：支付成功但订单状态仍是"待付款"——支付回调未生效**。下次排查顺序：① `Select-String -Path C:\nginx\logs\*.log -Pattern "payments/wechat"` 看微信回调 POST 到没到、状态码；② server-out.log 看 18:00 前后验签/解密/处理日志；③ 回调没到就补测公网可达性 `curl.exe -X POST https://wellbiora.com.cn/api/v1/payments/wechat/notify -d "{}"`（应 401 而非超时/502）；④ 微信 V3 回调会重推，若订单后来自动变已支付则只是延迟；⑤ 兜底：admin 后台对该单做退款，顺带验证退款链路
+    - **「支付成功但订单状态仍待付款」根因已定位并修复（09.11 晚）**：Node 全局 fetch（undici）默认自动补 `Accept-Language: *`，微信 V3 网关不认，GET /v3/certificates 回 `PARAM_ERROR 传入了不支持的Accept-Language` → 平台证书永远拉不下来 → 回调验签全部失败（微信按 30分/30分/1h… 节奏持续重推，server-out.log 可见）。修复 = `wechat-pay.client.ts` 请求头显式 `Accept-Language: zh-CN`（本机实测 undici 默认头行为确认；单测 114/114、e2e 39/39、lint/build 全过）
+    - 同时新增**主动查单补单**：`POST /admin/orders/:orderNo/sync-payment`（WechatPaymentAdapter.queryPayment 走 V3 查单，微信侧 SUCCESS 则复用 handleWechatPaid 登记，幂等 + 审计；404 按查无此单处理）+ admin 订单详情页「查单补状态」按钮（仅待支付订单显示）
+    - **待办（下次上服务器）**：拉取部署后 ① 盯 server-out/server-err.log 确认 /v3/certificates 不再报 PARAM_ERROR（若改报「无可用的平台证书」则说明该商户号是微信支付公钥模式，需加 WXPAY_PUBLIC_KEY 支持）② 对订单 WB20260911FAD273D2E482 用「查单补状态」补单 ③ 等微信下一次重推验证回调自动生效
     - 剩余：报关（需先开通自助清关 + 配置 WXPAY_API_V2_KEY/WXPAY_CUSTOMS_CODE=HANGZHOU_ZS/WXPAY_MCH_CUSTOMS_NO=5101960X8F，海关信息已在商户平台添加「杭州（总署版）」）
-    - 注意：服务器 .env 目前 `SMS_DEV_CONSOLE=1`（验证码打日志的联调开关），**正式对外开业前必须移除**；登录 JWT 有效期 7 天
+    - 注意：服务器 .env 目前 `SMS_DEV_CONSOLE=1`（验证码打日志的联调开关），**正式对外开业前必须移除**；登录 JWT 有效期 7 天；服务器日志中文乱码是 PowerShell 5.1 按 GBK 解码 UTF-8 所致，`[Console]::OutputEncoding=[Text.Encoding]::UTF8` 后正常；文件名时间戳是 UTC（+8 换算）
 
 - **T9 · 前端收尾与联调准备**（T7 遗留，详见 `archive/2026-08-27-T7-前端工程初始化.md` 遗留点）
   - 视觉走查：`npm run dev` 对照 `prototype/app/` 逐页目检

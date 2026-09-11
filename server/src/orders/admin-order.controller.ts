@@ -28,6 +28,13 @@ export class AdminOrderController {
     return this.adminOrderService.sync(orderNo, admin)
   }
 
+  /** 主动向微信查单补状态：支付回调漏单时的兜底，幂等、无资金动作，不需二次确认 */
+  @Post(':orderNo/sync-payment')
+  @HttpCode(200)
+  syncPayment(@Param('orderNo') orderNo: string, @CurrentAdmin() admin: AdminActor): Promise<AdminOrderDetail> {
+    return this.adminOrderService.syncPayment(orderNo, admin)
+  }
+
   @Post(':orderNo/cancel')
   @HttpCode(200)
   cancel(@Param('orderNo') orderNo: string, @Body() dto: AdminOrderConfirmDto, @CurrentAdmin() admin: AdminActor): Promise<AdminOrderDetail> {

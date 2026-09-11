@@ -1,6 +1,6 @@
 import { generateKeyPairSync } from 'node:crypto'
 
-import type { WechatPayClient } from './wechat-pay.client'
+import { WechatPayError, type WechatPayClient } from './wechat-pay.client'
 import { WechatPaymentAdapter } from './wechat-payment.adapter'
 import type { WechatPayConfig } from './wechat-pay.config'
 import { buildV3Message, verifyV3 } from './wechat-pay.crypto'
@@ -26,6 +26,10 @@ describe('WechatPaymentAdapter', () => {
 
   function stubClient(postImpl: (path: string, payload: unknown) => Promise<unknown>): WechatPayClient {
     return { post: jest.fn(postImpl) } as unknown as WechatPayClient
+  }
+
+  function stubGetClient(getImpl: (path: string) => Promise<unknown>): WechatPayClient {
+    return { get: jest.fn(getImpl) } as unknown as WechatPayClient
   }
 
   describe('createPayParams（JSAPI 下单）', () => {
@@ -91,6 +95,37 @@ describe('WechatPaymentAdapter', () => {
     it('缺少原订单金额时拒绝发起退款', async () => {
       const adapter = new WechatPaymentAdapter(stubClient(() => Promise.resolve({})), config)
       await expect(adapter.refund('WB20260910ABCDEF', 10000)).rejects.toThrow(/totalFen/)
+    })
+  })
+
+  describe('queryPayment（主动查单）', () => {
+    it('查单路径带 mchid 查询参数，响应映射为支付结果', async () => {
+      let capturedPath = ''
+      const client = stubGetClient((path) => {
+        capturedPath = path
+        return Promise.resolve({
+          out_trade_no: 'WB20260910ABCDEF',
+          transaction_id: '4200000001',
+          trade_state: 'SUCCESS',
+          amount: { total: 32900, payer_total: 32900 },
+          success_time: '2026-09-11T18:00:58+08:00',
+        })
+      })
+      const adapter = new WechatPaymentAdapter(client, config)
+
+      const result = await adapter.queryPayment('WB20260910ABCDEF')
+
+      expect(capturedPath).toBe('/v3/pay/transactions/out-trade-no/WB20260910ABCDEF?mchid=1117333649')
+      expect(result).toMatchObject({ tradeState: 'SUCCESS', transactionId: '4200000001', paidTotalFen: 32900 })
+      expect(result?.paidAt?.toISOString()).toBe('2026-09-11T10:00:58.000Z')
+    })
+
+    it('微信侧查无此单（404）返回 null，其他错误透传', async () => {
+      const notFound = new WechatPaymentAdapter(stubGetClient(() => Promise.reject(new WechatPayError('ORDER_NOT_EXIST', '订单不存在', 404))), config)
+      await expect(notFound.queryPayment('WB20260910ABCDEF')).resolves.toBeNull()
+
+      const broken = new WechatPaymentAdapter(stubGetClient(() => Promise.reject(new WechatPayError('SYSTEM_ERROR', '系统错误', 500))), config)
+      await expect(broken.queryPayment('WB20260910ABCDEF')).rejects.toMatchObject({ wechatCode: 'SYSTEM_ERROR' })
     })
   })
 })

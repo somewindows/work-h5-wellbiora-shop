@@ -24,6 +24,11 @@ export function syncOrder(orderNo: string): Promise<AdminOrderDetail> {
   return request.post(`/admin/orders/${orderNo}/sync`)
 }
 
+/** 主动向微信查单补状态：支付回调漏单时兜底 */
+export function syncOrderPayment(orderNo: string): Promise<AdminOrderDetail> {
+  return request.post(`/admin/orders/${orderNo}/sync-payment`)
+}
+
 /** 取消订单：confirm:true 只能由二次确认对话框触发，服务端缺省会 40003 拒绝 */
 export function cancelOrder(orderNo: string): Promise<AdminOrderDetail> {
   return request.post(`/admin/orders/${orderNo}/cancel`, { confirm: true })

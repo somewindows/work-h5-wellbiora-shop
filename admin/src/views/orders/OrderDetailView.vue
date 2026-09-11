@@ -5,7 +5,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
-import { cancelOrder, getOrder, refundOrder, syncOrder } from '@/api/orders'
+import { cancelOrder, getOrder, refundOrder, syncOrder, syncOrderPayment } from '@/api/orders'
 import { getErrorMessage } from '@/api/request'
 import type { AdminOrderDetail } from '@/types'
 import { fenToYuan, formatDateTime, formatMoney, yuanToFen } from '@/utils/format'
@@ -38,6 +38,21 @@ async function onSync(): Promise<void> {
     ElMessage.error(getErrorMessage(error))
   } finally {
     syncing.value = false
+  }
+}
+
+// ---------- 查单补状态（支付回调漏单兜底；仅待支付订单显示，幂等） ----------
+const syncingPayment = ref(false)
+
+async function onSyncPayment(): Promise<void> {
+  syncingPayment.value = true
+  try {
+    order.value = await syncOrderPayment(orderNo)
+    ElMessage.success('微信侧已支付，订单状态已补登记')
+  } catch (error) {
+    ElMessage.error(getErrorMessage(error))
+  } finally {
+    syncingPayment.value = false
   }
 }
 
@@ -118,6 +133,14 @@ onMounted(load)
         <el-tag v-if="order.customsRejected" type="danger">海关拦截</el-tag>
         <div class="spacer" />
         <el-button size="small" :loading="syncing" @click="onSync">同步仓储状态</el-button>
+        <el-button
+          v-if="order.paymentStatus === 'pending'"
+          size="small"
+          type="primary"
+          plain
+          :loading="syncingPayment"
+          @click="onSyncPayment"
+        >查单补状态</el-button>
         <el-button size="small" type="danger" plain :disabled="!canOperate" @click="cancelVisible = true">取消订单</el-button>
         <el-button
           size="small"
