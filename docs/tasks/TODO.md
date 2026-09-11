@@ -12,7 +12,12 @@
   - [x] 订单联动：`handleWechatPaid`/`handleWechatRefundNotified`、orders 新列 `wechat_transaction_id`（迁移 1710000009000）、支付成功自动推仓库 + 触发报关（失败不阻塞主流程）
   - [x] 前端：`src/composables/useWechatPay.ts` 编排（40007 → 静默授权跳转 → 回跳绑定 openid 自动续付；WeixinJSBridge 调起；微信外弹「复制链接去微信打开」）；Checkout 下单后 `?autopay=1` 直达拉起；request.ts 透传业务码
   - [x] 全量测试 + 真 MySQL `migration:run` 验证（2026-09-10，kt02 便携 Node 22 + 便携 MySQL 8.4：单测 106/106、e2e 39/39（含微信支付回调全链路）、lint/build、前端 vitest 17/17 + type-check + build、迁移 run/revert/run 全过）
-  - [ ] 真实联调（部署后）：服务器 `.env` 填 AppSecret/v3 密钥 → 0.01 元真实单 → 验证回调 `https://wellbiora.com.cn/api/v1/payments/wechat/notify` → 退款 → 报关（需先开通自助清关 + 配置 WXPAY_API_V2_KEY/WXPAY_CUSTOMS_CODE/WXPAY_MCH_CUSTOMS_NO）
+  - [ ] 真实联调（部署后，**进行中，2026-09-11 已跑到真实支付成功**）：
+    - 已完成：服务器 .env 配齐 WXPAY_* → build/migration/restart 全过、回调端点 401 验签拒绝正常；公众号「网页授权域名」已配 `wellbiora.com.cn`（强制 https 已开，校验文件在 `D:\www\wellbiora\site\h5\MP_verify_QuZJZ925foVf0pSh.txt`）；18:00:58 微信内 0.01 元真实支付**成功**（微信交易单号 4500000380202609119885896489，商户单号 WB20260911FAD273D2E482，openid 绑定与 JSAPI 下单已通）
+    - 当日修复 4 个：SMS_DEV_CONSOLE 生产联调逃生门（34367ac）、前端非 2xx 业务码透传修 40007 不跳转（2bdb51b）、支付链路服务端关键节点日志（fb6ad9c）、**微信回跳 code 在 # 前真实 query 里导致绑定静默失败的修复**（a11944a）
+    - **当前卡点：支付成功但订单状态仍是"待付款"——支付回调未生效**。下次排查顺序：① `Select-String -Path C:\nginx\logs\*.log -Pattern "payments/wechat"` 看微信回调 POST 到没到、状态码；② server-out.log 看 18:00 前后验签/解密/处理日志；③ 回调没到就补测公网可达性 `curl.exe -X POST https://wellbiora.com.cn/api/v1/payments/wechat/notify -d "{}"`（应 401 而非超时/502）；④ 微信 V3 回调会重推，若订单后来自动变已支付则只是延迟；⑤ 兜底：admin 后台对该单做退款，顺带验证退款链路
+    - 剩余：报关（需先开通自助清关 + 配置 WXPAY_API_V2_KEY/WXPAY_CUSTOMS_CODE=HANGZHOU_ZS/WXPAY_MCH_CUSTOMS_NO=5101960X8F，海关信息已在商户平台添加「杭州（总署版）」）
+    - 注意：服务器 .env 目前 `SMS_DEV_CONSOLE=1`（验证码打日志的联调开关），**正式对外开业前必须移除**；登录 JWT 有效期 7 天
 
 - **T9 · 前端收尾与联调准备**（T7 遗留，详见 `archive/2026-08-27-T7-前端工程初始化.md` 遗留点）
   - 视觉走查：`npm run dev` 对照 `prototype/app/` 逐页目检
