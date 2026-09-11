@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto'
 
+import { Logger } from '@nestjs/common'
+
 import { BusinessException } from '../common/business.exception'
 
 import type { PaymentAdapter, PaymentRefundResult, PayContext } from '../orders/local-payment.adapter'
@@ -23,6 +25,8 @@ interface WechatRefundResponse {
  * 仅在 .env 配齐 WXPAY_* 时由 OrdersModule 装配，未配置时回落 LocalPaymentAdapter。
  */
 export class WechatPaymentAdapter implements PaymentAdapter {
+  private readonly logger = new Logger(WechatPaymentAdapter.name)
+
   constructor(
     private readonly client: WechatPayClient,
     private readonly config: WechatPayConfig,
@@ -42,6 +46,7 @@ export class WechatPaymentAdapter implements PaymentAdapter {
       amount: { total: ctx.totalFen, currency: 'CNY' },
       payer: { openid: ctx.openid },
     })
+    this.logger.log(`JSAPI 下单成功：${orderNo}`)
 
     // 二次签名生成 JSAPI 调起参数（paySign 用商户私钥签）
     const timeStamp = Math.floor(Date.now() / 1000).toString()

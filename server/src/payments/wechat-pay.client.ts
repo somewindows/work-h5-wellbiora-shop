@@ -139,6 +139,7 @@ export class WechatPayClient {
       } catch {
         // 非 JSON 错误响应，保留原始片段
       }
+      this.logger.warn(`微信支付接口请求失败 ${method} ${path}：${wechatCode} ${message}`)
       throw new WechatPayError(wechatCode, message, response.status)
     }
     return (text ? JSON.parse(text) : {}) as T

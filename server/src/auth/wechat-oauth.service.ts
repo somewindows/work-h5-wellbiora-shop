@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common'
+import { Inject, Injectable, Logger } from '@nestjs/common'
 
 import { BusinessException } from '../common/business.exception'
 import { WECHAT_PAY_CONFIG, type WechatPayConfig } from '../payments/wechat-pay.config'
@@ -16,6 +16,7 @@ interface WechatOAuthTokenResponse {
  */
 @Injectable()
 export class WechatOAuthService {
+  private readonly logger = new Logger(WechatOAuthService.name)
   /** 单测可覆写；生产用全局 fetch */
   fetchImpl: typeof fetch = fetch
 
@@ -54,9 +55,11 @@ export class WechatOAuthService {
     const response = await this.fetchImpl(url)
     const body = (await response.json()) as WechatOAuthTokenResponse
     if (!body.openid) {
+      this.logger.warn(`code 换 openid 失败：errcode=${body.errcode ?? '无'} errmsg=${body.errmsg ?? '无'}`)
       throw new BusinessException(40002, `微信授权失败：${body.errmsg ?? `errcode=${body.errcode ?? '未知'}`}`)
     }
     await this.users.updateWechatOpenId(userId, body.openid)
+    this.logger.log(`已绑定微信 openid（用户 ${userId}）`)
   }
 
   private requireConfig(): WechatPayConfig {
