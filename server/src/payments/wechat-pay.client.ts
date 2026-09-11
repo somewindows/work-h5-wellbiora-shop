@@ -124,6 +124,10 @@ export class WechatPayClient {
       headers: {
         Authorization: authorization,
         Accept: 'application/json',
+        // Node 全局 fetch（undici）默认会补一个 `Accept-Language: *`，微信 V3 网关不认这个值，
+        // /v3/certificates 直接回 PARAM_ERROR 传入了不支持的Accept-Language——平台证书因此永远拉不下来、
+        // 回调全部验签失败。显式给一个合法语言标签覆盖掉默认值。
+        'Accept-Language': 'zh-CN',
         ...(method === 'POST' ? { 'Content-Type': 'application/json' } : {}),
       },
       ...(method === 'POST' ? { body } : {}),

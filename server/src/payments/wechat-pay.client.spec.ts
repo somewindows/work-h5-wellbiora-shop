@@ -64,6 +64,21 @@ describe('微信支付 V3 客户端', () => {
     expect(signV3(merchantPrivateKeyPem, message)).toBe(parts.signature)
   })
 
+  it('显式发送 Accept-Language，避免 undici 默认的 `*` 被微信网关拒绝', async () => {
+    const captured: { url?: string; init?: RequestInit } = {}
+    const fetchImpl: typeof fetch = (async (url: string | URL, init?: RequestInit) => {
+      captured.url = String(url)
+      captured.init = init ?? {}
+      return jsonResponse({ data: [] })
+    }) as typeof fetch
+    const client = new WechatPayClient(config, fetchImpl)
+
+    await client.get('/v3/certificates')
+
+    expect(captured.url).toBe('https://api.mch.weixin.qq.com/v3/certificates')
+    expect((captured.init?.headers as Record<string, string>)['Accept-Language']).toBe('zh-CN')
+  })
+
   it('业务错误抛出带微信错误码的 WechatPayError', async () => {
     const fetchImpl: typeof fetch = (async () =>
       jsonResponse({ code: 'PARAM_ERROR', message: '订单号非法' }, 400)) as typeof fetch
