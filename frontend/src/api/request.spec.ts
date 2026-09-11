@@ -41,4 +41,16 @@ describe('toRequestError', () => {
     expect(result).not.toBeInstanceOf(UnauthorizedError)
     expect(result.message).toBe('服务器繁忙')
   })
+
+  it('非 2xx 业务错误透传响应壳中的业务码（如 40007 需要微信授权）', () => {
+    const response = {
+      status: 400,
+      data: { code: 40007, message: '需要先完成微信授权才能支付', data: null },
+    } as AxiosResponse
+    const error = new AxiosError('Request failed with status code 400', 'ERR_BAD_REQUEST', undefined, undefined, response)
+
+    const result = toRequestError(error)
+    expect(result.message).toBe('需要先完成微信授权才能支付')
+    expect((result as { code?: number }).code).toBe(40007)
+  })
 })

@@ -12,13 +12,14 @@ export function getBusinessErrorMessage(error: unknown): string {
 /** 未登录或登录失效（HTTP 401）专用错误类型，页面可识别后引导去登录 */
 export class UnauthorizedError extends Error {}
 
-/** 把 axios 错误归一化为业务 Error；401 单独映射为 UnauthorizedError */
+/** 把 axios 错误归一化为业务 Error；401 单独映射为 UnauthorizedError；响应壳中的业务码一并透传（如 40007 = 需要微信授权） */
 export function toRequestError(err: unknown): Error {
   const message = getBusinessErrorMessage(err)
-  if (axios.isAxiosError(err) && err.response?.status === 401) {
-    return new UnauthorizedError(message)
-  }
-  return new Error(message)
+  if (!axios.isAxiosError(err)) return new Error(message)
+  const body = err.response?.data as Partial<ApiResponse<unknown>> | undefined
+  const code = typeof body?.code === 'number' ? body.code : undefined
+  const error = err.response?.status === 401 ? new UnauthorizedError(message) : new Error(message)
+  return Object.assign(error, { code })
 }
 
 /**
