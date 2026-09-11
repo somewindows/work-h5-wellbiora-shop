@@ -75,18 +75,29 @@ export function useWechatPay() {
   }
 
   /**
-   * 授权回跳处理：当前路由 query 带 code 时绑定 openid。
+   * 授权回跳处理：绑定 openid。
+   * 微信回跳会把 code 拼在 redirect_uri 的 # 前面（真实 query）或 hash query 里，两处都要读；
+   * 读完两侧都清掉，避免刷新后拿同一个 code 重复绑定。
    * 返回续付的订单号（无则 null）；页面应随后刷新订单数据。
    */
   async function handleAuthCallback(): Promise<string | null> {
-    const code = route.query.code
-    if (typeof code !== 'string' || !code) return null
+    const searchParams = new URLSearchParams(window.location.search)
+    const codeFromSearch = searchParams.get('code')
+    const code = codeFromSearch ?? (typeof route.query.code === 'string' ? route.query.code : null)
+    if (!code) return null
     try {
       await bindWechatOpenId(code)
     } catch (error) {
       showToast(error instanceof Error ? error.message : '微信授权失败，请重试')
     }
-    // 清掉 URL 上的 code/state，避免刷新重复绑定
+    // 清真实 query 里的 code/state（不改变 hash 路由，不触发导航）
+    if (codeFromSearch) {
+      const url = new URL(window.location.href)
+      url.searchParams.delete('code')
+      url.searchParams.delete('state')
+      window.history.replaceState(null, '', `${url.pathname}${url.hash}`)
+    }
+    // 清 hash query 里的 code/state
     const query = { ...route.query }
     delete query.code
     delete query.state
