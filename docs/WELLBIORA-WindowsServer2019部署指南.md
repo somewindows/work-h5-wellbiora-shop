@@ -98,6 +98,7 @@ mkdir D:\www\wellbiora\repo
 mkdir D:\www\wellbiora\site\h5
 mkdir D:\www\wellbiora\site\admin
 mkdir D:\www\wellbiora\logs
+mkdir D:\www\wellbiora\certs   # 后期接微信支付时放商户私钥/证书/平台公钥
 ```
 
 最终结构：
@@ -108,6 +109,7 @@ D:\www\wellbiora\
 ├── site\
 │   ├── h5\      # H5 商城构建产物（Nginx 托管）
 │   └── admin\   # 管理后台构建产物（Nginx 托管）
+├── certs\       # 微信支付密钥/证书（apiclient_key.pem / apiclient_cert.pem / pub_key.pem，手动放置，绝不进 git）
 └── logs\        # 后端与 Nginx 日志
 ```
 
@@ -481,9 +483,11 @@ npm run build
 ### 11.4 把构建产物复制到站点目录
 
 ```powershell
-# 清空旧文件再复制（-Recurse -Force 直接覆盖同名文件）
-Copy-Item D:\www\wellbiora\repo\frontend\dist\* D:\www\wellbiora\site\h5\ -Recurse -Force
-Copy-Item D:\www\wellbiora\repo\admin\dist\* D:\www\wellbiora\site\admin\ -Recurse -Force
+# 用 robocopy /MIR 镜像同步：复制新文件并删除目标目录里的旧文件
+# （前端每次构建的 js/css 都带新 hash，Copy-Item 只覆盖不删除，旧文件会越积越多）
+robocopy D:\www\wellbiora\repo\frontend\dist D:\www\wellbiora\site\h5 /MIR /NFL /NDL /NJH /NJS
+robocopy D:\www\wellbiora\repo\admin\dist D:\www\wellbiora\site\admin /MIR /NFL /NDL /NJH /NJS
+# 注意：robocopy 退出码 0~7 都是成功（1=有文件被复制），不是报错
 
 # 验证
 dir D:\www\wellbiora\site\h5       # 应有 index.html、assets\ 等
@@ -813,22 +817,32 @@ C:\nssm\nssm.exe restart WellbioraServer
 cd D:\www\wellbiora\repo
 git pull
 cd frontend ; npm ci ; npm run build
-Copy-Item dist\* D:\www\wellbiora\site\h5\ -Recurse -Force
+robocopy dist D:\www\wellbiora\site\h5 /MIR /NFL /NDL /NJH /NJS
 cd ..\admin ; npm ci ; npm run build
-Copy-Item dist\* D:\www\wellbiora\site\admin\ -Recurse -Force
+robocopy dist D:\www\wellbiora\site\admin /MIR /NFL /NDL /NJH /NJS
 # 静态文件即改即生效，无需重启任何服务
+# （robocopy 退出码 0~7 都是成功；若只改了其中一个端，只跑对应那条即可）
 ```
 
 ### 17.2 日志排查
 
 ```powershell
-# 后端日志（报错、开发验证码）
+# 后端日志分两个文件（NestJS 的 logger 决定走向）：
+#   server-out.log = stdout：LOG 和 WARN（如「微信支付接口请求失败…」）
+#   server-err.log = stderr：ERROR 和未捕获异常堆栈
+Get-Content D:\www\wellbiora\logs\server-out.log -Tail 100
 Get-Content D:\www\wellbiora\logs\server-err.log -Tail 100
 
 # Nginx 访问/错误日志
 Get-Content C:\nginx\logs\wellbiora.error.log -Tail 100
 Get-Content C:\nginx\logs\wellbiora.access.log -Tail 100
 ```
+
+排障要点（2026-09-12 支付联调实战沉淀）：
+
+- **中文乱码**：Windows PowerShell 5.1 默认按 GBK 解码，而日志是 UTF-8。先执行 `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8` 再 `Get-Content`，中文就正常了。
+- **资源管理器显示的大小/时间不准**：以 `Get-Item <日志> | Select-Object Length, LastWriteTime` 为准，或按 F5 刷新。
+- **日志里的时间戳是 UTC**：比北京时间慢 8 小时，对时间线时先 +8 换算。
 
 ### 17.3 数据库备份（每天，强烈建议）
 
