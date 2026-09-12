@@ -57,6 +57,7 @@ H5-shop/
 │   │                                    #   教程内截图存 deploy/images/<主题>/NN-屏名.png（相对路径引用）；未截图的安装屏在文中标注「未截图、保持默认」，不假装配图
 │   ├── wellbiora资料夹/                   # 全部产品图与 Logo 素材（P1~P4 详情图 + 8 版 Logo）
 │   ├── methodology/                     # 方法论沉淀（AI原生开发流程-宝玉.md、原型验收核查清单.md）
+│   ├── knowledge/                       # 技术知识沉淀（2026-09-12 新增，小白向教程，README.md 是导航；**日常勿扫描**，用户提到或新增条目时才打开）
 │   ├── 小程序参考/乐檬/                    # LemonBox 小程序参考（目前为空目录）
 │   ├── vendor/junmeng/                  # 君梦 OMS OpenAPI 2.0：docx 原件 + 已拆分的 Markdown（查接口直接读这里的 md，勿解析 docx）
 │   ├── tech/                            # 技术设计文档（阶段 B）：junmeng-integration-notes.md（君梦对接注意）、payment-and-funds.md（支付申请与资金流）、auth-and-account.md（登录与账号体系）
