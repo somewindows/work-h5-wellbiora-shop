@@ -7,10 +7,11 @@ import { AuthController } from './auth.controller'
 import { CurrentUserController } from './current-user.controller'
 import { WechatOAuthController } from './wechat-oauth.controller'
 import { WechatOAuthService } from './wechat-oauth.service'
-import { AuthService } from './auth.service'
+import { AuthService, SMS_LOGIN_RATE_LIMIT } from './auth.service'
 import { MySqlSmsCodeStore } from './mysql-sms-code.store'
 import { MemorySmsCodeStore, SMS_CODE_STORE } from './sms-code.store'
 import { ConsoleSmsProvider, MemorySmsProvider, SMS_PROVIDER, UnconfiguredSmsProvider } from './sms-provider'
+import { InMemoryAdminLoginRateLimitStore, MySqlAdminLoginRateLimitStore } from '../admin/admin-login-rate-limit.store'
 import { UsersModule } from '../users/users.module'
 import { isInMemoryStorage } from '../common/runtime-mode'
 import { PaymentsModule } from '../payments/payments.module'
@@ -42,6 +43,18 @@ import { PaymentsModule } from '../payments/payments.module'
         isInMemoryStorage()
           ? new MemorySmsCodeStore()
           : new MySqlSmsCodeStore(dataSource as DataSource),
+    },
+    {
+      // 复审 R01：H5 登录按手机号 + IP 限速；复用管理端通用限流存储（键前缀 sms-login- 与管理端隔离）
+      provide: SMS_LOGIN_RATE_LIMIT,
+      inject: isInMemoryStorage() ? [] : [DataSource],
+      useFactory: (dataSource?: DataSource) => {
+        const maxFailures = Math.max(1, Number(process.env.SMS_LOGIN_MAX_FAILURES) || 10)
+        const lockMs = Math.max(1, Number(process.env.SMS_LOGIN_LOCK_MINUTES) || 10) * 60_000
+        return isInMemoryStorage()
+          ? new InMemoryAdminLoginRateLimitStore(maxFailures, lockMs)
+          : new MySqlAdminLoginRateLimitStore(dataSource as DataSource, maxFailures, lockMs)
+      },
     },
     {
       provide: SMS_PROVIDER,

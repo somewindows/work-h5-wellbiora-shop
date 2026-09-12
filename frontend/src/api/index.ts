@@ -159,6 +159,8 @@ export function saveRealname(input: SaveRealnameInput): Promise<RealnameInfo> {
 
 // mock 模式下用内存拷贝模拟服务端订单（支持下单新增）
 let mockOrders: Order[] = MOCK_ORDERS.map((o) => ({ ...o }))
+// 下单幂等键 → 订单号（与真实后端 createOrder 行为一致）
+const mockOrderRequestIds = new Map<string, string>()
 
 export function getOrders(status?: OrderStatus): Promise<{ total: number; list: Order[] }> {
   if (USE_MOCK) {
@@ -201,8 +203,11 @@ export function precheckOrder(): Promise<OrderPrecheck> {
   return request.post('/orders/precheck', {})
 }
 
-export function createOrder(requestId: string): Promise<{ orderNo: string; payParams?: Record<string, string> }> {
+export function createOrder(requestId: string): Promise<{ orderNo: string }> {
   if (USE_MOCK) {
+    // 与真实后端一致按幂等键去重：同 requestId 重进返回已建订单
+    const existingOrderNo = mockOrderRequestIds.get(requestId)
+    if (existingOrderNo) return delay({ orderNo: existingOrderNo })
     const checked = mockCart.filter((i) => i.checked)
     if (!checked.length) return Promise.reject(new Error('没有勾选的商品'))
     const addr = MOCK_ADDRESSES[0]
@@ -229,6 +234,7 @@ export function createOrder(requestId: string): Promise<{ orderNo: string; payPa
     })
     // 下单后清掉已结算的购物车行
     mockCart = mockCart.filter((i) => !i.checked)
+    mockOrderRequestIds.set(requestId, orderNo)
     return delay({ orderNo })
   }
   return request.post('/orders', { requestId })

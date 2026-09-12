@@ -64,9 +64,9 @@ export class OrderService {
     return { items: prepared.items, goodsFen: prepared.totalFen, taxFen: 0, payableFen: prepared.totalFen }
   }
 
-  async create(userId: string, dto: CreateOrderDto): Promise<{ orderNo: string; payParams: Record<string, string> }> {
+  async create(userId: string, dto: CreateOrderDto): Promise<{ orderNo: string }> {
     const existing = await this.orderRepository.findByUserAndRequest(userId, dto.requestId)
-    if (existing) return { orderNo: existing.orderNo, payParams: await this.createPayParams(userId, existing) }
+    if (existing) return { orderNo: existing.orderNo }
 
     const prepared = await this.prepare(userId)
     const orderNo = `WB${new Date().toISOString().slice(0, 10).replaceAll('-', '')}${randomUUID().replaceAll('-', '').slice(0, 12).toUpperCase()}`
@@ -81,7 +81,10 @@ export class OrderService {
     await this.orderRepository.saveItems(prepared.items.map((item) => this.orderRepository.createItem({ orderId: order.id, ...item })))
     for (const cartItem of prepared.cartItems) await this.cartRepository.remove(cartItem)
     await this.orderRepository.recordStatusEvent({ orderId: order.id, fromStatus: null, toStatus: 'pay', source: 'user', remark: '用户提交订单' })
-    return { orderNo, payParams: await this.createPayParams(userId, order, prepared.items[0]?.name) }
+    // 复审 R02：创建订单与获取支付参数分离。订单落库成功即返回订单号；
+    // 支付参数由订单详情页经 GET pay-params 单独获取，缺 openid 走授权回跳续付，
+    // 不再让「未授权」导致订单已建却返回错误、用户找不到待付款订单
+    return { orderNo }
   }
 
   async list(userId: string, status?: string): Promise<{ total: number; list: OrderResponse[] }> {
@@ -159,13 +162,13 @@ export class OrderService {
   }
 
   /** 组装支付参数：本地 mock 忽略上下文；微信 JSAPI 需要 openid（缺失时适配器抛 40007 引导前端授权）。 */
-  private async createPayParams(userId: string, order: OrderRecord, description?: string): Promise<Record<string, string>> {
+  private async createPayParams(userId: string, order: OrderRecord): Promise<Record<string, string>> {
     const user = await this.users.findById(userId)
-    // 微信要求同一 out_trade_no 重复下单时参数必须一致：description 缺省时回取订单首个商品名，
-    // 与创建订单时传的保持一致——否则续付/重试（pay-params、同 requestId 重进）再下单
+    // 微信要求同一 out_trade_no 重复下单时参数必须一致：description 一律从落库订单明细取首个商品名，
+    // 禁止各调用路径各自传参——否则续付/重试（pay-params、同 requestId 重进）再下单
     // 会被微信以「商户订单号重复，但下单参数不一致」拒绝
-    const resolvedDescription = description ?? (await this.orderRepository.findItems(order.id))[0]?.name
-    const ctx: PayContext = { openid: user?.wechatOpenId ?? null, totalFen: order.totalFen, description: resolvedDescription }
+    const description = (await this.orderRepository.findItems(order.id))[0]?.name
+    const ctx: PayContext = { openid: user?.wechatOpenId ?? null, totalFen: order.totalFen, description }
     return this.paymentAdapter.createPayParams(order.orderNo, ctx)
   }
 

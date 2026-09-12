@@ -57,6 +57,10 @@ function genRequestId(): string {
   return `req-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 }
 
+// 复审 R02：同一结算会话复用稳定幂等键——下单后支付失败/中途退出再重试，
+// 服务端按幂等键返回已建订单，不会再因购物车已清空而报「请先选择要结算的商品」
+const requestId = genRequestId()
+
 async function onPay() {
   if (!address.value) {
     showToast('请先选择收货地址')
@@ -73,8 +77,16 @@ async function onPay() {
   if (paying.value) return
   paying.value = true
   try {
-    await precheckOrder()
-    const { orderNo } = await createOrder(genRequestId())
+    let orderNo: string
+    try {
+      await precheckOrder()
+      orderNo = (await createOrder(requestId)).orderNo
+    } catch (e) {
+      // 首次下单服务端已落库但响应丢失（如断网）时，购物车已被清空，precheck 会抛 40003；
+      // 此时按稳定幂等键恢复已建订单，仍跳进订单页续付，而不是让用户去订单列表自行找回
+      if ((e as { code?: number }).code !== 40003) throw e
+      orderNo = (await createOrder(requestId)).orderNo
+    }
     // 下单成功直达订单详情并自动拉起支付（微信内无缝；微信外会引导）
     router.replace(`/order/${orderNo}?autopay=1`)
   } catch (e) {

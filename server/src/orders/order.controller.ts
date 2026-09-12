@@ -15,7 +15,7 @@ export class OrderController {
   precheck(@CurrentUserId() userId: string): Promise<OrderPrecheck> { return this.orderService.precheck(userId) }
 
   @Post()
-  create(@CurrentUserId() userId: string, @Body() dto: CreateOrderDto): Promise<{ orderNo: string; payParams: Record<string, string> }> { return this.orderService.create(userId, dto) }
+  create(@CurrentUserId() userId: string, @Body() dto: CreateOrderDto): Promise<{ orderNo: string }> { return this.orderService.create(userId, dto) }
 
   @Get()
   list(@CurrentUserId() userId: string, @Query() query: OrdersQueryDto): Promise<{ total: number; list: OrderResponse[] }> { return this.orderService.list(userId, query.status) }

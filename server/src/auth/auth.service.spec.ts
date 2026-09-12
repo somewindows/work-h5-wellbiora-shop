@@ -1,5 +1,6 @@
 import { JwtService } from '@nestjs/jwt'
 
+import { InMemoryAdminLoginRateLimitStore } from '../admin/admin-login-rate-limit.store'
 import { BusinessException } from '../common/business.exception'
 import { InMemoryUsersRepository } from '../users/users.repository'
 
@@ -19,6 +20,7 @@ describe('AuthService', () => {
       new InMemoryUsersRepository(),
       store,
       provider,
+      new InMemoryAdminLoginRateLimitStore(),
       new JwtService({ secret: 'test-only-jwt-secret' }),
     )
   })
@@ -48,6 +50,24 @@ describe('AuthService', () => {
     await expect(service.sendSmsCode('13888888888', '127.0.0.1')).rejects.toMatchObject({
       code: 40005,
       message: '请稍后再试',
+    } satisfies Partial<BusinessException>)
+  })
+
+  it('同一手机号连续输错达到上限后锁定，正确验证码也返回 40005（复审 R01）', async () => {
+    const strictService = new AuthService(
+      new InMemoryUsersRepository(),
+      store,
+      provider,
+      new InMemoryAdminLoginRateLimitStore(3, 10 * 60_000),
+      new JwtService({ secret: 'test-only-jwt-secret' }),
+    )
+    await strictService.sendSmsCode('13888888888', '127.0.0.1')
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await expect(strictService.login('13888888888', '000000', '127.0.0.1')).rejects.toMatchObject({ code: 40004 })
+    }
+    await expect(strictService.login('13888888888', provider.lastCode, '127.0.0.1')).rejects.toMatchObject({
+      code: 40005,
     } satisfies Partial<BusinessException>)
   })
 

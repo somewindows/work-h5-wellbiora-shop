@@ -58,7 +58,7 @@
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | POST | `/api/v1/orders/precheck` | 下单预检：限额/实名/库存/税费试算，返回应付金额（分） |
-| POST | `/api/v1/orders` | 创建订单（幂等键 `requestId`）→ 返回订单号 + 微信支付参数 |
+| POST | `/api/v1/orders` | 创建订单（幂等键 `requestId`）→ 只返回订单号；支付参数另经 pay-params 获取（2026-09-12 起分离，复审 R02：缺 openid 不再阻断建单） |
 | GET | `/api/v1/orders` | 订单列表（`status` 过滤：pay/ship/recv/done/cancel） |
 | GET | `/api/v1/orders/{orderNo}` | 订单详情（含状态时间线、物流单号） |
 | POST | `/api/v1/orders/{orderNo}/cancel` | 取消（服务端按 order-flow.md 第三节窗口裁决） |

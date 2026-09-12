@@ -162,7 +162,7 @@ describe('OrderService', () => {
   })
 
   describe('支付参数 description 一致性', () => {
-    it('创建订单与续付（pay-params/同 requestId 重进）的 description 必须一致，否则微信拒绝重复下单', async () => {
+    it('重复取支付参数的 description 必须一致且一律来自落库订单明细，否则微信拒绝重复下单', async () => {
       const captured: (PayContext | undefined)[] = []
       const spyAdapter: PaymentAdapter = {
         createPayParams: jest.fn((_orderNo: string, ctx?: PayContext) => {
@@ -174,10 +174,12 @@ describe('OrderService', () => {
       const spyService = new OrderService(cart, profile, new InMemoryOrderRepository(), new LocalWarehouseAdapter(catalog), crypto, spyAdapter, catalog, users)
 
       const { orderNo } = await spyService.create('user-1', { requestId: 'request-desc' })
+      expect(captured).toHaveLength(0) // 复审 R02：创建订单不再取支付参数
       await spyService.getPayParams('user-1', orderNo)
-      await spyService.create('user-1', { requestId: 'request-desc' }) // 幂等重进
+      await spyService.getPayParams('user-1', orderNo) // 续付重取
+      await spyService.create('user-1', { requestId: 'request-desc' }) // 幂等重进也不再取参
 
-      expect(captured).toHaveLength(3)
+      expect(captured).toHaveLength(2)
       const product = await catalog.findById('WB10001')
       for (const ctx of captured) expect(ctx?.description).toBe(product?.name)
     })

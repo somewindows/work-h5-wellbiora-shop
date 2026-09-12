@@ -129,19 +129,51 @@ describe('微信支付回调（e2e）', () => {
     }
   })
 
-  it('下单返回微信 JSAPI 调起参数', async () => {
-    const response = await request(app.getHttpServer())
+  it('下单返回订单号，支付参数经 pay-params 单独获取', async () => {
+    const agent = request(app.getHttpServer())
+    const created = await agent
       .post('/api/v1/orders')
       .set({ Authorization: `Bearer ${token}` })
       .send({ requestId: 'e2e-wxpay-order-1' })
       .expect(201)
-    expect(response.body.data.payParams).toMatchObject({
+    const orderNo = created.body.data.orderNo as string
+    expect(orderNo).toMatch(/^WB/)
+
+    const payParams = await agent
+      .get(`/api/v1/orders/${orderNo}/pay-params`)
+      .set({ Authorization: `Bearer ${token}` })
+      .expect(200)
+    expect(payParams.body.data).toMatchObject({
       provider: 'wechat',
       appId: 'wx-e2e',
       package: 'prepay_id=prepay-e2e-1',
       signType: 'RSA',
     })
-    expect(response.body.data.payParams.paySign).toBeTruthy()
+    expect(payParams.body.data.paySign).toBeTruthy()
+  })
+
+  // 复审 R02：未绑定 openid 的新用户首单必须能创建成功，授权缺失只在取支付参数时暴露
+  it('无 openid 用户创建订单成功返回订单号，取支付参数才返回 40007，且同 requestId 重进可恢复', async () => {
+    const agent = request(app.getHttpServer())
+    const { SMS_PROVIDER } = await import('../src/auth/sms-provider')
+    const smsProvider = app.get(SMS_PROVIDER) as MemorySmsProvider
+    await agent.post('/api/v1/auth/sms-code').send({ phone: '13600000002' }).expect(200)
+    const login = await agent.post('/api/v1/auth/login').send({ phone: '13600000002', code: smsProvider.lastCode }).expect(200)
+    const auth = { Authorization: `Bearer ${login.body.data.token as string}` }
+    await agent.post('/api/v1/cart/items').set(auth).send({ productId: 'WB10001', quantity: 1 }).expect(201)
+    await agent.post('/api/v1/addresses').set(auth).send({ name: '李四', phone: '13600000002', region: '浙江省 金华市 义乌市', detail: '稠城街道 2 号' }).expect(201)
+    await agent.post('/api/v1/realname').set(auth).send({ name: '李四', idcard: '110101199001011235' }).expect(201)
+
+    const created = await agent.post('/api/v1/orders').set(auth).send({ requestId: 'e2e-no-openid-1' }).expect(201)
+    const orderNo = created.body.data.orderNo as string
+    expect(orderNo).toMatch(/^WB/)
+
+    const payParams = await agent.get(`/api/v1/orders/${orderNo}/pay-params`).set(auth)
+    expect(payParams.body).toMatchObject({ code: 40007 })
+
+    // 重试复用同一幂等键：返回同一订单（购物车已清空也不会再报 40003）
+    const retried = await agent.post('/api/v1/orders').set(auth).send({ requestId: 'e2e-no-openid-1' }).expect(201)
+    expect(retried.body.data.orderNo).toBe(orderNo)
   })
 
   it('合法回调驱动订单变为已支付，重复回调幂等', async () => {

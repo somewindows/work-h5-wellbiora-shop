@@ -57,19 +57,21 @@ export class MySqlSmsCodeStore implements SmsCodeStore {
   }
 
   async verify(phone: string, code: string): Promise<void> {
-    await this.dataSource.transaction(async (manager) => {
+    // 复审 R01：失败计数必须在事务内提交、业务异常在事务外抛；
+    // 旧实现先抛异常导致事务回滚，计数与第五次删除都被撤销，攻击者可无限次猜测
+    const failed = await this.dataSource.transaction(async (manager) => {
       const record = await manager.findOne(SmsVerificationCodeEntity, {
         where: { phone },
         lock: { mode: 'pessimistic_write' },
       })
       if (!record || record.expiresAt <= new Date()) {
         if (record) await manager.remove(SmsVerificationCodeEntity, record)
-        throw new BusinessException(40004, '验证码错误或已过期')
+        return true
       }
 
       if (this.hashesMatch(record.codeHash, this.hash(code))) {
         await manager.remove(SmsVerificationCodeEntity, record)
-        return
+        return false
       }
 
       record.attempts += 1
@@ -78,8 +80,9 @@ export class MySqlSmsCodeStore implements SmsCodeStore {
       } else {
         await manager.save(SmsVerificationCodeEntity, record)
       }
-      throw new BusinessException(40004, '验证码错误或已过期')
+      return true
     })
+    if (failed) throw new BusinessException(40004, '验证码错误或已过期')
   }
 
   private hash(code: string): string {

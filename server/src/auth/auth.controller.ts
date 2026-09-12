@@ -19,8 +19,8 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(200)
-  login(@Body() dto: LoginDto): Promise<{ token: string; user: PublicUser }> {
-    return this.authService.login(dto.phone, dto.code)
+  login(@Body() dto: LoginDto, @Ip() ip: string): Promise<{ token: string; user: PublicUser }> {
+    return this.authService.login(dto.phone, dto.code, ip)
   }
 
   @Get('wechat-silent')
