@@ -18,7 +18,10 @@ export interface PayContext {
 export interface PaymentQueryResult {
   tradeState: string
   transactionId?: string
+  /** 订单总金额（amount.total）：与本地订单金额比对的口径（复审 R08：不能用 payer_total，优惠场景实付小于总额） */
   paidTotalFen?: number
+  /** 用户实付（amount.payer_total）：优惠信息，仅供对账参考 */
+  payerTotalFen?: number
   paidAt?: Date
 }
 
@@ -28,6 +31,8 @@ export interface PaymentAdapter {
   refund(orderNo: string, amountFen: number, totalFen?: number): Promise<PaymentRefundResult>
   /** 主动查询支付结果（回调漏单兜底）；返回 null 表示通道侧查无此单。本地 mock 不实现 */
   queryPayment?(orderNo: string): Promise<PaymentQueryResult | null>
+  /** 复审 R09：关闭待支付交易（取消订单时调用，防止取消后用户仍能付款）；失败由调用方 best-effort 捕获 */
+  closePayment?(orderNo: string): Promise<void>
 }
 
 export interface LocalRefundRecord {
@@ -50,6 +55,14 @@ export class LocalPaymentAdapter implements PaymentAdapter {
     const record: LocalRefundRecord = { refundNo: `RF${randomUUID().replaceAll('-', '').slice(0, 16).toUpperCase()}`, orderNo, amountFen, createdAt: new Date() }
     this.refunds.push(record)
     return Promise.resolve({ refundNo: record.refundNo })
+  }
+
+  /** 本地 mock 无真实交易可关：记录调用便于测试断言。 */
+  readonly closedOrders: string[] = []
+
+  closePayment(orderNo: string): Promise<void> {
+    this.closedOrders.push(orderNo)
+    return Promise.resolve()
   }
 
   /** 测试/联调用：查看已记录的退款单。 */

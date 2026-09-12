@@ -1,4 +1,4 @@
-import { HttpStatus, Inject, Injectable } from '@nestjs/common'
+import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common'
 
 import { type AdminActor, AuditLogService } from '../admin/audit-log.service'
 import { BusinessException } from '../common/business.exception'
@@ -62,6 +62,8 @@ export interface AdminOrderDetail extends AdminOrderListItem {
 
 @Injectable()
 export class AdminOrderService {
+  private readonly logger = new Logger(AdminOrderService.name)
+
   constructor(
     @Inject(ORDER_REPOSITORY) private readonly orderRepository: OrderRepository,
     @Inject(WAREHOUSE_ADAPTER) private readonly warehouse: WarehouseAdapter,
@@ -142,6 +144,7 @@ export class AdminOrderService {
       orderNo,
       transactionId: remote.transactionId ?? '',
       paidTotalFen: remote.paidTotalFen ?? -1,
+      payerTotalFen: remote.payerTotalFen,
       paidAt: remote.paidAt ?? new Date(),
     })
     const saved = await this.requireOrder(orderNo)
@@ -159,6 +162,14 @@ export class AdminOrderService {
       // 待支付：直接关闭本地订单，无资金动作
       saved = await this.orderRepository.saveOrder({ ...order, status: 'cancelled', cancelledAt: now })
       await this.orderRepository.recordStatusEvent({ orderId: order.id, fromStatus: order.status, toStatus: 'cancelled', source: 'admin', remark: '管理员取消待支付订单' })
+      // 复审 R09：同步关闭微信交易；关单失败不阻断——迟到扣款会登记支付事实并转人工退款
+      if (this.paymentAdapter.closePayment) {
+        try {
+          await this.paymentAdapter.closePayment(orderNo)
+        } catch (error) {
+          this.logger.warn(`管理员取消订单后关闭微信交易失败（订单 ${orderNo}）：${error instanceof Error ? error.message : String(error)}`)
+        }
+      }
     } else if (order.paymentStatus === 'paid') {
       // 已支付：按取消窗口校验，可取消则撤单 + 原路全额退款
       if (!isWarehouseCancellable(order.warehouseStatus)) {

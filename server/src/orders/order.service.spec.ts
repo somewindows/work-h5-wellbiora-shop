@@ -54,6 +54,22 @@ describe('OrderService', () => {
     expect(second.orderNo).toBe(first.orderNo)
   })
 
+  it('并发同幂等键撞唯一约束时，读取先提交的订单返回一致结果（复审 R03）', async () => {
+    const orders = new InMemoryOrderRepository()
+    const svc = new OrderService(cart, profile, orders, new LocalWarehouseAdapter(catalog), crypto, new LocalPaymentAdapter(), catalog, users)
+    // 模拟并发请求先提交的订单（服务层预检时尚未提交）
+    await orders.saveOrder(orders.createOrder({
+      orderNo: 'WB20260912WINNER0001', userId: 'user-1', requestId: 'request-race', status: 'pay', paymentStatus: 'pending',
+      warehouseStatus: null, totalFen: 32900, realnameName: '张三', idcardEncrypted: 'x', idcardFingerprint: 'fp',
+      receiverName: '张三', receiverPhone: '13800000000', receiverRegion: 'r', receiverDetail: 'd',
+      paidAt: null, cancelledAt: null, systemRemark: null, refundFen: null, refundedAt: null, wechatTransactionId: null,
+    }))
+    jest.spyOn(orders, 'findByUserAndRequest').mockResolvedValueOnce(null)
+    jest.spyOn(orders, 'runInTransaction').mockRejectedValueOnce(Object.assign(new Error('Duplicate entry'), { code: 'ER_DUP_ENTRY' }))
+
+    await expect(svc.create('user-1', { requestId: 'request-race' })).resolves.toEqual({ orderNo: 'WB20260912WINNER0001' })
+  })
+
   it('待支付订单可以取消，已模拟支付的订单不可取消', async () => {
     const first = await service.create('user-1', { requestId: 'request-1' })
     await expect(service.cancel('user-1', first.orderNo)).resolves.toMatchObject({ status: 'cancelled' })
@@ -111,11 +127,52 @@ describe('OrderService', () => {
       expect(order.status).toBe('pay')
     })
 
-    it('已取消订单的迟到回调被拒绝', async () => {
-      const { orderNo } = await service.create('user-1', { requestId: 'request-pay-4' })
+    it('已取消订单的迟到扣款登记支付事实、不推仓，转人工退款（复审 R09）', async () => {
+      const orders = new InMemoryOrderRepository()
+      const warehouse = new LocalWarehouseAdapter(catalog)
+      const svc = new OrderService(cart, profile, orders, warehouse, crypto, new LocalPaymentAdapter(), catalog, users)
+      const { orderNo } = await svc.create('user-1', { requestId: 'request-pay-4' })
+      await svc.cancel('user-1', orderNo)
+
+      await svc.handleWechatPaid(paidInput(orderNo))
+
+      const record = await orders.findOneByOrderNo(orderNo)
+      expect(record).toMatchObject({
+        status: 'cancelled',
+        paymentStatus: 'paid',
+        wechatTransactionId: '4200000123456789012345678901',
+        systemRemark: '订单取消后收到微信扣款，需人工退款处理',
+      })
+      // 已取消订单不推仓
+      expect(await warehouse.getOrderStatus(orderNo)).toBeNull()
+      const events = await orders.findStatusEvents(record!.id)
+      expect(events.some((event) => event.remark?.includes('待人工退款'))).toBe(true)
+    })
+
+    it('已取消订单的迟到扣款金额不符仍拒绝登记', async () => {
+      const { orderNo } = await service.create('user-1', { requestId: 'request-pay-5' })
       await service.cancel('user-1', orderNo)
 
-      await expect(service.handleWechatPaid(paidInput(orderNo))).rejects.toMatchObject({ code: 40002 })
+      await expect(service.handleWechatPaid(paidInput(orderNo, 1))).rejects.toMatchObject({ code: 40003 })
+    })
+
+    it('取消待支付订单时同步关闭支付通道交易（复审 R09）', async () => {
+      const payment = new LocalPaymentAdapter()
+      const svc = new OrderService(cart, profile, new InMemoryOrderRepository(), new LocalWarehouseAdapter(catalog), crypto, payment, catalog, users)
+      const { orderNo } = await svc.create('user-1', { requestId: 'request-close-1' })
+
+      await svc.cancel('user-1', orderNo)
+
+      expect(payment.closedOrders).toContain(orderNo)
+    })
+
+    it('优惠支付（实付小于订单总额）按订单总额正常登记（复审 R08）', async () => {
+      const { orderNo } = await service.create('user-1', { requestId: 'request-pay-coupon' })
+
+      await service.handleWechatPaid({ ...paidInput(orderNo), payerTotalFen: 32800 })
+
+      const order = await service.get('user-1', orderNo)
+      expect(order.status).toBe('ship')
     })
   })
 

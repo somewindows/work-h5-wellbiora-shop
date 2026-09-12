@@ -66,7 +66,9 @@ export class PaymentNotifyController {
       await this.orderService.handleWechatPaid({
         orderNo: resource.out_trade_no,
         transactionId: resource.transaction_id,
-        paidTotalFen: resource.amount?.payer_total ?? resource.amount?.total ?? -1,
+        // 复审 R08：金额比对口径是订单总额 amount.total；payer_total 是用户实付，优惠场景会更小
+        paidTotalFen: resource.amount?.total ?? -1,
+        payerTotalFen: resource.amount?.payer_total,
         paidAt: resource.success_time ? new Date(resource.success_time) : new Date(),
       })
       response.json({ code: 'SUCCESS', message: '成功' })

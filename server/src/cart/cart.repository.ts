@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { randomUUID } from 'node:crypto'
-import { Repository } from 'typeorm'
+import type { EntityManager, Repository } from 'typeorm'
 
 import { CartItemEntity } from './cart-item.entity'
 
@@ -21,7 +21,8 @@ export interface CartRepository {
   findByIdAndUser(id: string, userId: string): Promise<CartItemRecord | null>
   create(input: Omit<CartItemRecord, 'id'>): CartItemRecord
   save(item: CartItemRecord): Promise<CartItemRecord>
-  remove(item: CartItemRecord): Promise<void>
+  /** 复审 R03：可选 EntityManager 使删除可并入下单事务；内存实现忽略该参数 */
+  remove(item: CartItemRecord, manager?: EntityManager): Promise<void>
 }
 
 @Injectable()
@@ -48,8 +49,9 @@ export class TypeOrmCartRepository implements CartRepository {
     return this.repository.save(item)
   }
 
-  async remove(item: CartItemRecord): Promise<void> {
-    await this.repository.delete(item.id)
+  async remove(item: CartItemRecord, manager?: EntityManager): Promise<void> {
+    if (manager) await manager.delete(CartItemEntity, item.id)
+    else await this.repository.delete(item.id)
   }
 }
 

@@ -63,7 +63,20 @@ describe('AdminOrderService', () => {
 
     expect(detail).toMatchObject({ status: 'cancelled', paymentStatus: 'pending', refundFen: null })
     expect(payment.listRefunds()).toHaveLength(0)
+    expect(payment.closedOrders).toContain(order.orderNo) // 复审 R09：取消同步关闭支付通道交易
     expect(detail.statusEvents).toEqual([expect.objectContaining({ fromStatus: 'pay', toStatus: 'cancelled', source: 'admin' })])
+  })
+
+  it('取消后收到扣款的订单（cancelled + paid）可走人工退款（复审 R09）', async () => {
+    const order = await createOrder({
+      status: 'cancelled', paymentStatus: 'paid', paidAt: new Date(), cancelledAt: new Date(),
+      wechatTransactionId: '4200000123456789012345678901', systemRemark: '订单取消后收到微信扣款，需人工退款处理',
+    })
+
+    const detail = await service.refund(order.orderNo, { confirm: true }, actor)
+
+    expect(detail).toMatchObject({ status: 'cancelled', paymentStatus: 'refunded', refundFen: 32900 })
+    expect(payment.listRefunds()).toMatchObject([{ orderNo: order.orderNo, amountFen: 32900 }])
   })
 
   it('缺少二次确认时拒绝取消与退款', async () => {

@@ -86,6 +86,12 @@ export class WechatPaymentAdapter implements PaymentAdapter {
     return { refundNo: result.out_refund_no }
   }
 
+  /** 复审 R09：取消订单后关闭微信交易，防止用户取消后仍能完成支付。微信侧已支付/已关单会返回错误，由调用方 best-effort 捕获。 */
+  async closePayment(orderNo: string): Promise<void> {
+    await this.client.post(`/v3/pay/transactions/out-trade-no/${orderNo}/close`, { mchid: this.config.mchId })
+    this.logger.log(`微信关单成功：${orderNo}`)
+  }
+
   /** 主动查单（回调漏单兜底）；path 带 mchid 查询参数，V3 签名直接签完整 path。微信侧查无此单返回 null。 */
   async queryPayment(orderNo: string): Promise<PaymentQueryResult | null> {
     try {
@@ -93,7 +99,9 @@ export class WechatPaymentAdapter implements PaymentAdapter {
       return {
         tradeState: result.trade_state,
         transactionId: result.transaction_id,
-        paidTotalFen: result.amount?.payer_total ?? result.amount?.total,
+        // 复审 R08：金额比对口径是订单总额 amount.total；payer_total 是用户实付，优惠场景会更小
+        paidTotalFen: result.amount?.total,
+        payerTotalFen: result.amount?.payer_total,
         paidAt: result.success_time ? new Date(result.success_time) : undefined,
       }
     } catch (error) {

@@ -21,7 +21,10 @@ const YEARLY_LIMIT_FEN = 2600000
 export interface WechatPaidInput {
   orderNo: string
   transactionId: string
+  /** 订单总额（微信 amount.total），与本地订单金额比对 */
   paidTotalFen: number
+  /** 用户实付（微信 amount.payer_total），优惠场景小于总额；仅记录日志供对账 */
+  payerTotalFen?: number
   paidAt: Date
 }
 
@@ -77,10 +80,23 @@ export class OrderService {
       receiverRegion: prepared.address.region, receiverDetail: prepared.address.detail, paidAt: null, cancelledAt: null,
       systemRemark: null, refundFen: null, refundedAt: null, wechatTransactionId: null,
     })
-    await this.orderRepository.saveOrder(order)
-    await this.orderRepository.saveItems(prepared.items.map((item) => this.orderRepository.createItem({ orderId: order.id, ...item })))
-    for (const cartItem of prepared.cartItems) await this.cartRepository.remove(cartItem)
-    await this.orderRepository.recordStatusEvent({ orderId: order.id, fromStatus: null, toStatus: 'pay', source: 'user', remark: '用户提交订单' })
+    // 复审 R03：主单 + 明细 + 购物车删除 + 状态事件同一事务提交，任一步失败整体回滚，
+    // 不再出现空明细订单/部分清空购物车；订单存在即完整，幂等重进无需再校验明细
+    try {
+      await this.orderRepository.runInTransaction(async (manager) => {
+        await this.orderRepository.saveOrder(order, manager)
+        await this.orderRepository.saveItems(prepared.items.map((item) => this.orderRepository.createItem({ orderId: order.id, ...item })), manager)
+        for (const cartItem of prepared.cartItems) await this.cartRepository.remove(cartItem, manager)
+        await this.orderRepository.recordStatusEvent({ orderId: order.id, fromStatus: null, toStatus: 'pay', source: 'user', remark: '用户提交订单' }, manager)
+      })
+    } catch (error) {
+      // 并发同幂等键撞 (userId, requestId) 唯一约束：本次事务已整体回滚，读取先提交的同一结果
+      if ((error as { code?: string }).code === 'ER_DUP_ENTRY') {
+        const winner = await this.orderRepository.findByUserAndRequest(userId, dto.requestId)
+        if (winner) return { orderNo: winner.orderNo }
+      }
+      throw error
+    }
     // 复审 R02：创建订单与获取支付参数分离。订单落库成功即返回订单号；
     // 支付参数由订单详情页经 GET pay-params 单独获取，缺 openid 走授权回跳续付，
     // 不再让「未授权」导致订单已建却返回错误、用户找不到待付款订单
@@ -104,6 +120,15 @@ export class OrderService {
     }
     const saved = await this.orderRepository.saveOrder({ ...order, status: 'cancelled', cancelledAt: new Date() })
     await this.orderRepository.recordStatusEvent({ orderId: order.id, fromStatus: order.status, toStatus: 'cancelled', source: 'user', remark: '用户取消订单' })
+    // 复审 R09：本地取消后同步关闭微信交易，防止用户取消后仍能完成支付；
+    // 关单失败不阻断取消——若微信侧实际已扣款，迟到回调会登记支付事实并转人工退款
+    if (this.paymentAdapter.closePayment) {
+      try {
+        await this.paymentAdapter.closePayment(orderNo)
+      } catch (error) {
+        this.logger.warn(`取消订单后关闭微信交易失败（订单 ${orderNo}）：${error instanceof Error ? error.message : String(error)}`)
+      }
+    }
     return this.toResponse(saved)
   }
 
@@ -121,12 +146,34 @@ export class OrderService {
     const order = await this.orderRepository.findOneByOrderNo(input.orderNo)
     if (!order) throw new BusinessException(40404, '订单不存在', 404)
     if (order.paymentStatus === 'paid') return
-    if (order.status !== 'pay' || order.paymentStatus !== 'pending') {
+    if (order.paymentStatus !== 'pending') {
       throw new BusinessException(40002, '订单状态已变化，无法登记支付结果')
     }
     if (order.totalFen !== input.paidTotalFen) {
       this.logger.error(`支付回调金额与订单不符：订单 ${order.orderNo} 应付 ${order.totalFen}，实收 ${input.paidTotalFen}，需人工核对`)
       throw new BusinessException(40003, '支付金额与订单金额不一致')
+    }
+    if (input.payerTotalFen != null && input.payerTotalFen !== input.paidTotalFen) {
+      this.logger.warn(`订单 ${order.orderNo} 用户实付 ${input.payerTotalFen} 与订单总额 ${input.paidTotalFen} 不一致（优惠/代金券等），财务对账留意`)
+    }
+
+    // 复审 R09：取消后收到的真实扣款必须登记支付事实——否则钱在微信侧、本地无痕，
+    // 连后台人工退款入口都被「订单未支付」校验挡死。不推仓不报关，转人工退款。
+    if (order.status === 'cancelled') {
+      const saved = await this.orderRepository.saveOrder({
+        ...order,
+        paymentStatus: 'paid', paidAt: input.paidAt, wechatTransactionId: input.transactionId,
+        systemRemark: '订单取消后收到微信扣款，需人工退款处理',
+      })
+      await this.orderRepository.recordStatusEvent({
+        orderId: saved.id, fromStatus: 'cancelled', toStatus: 'cancelled', source: 'payment',
+        remark: `订单已取消但收到微信支付成功（交易单 ${input.transactionId}），已登记支付事实，待人工退款`,
+      })
+      this.logger.error(`订单 ${order.orderNo} 取消后收到真实扣款（交易单 ${input.transactionId}），需人工退款`)
+      return
+    }
+    if (order.status !== 'pay') {
+      throw new BusinessException(40002, '订单状态已变化，无法登记支付结果')
     }
 
     await this.warehouse.pushOrder(order.orderNo)

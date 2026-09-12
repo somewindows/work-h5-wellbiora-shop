@@ -217,6 +217,66 @@ describe('微信支付回调（e2e）', () => {
     expect(detail.body.data.payTime).not.toBeNull()
   })
 
+  it('优惠支付回调（payer_total < total）按订单总额正常登记（复审 R08）', async () => {
+    const agent = request(app.getHttpServer())
+    await agent.post('/api/v1/cart/items').set({ Authorization: `Bearer ${token}` }).send({ productId: 'WB10002', quantity: 1 }).expect(201)
+    const created = await agent
+      .post('/api/v1/orders')
+      .set({ Authorization: `Bearer ${token}` })
+      .send({ requestId: 'e2e-wxpay-order-coupon' })
+      .expect(201)
+    const orderNo = created.body.data.orderNo as string
+
+    const notify = signedNotifyRequest({
+      out_trade_no: orderNo,
+      transaction_id: '4200000777000111222333444555',
+      trade_state: 'SUCCESS',
+      amount: { total: 25900, payer_total: 25000, currency: 'CNY' },
+      success_time: '2026-09-12T10:00:00+08:00',
+    })
+    await agent
+      .post('/api/v1/payments/wechat/notify')
+      .set(notify.headers)
+      .set('Content-Type', 'application/json')
+      .send(notify.rawBody)
+      .expect(200)
+
+    const detail = await agent
+      .get(`/api/v1/orders/${orderNo}`)
+      .set({ Authorization: `Bearer ${token}` })
+      .expect(200)
+    expect(detail.body.data.status).toBe('ship')
+  })
+
+  // 复审 R09：取消后收到的真实扣款必须受理并登记支付事实（回 SUCCESS 止重推），订单保持已取消待人工退款
+  it('已取消订单的迟到支付回调返回 SUCCESS 并登记支付事实', async () => {
+    const agent = request(app.getHttpServer())
+    const auth = { Authorization: `Bearer ${token}` }
+    await agent.post('/api/v1/cart/items').set(auth).send({ productId: 'WB10002', quantity: 1 }).expect(201)
+    const created = await agent.post('/api/v1/orders').set(auth).send({ requestId: 'e2e-wxpay-order-cancelled' }).expect(201)
+    const orderNo = created.body.data.orderNo as string
+    await agent.post(`/api/v1/orders/${orderNo}/cancel`).set(auth).expect(201)
+
+    const notify = signedNotifyRequest({
+      out_trade_no: orderNo,
+      transaction_id: '4200000666000111222333444555',
+      trade_state: 'SUCCESS',
+      amount: { total: 25900, payer_total: 25900, currency: 'CNY' },
+      success_time: '2026-09-12T11:00:00+08:00',
+    })
+    await agent
+      .post('/api/v1/payments/wechat/notify')
+      .set(notify.headers)
+      .set('Content-Type', 'application/json')
+      .send(notify.rawBody)
+      .expect(200)
+      .expect((response) => expect(response.body).toEqual({ code: 'SUCCESS', message: '成功' }))
+
+    // 业务订单保持已取消（支付事实登记在管理侧详情，人工退款入口已解锁）
+    const detail = await agent.get(`/api/v1/orders/${orderNo}`).set(auth).expect(200)
+    expect(detail.body.data.status).toBe('cancelled')
+  })
+
   it('验签失败的回调返回 FAIL 且订单状态不变', async () => {
     const agent = request(app.getHttpServer())
     await agent.post('/api/v1/cart/items').set({ Authorization: `Bearer ${token}` }).send({ productId: 'WB10002', quantity: 1 }).expect(201)
