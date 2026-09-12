@@ -57,4 +57,34 @@ describe('微信支付配置加载', () => {
     const config = loadWechatPayConfig({ ...completeEnv(), WXPAY_REFUND_NOTIFY_URL: 'https://example.com/refund' })
     expect(config?.refundNotifyUrl).toBe('https://example.com/refund')
   })
+
+  it('未配置微信支付公钥时 publicKeyPem/publicKeyId 为 null', () => {
+    const config = loadWechatPayConfig(completeEnv())
+    expect(config?.publicKeyPem).toBeNull()
+    expect(config?.publicKeyId).toBeNull()
+  })
+
+  it('微信支付公钥路径与 ID 只配一个时报错', () => {
+    expect(() => loadWechatPayConfig({ ...completeEnv(), WXPAY_PUBLIC_KEY_ID: 'PUB_KEY_ID_0114' })).toThrow(/必须同时配置/)
+  })
+
+  it('微信支付公钥 ID 不是 PUB_KEY_ID_ 开头时报错', () => {
+    const publicKeyPath = join(directory, 'wechatpay_public_key.pem')
+    writeFileSync(publicKeyPath, '-----BEGIN PUBLIC KEY-----\nfake\n-----END PUBLIC KEY-----\n', 'utf8')
+    expect(() =>
+      loadWechatPayConfig({ ...completeEnv(), WXPAY_PUBLIC_KEY_PATH: publicKeyPath, WXPAY_PUBLIC_KEY_ID: 'BAD_ID' }),
+    ).toThrow(/PUB_KEY_ID_/)
+  })
+
+  it('配置微信支付公钥时读取文件内容', () => {
+    const publicKeyPath = join(directory, 'wechatpay_public_key.pem')
+    writeFileSync(publicKeyPath, '-----BEGIN PUBLIC KEY-----\nfake\n-----END PUBLIC KEY-----\n', 'utf8')
+    const config = loadWechatPayConfig({
+      ...completeEnv(),
+      WXPAY_PUBLIC_KEY_PATH: publicKeyPath,
+      WXPAY_PUBLIC_KEY_ID: 'PUB_KEY_ID_0114000000000000000000000001',
+    })
+    expect(config?.publicKeyPem).toContain('BEGIN PUBLIC KEY')
+    expect(config?.publicKeyId).toBe('PUB_KEY_ID_0114000000000000000000000001')
+  })
 })

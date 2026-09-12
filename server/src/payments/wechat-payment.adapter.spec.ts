@@ -22,6 +22,8 @@ describe('WechatPaymentAdapter', () => {
     refundNotifyUrl: 'https://wellbiora.com.cn/api/v1/payments/wechat/refund-notify',
     customsCode: null,
     mchCustomsNo: null,
+    publicKeyPem: null,
+    publicKeyId: null,
   }
 
   function stubClient(postImpl: (path: string, payload: unknown) => Promise<unknown>): WechatPayClient {

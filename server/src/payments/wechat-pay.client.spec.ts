@@ -25,6 +25,8 @@ describe('微信支付 V3 客户端', () => {
     refundNotifyUrl: 'https://wellbiora.com.cn/api/v1/payments/wechat/refund-notify',
     customsCode: null,
     mchCustomsNo: null,
+    publicKeyPem: null,
+    publicKeyId: null,
   }
 
   function encryptWithApiV3Key(plaintext: string, nonce: string, associatedData: string): string {
@@ -155,5 +157,37 @@ describe('微信支付 V3 客户端', () => {
       associated_data: 'transaction',
     }
     expect(client.decryptNotifyResource(resource)).toEqual({ out_trade_no: 'WB20260910XYZ', trade_state: 'SUCCESS' })
+  })
+
+  it('微信支付公钥模式：用本地公钥验签，不触网拉平台证书', async () => {
+    const publicKeyId = 'PUB_KEY_ID_0114000000000000000000000001'
+    const publicKeyConfig: WechatPayConfig = { ...config, publicKeyPem: platformPublicKeyPem, publicKeyId }
+    const offlineFetch: typeof fetch = (() => Promise.reject(new Error('公钥模式不应触网'))) as typeof fetch
+    const client = new WechatPayClient(publicKeyConfig, offlineFetch)
+
+    const rawBody = '{"id":"notify-pubkey"}'
+    const timestamp = Math.floor(Date.now() / 1000).toString()
+    const nonce = 'pubkeynonce'
+    const signature = signV3(platformPrivateKeyPem, buildV3Message([timestamp, nonce, rawBody]))
+    await expect(
+      client.verifyNotification({ timestamp, nonce, signature, serial: publicKeyId }, rawBody),
+    ).resolves.toBe(true)
+  })
+
+  it('微信支付公钥模式：公钥 ID 不匹配直接拒绝', async () => {
+    const publicKeyConfig: WechatPayConfig = {
+      ...config,
+      publicKeyPem: platformPublicKeyPem,
+      publicKeyId: 'PUB_KEY_ID_0114000000000000000000000001',
+    }
+    const offlineFetch: typeof fetch = (() => Promise.reject(new Error('公钥模式不应触网'))) as typeof fetch
+    const client = new WechatPayClient(publicKeyConfig, offlineFetch)
+
+    const rawBody = '{"id":"notify-pubkey-2"}'
+    const timestamp = Math.floor(Date.now() / 1000).toString()
+    const signature = signV3(platformPrivateKeyPem, buildV3Message([timestamp, 'nonce', rawBody]))
+    await expect(
+      client.verifyNotification({ timestamp, nonce: 'nonce', signature, serial: 'PUB_KEY_ID_OTHER' }, rawBody),
+    ).resolves.toBe(false)
   })
 })

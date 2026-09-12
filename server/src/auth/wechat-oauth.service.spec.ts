@@ -16,6 +16,8 @@ describe('WechatOAuthService', () => {
     refundNotifyUrl: 'https://wellbiora.com.cn/api/v1/payments/wechat/refund-notify',
     customsCode: null,
     mchCustomsNo: null,
+    publicKeyPem: null,
+    publicKeyId: null,
   }
 
   let users: InMemoryUsersRepository

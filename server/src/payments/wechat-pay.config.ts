@@ -27,6 +27,13 @@ export interface WechatPayConfig {
   customsCode: string | null
   /** 商户海关备案号（报关用） */
   mchCustomsNo: string | null
+  /**
+   * 微信支付公钥内容（启动时读文件入内存）。新商户号没有平台证书（/v3/certificates 回 RESOURCE_NOT_EXISTS），
+   * 回调验签必须改用「微信支付公钥」（商户平台-API安全-微信支付公钥 下载）；配置后不再拉平台证书。
+   */
+  publicKeyPem: string | null
+  /** 微信支付公钥 ID（PUB_KEY_ID_ 开头），回调的 Wechatpay-Serial 会带这个值 */
+  publicKeyId: string | null
 }
 
 export const WECHAT_PAY_CONFIG = Symbol('WECHAT_PAY_CONFIG')
@@ -52,6 +59,14 @@ export function loadWechatPayConfig(env: NodeJS.ProcessEnv = process.env): Wecha
     throw new Error('WXPAY_API_V3_KEY 必须是 32 字节字符串（商户平台 API 安全里设置的 APIv3 密钥）')
   }
   const notifyUrl = env.WXPAY_NOTIFY_URL as string
+  const publicKeyPath = env.WXPAY_PUBLIC_KEY_PATH || null
+  const publicKeyId = env.WXPAY_PUBLIC_KEY_ID || null
+  if ((publicKeyPath === null) !== (publicKeyId === null)) {
+    throw new Error('WXPAY_PUBLIC_KEY_PATH 与 WXPAY_PUBLIC_KEY_ID 必须同时配置（商户平台-API安全-微信支付公钥）')
+  }
+  if (publicKeyId && !publicKeyId.startsWith('PUB_KEY_ID_')) {
+    throw new Error('WXPAY_PUBLIC_KEY_ID 应以 PUB_KEY_ID_ 开头（商户平台-API安全-微信支付公钥 页面可复制）')
+  }
   return {
     appId: env.WXPAY_APPID as string,
     appSecret: env.WX_APPSECRET as string,
@@ -64,6 +79,8 @@ export function loadWechatPayConfig(env: NodeJS.ProcessEnv = process.env): Wecha
     refundNotifyUrl: env.WXPAY_REFUND_NOTIFY_URL || notifyUrl.replace(/\/notify$/, '/refund-notify'),
     customsCode: env.WXPAY_CUSTOMS_CODE || null,
     mchCustomsNo: env.WXPAY_MCH_CUSTOMS_NO || null,
+    publicKeyPem: publicKeyPath ? readFileSync(publicKeyPath, 'utf8') : null,
+    publicKeyId,
   }
 }
 

@@ -58,8 +58,11 @@ export class WechatPayClient {
   }
 
   /**
-   * 校验回调签名。验签通过返回 true；平台证书未命中会先拉取一次再重试。
-   * 同时校验回调时间戳新鲜度，防重放。
+   * 校验回调签名。验签通过返回 true。
+   * 配置了微信支付公钥（publicKeyPem）时用公钥直接验签，不拉平台证书——
+   * 新商户号没有平台证书（/v3/certificates 回 RESOURCE_NOT_EXISTS），回调的
+   * Wechatpay-Serial 此时是公钥 ID（PUB_KEY_ID_ 开头）。未配置公钥则走平台证书缓存，
+   * 未命中会先拉取一次再重试。同时校验回调时间戳新鲜度，防重放。
    */
   async verifyNotification(headers: WechatNotifyHeaders, rawBody: string): Promise<boolean> {
     const timestampSeconds = Number(headers.timestamp)
@@ -68,6 +71,17 @@ export class WechatPayClient {
       return false
     }
     const message = buildV3Message([headers.timestamp, headers.nonce, rawBody])
+
+    if (this.config.publicKeyPem) {
+      if (headers.serial !== this.config.publicKeyId) {
+        this.logger.warn(`回调验签失败（公钥 ID 不匹配：收到 ${headers.serial}，期望 ${this.config.publicKeyId}）`)
+        return false
+      }
+      const ok = verifyV3(this.config.publicKeyPem, message, headers.signature)
+      if (!ok) this.logger.warn('回调验签失败（微信支付公钥模式）')
+      return ok
+    }
+
     const verifyWith = (certPem: string | undefined): boolean =>
       certPem ? verifyV3(certPem, message, headers.signature) : false
 

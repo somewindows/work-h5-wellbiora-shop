@@ -14,6 +14,8 @@ describe('WechatCustomsService（自助清关报关）', () => {
     refundNotifyUrl: 'https://wellbiora.com.cn/api/v1/payments/wechat/refund-notify',
     customsCode: 'ZONGSHU',
     mchCustomsNo: 'D00411',
+    publicKeyPem: null,
+    publicKeyId: null,
   }
 
   const input = {
