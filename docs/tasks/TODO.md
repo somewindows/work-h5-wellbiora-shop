@@ -6,6 +6,16 @@
 
 ## 活跃任务
 
+- **T13 · 项目复审修复**（2026-09-12 立项）：依据 `docs/project-review/2026.09.12-project-review.md`（R01~R17）+ `2026.09.12-deepseek-verification.md`（核实 + 严重性重排 + 4.1~4.5 新增发现）。两份文档结论可信，但**行号/路径有约十处偏移，修每条前按描述重新定位真实代码**。修支付/退款/回调必须过「支付链路评审关」（派子代理对抗性评审）+ 先读 `docs/pitfalls/2026-09-12-微信支付联调避坑.md`
+  - **第 0 批 · 立即（风险正在发生）**
+    - [ ] 服务器 .env 移除 `SMS_DEV_CONSOLE=1` → 重启 → 清理已有日志里的验证码（负责人上机操作）
+    - [x] 生产启动守卫：production 下 `LOCAL_TEST_MODE=1`/`SMS_DEV_CONSOLE=1` 拒绝启动（覆盖 R07 一部分）
+    - [ ] 公钥配置到服务器 + 新单回调终验 + WB10005 下架（= T12 待办 ①③④，负责人上机操作）
+  - **第 1 批 · 上线阻塞（正常使用即触发）**：R16 trust proxy/正确取客户端 IP；R14 订单状态键 `receive/complete` vs `recv/done` 统一；R02 首单无 openid 必断（拆开创建订单/取支付参数）；R01 验证码计数回滚 + 登录限流
+  - **第 2 批 · 资金正确性**：R09 取消不关微信交易 + 已扣款无法登记/退款入口堵死；R04+R05 退款单状态机 + 稳定退款单号；R03 下单事务化；R08 金额校验改用 `amount.total`
+  - **第 3 批 · 合规与设施**：4.3 先建后台任务调度设施（R10/超时关单/退款收敛的共同前置）；R06 年度额度预占；R10 推仓/报关解耦；R15 商品编号并发 + 发布竞态；R07 剩余（真实仓储/实名核验，依赖君梦接入）
+  - **第 4 批 · 收尾**：R17 备份改 `--result-file` + 恢复演练；R11/R12 剩余加固；报告第五节杂项（401 自动登出、v-html 协议、24h 自动取消文案等）；qs 升级、Swiper 未使用可移除
+
 - **T12 · 微信支付模块**（2026-09-10 开发中；参数已全部就绪：AppID/AppSecret/mchid 1117333649/v3 密钥/证书）
   - [x] 服务端 `src/payments/`：V3 签名/验签/AES-256-GCM 解密（node:crypto 手写，零新依赖）、平台证书下载缓存、JSAPI 下单适配器（未配置自动回落 local mock）、退款（v3）、支付/退款回调控制器（验签 + 5 分钟时间窗防重放 + 金额比对 + 幂等）、自助清关报关封装（v2 XML MD5，含三单对碰身份校验字段；自助清关未开通，仅代码 + 单测）
   - [x] openid 获取：`GET /auth/wechat/authorize-url`（snsapi_base，redirect 限站内）+ `POST /auth/wechat/openid`（code 换 openid 写 users.wechat_open_id，列早已预留）
@@ -19,7 +29,7 @@
     - 同时新增**主动查单补单**：`POST /admin/orders/:orderNo/sync-payment`（WechatPaymentAdapter.queryPayment 走 V3 查单，微信侧 SUCCESS 则复用 handleWechatPaid 登记，幂等 + 审计；404 按查无此单处理）+ admin 订单详情页「查单补状态」按钮（仅待支付订单显示）
     - **待办（下次上服务器）**：拉取部署后 ① ~~盯 server-out/server-err.log 确认 /v3/certificates 不再报 PARAM_ERROR~~（09.12 确认：PARAM_ERROR 已消失，但改报 `RESOURCE_NOT_EXISTS 无可用的平台证书，请在商户平台-API安全申请使用微信支付公钥`——该商户号是**微信支付公钥模式**，已加 `WXPAY_PUBLIC_KEY_PATH`/`WXPAY_PUBLIC_KEY_ID` 支持：验签改用本地微信支付公钥、不再拉平台证书；**需在商户平台-API安全-微信支付公钥 下载 pub_key.pem 并复制 PUB_KEY_ID_ 到服务器 .env 后重启**）② ~~对订单 WB20260911FAD273D2E482 用「查单补状态」补单~~（09.11 23:01 已补单成功：支付时间回写 18:00:58、金额比对通过、已推仓 local-accepted，审计 sync_payment 已记录）③ **再下一笔 0.01 真实单，验证回调不修自通**（公钥模式的终验：不点补单，状态应自动转已支付）④ 联调用测试商品 WB10005「支付联调测试（勿拍）」验收后记得下架
     - 剩余：报关（需先开通自助清关 + 配置 WXPAY_API_V2_KEY/WXPAY_CUSTOMS_CODE=HANGZHOU_ZS/WXPAY_MCH_CUSTOMS_NO=5101960X8F，海关信息已在商户平台添加「杭州（总署版）」）
-    - 注意：服务器 .env 目前 `SMS_DEV_CONSOLE=1`（验证码打日志的联调开关），**正式对外开业前必须移除**；登录 JWT 有效期 7 天；服务器日志中文乱码是 PowerShell 5.1 按 GBK 解码 UTF-8 所致，`[Console]::OutputEncoding=[Text.Encoding]::UTF8` 后正常；文件名时间戳是 UTC（+8 换算）
+    - 注意：服务器 .env 目前 `SMS_DEV_CONSOLE=1`（验证码打日志的联调开关），**需尽快移除并清理已有日志中的验证码**（2026-09-12 起生产启动守卫已强制：production 下置 1 直接拒绝启动）；登录 JWT 有效期 7 天；服务器日志中文乱码是 PowerShell 5.1 按 GBK 解码 UTF-8 所致，`[Console]::OutputEncoding=[Text.Encoding]::UTF8` 后正常；文件名时间戳是 UTC（+8 换算）
 
 - **T9 · 前端收尾与联调准备**（T7 遗留，详见 `archive/2026-08-27-T7-前端工程初始化.md` 遗留点）
   - 视觉走查：`npm run dev` 对照 `prototype/app/` 逐页目检

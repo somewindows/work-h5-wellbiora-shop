@@ -48,7 +48,8 @@ import { PaymentsModule } from '../payments/payments.module'
       useFactory: () => {
         if (process.env.NODE_ENV === 'test') return new MemorySmsProvider()
         if (process.env.NODE_ENV === 'development' || process.env.LOCAL_TEST_MODE === '1') return new ConsoleSmsProvider()
-        // 真实短信服务商接入前的联调逃生门：生产环境显式置 SMS_DEV_CONSOLE=1 才把验证码打到日志，正式上线前必须移除
+        // 真实短信服务商接入前的联调逃生门：显式置 SMS_DEV_CONSOLE=1 才把验证码打到日志；
+        // 生产环境由 main.ts 的生产启动守卫拦截（置 1 直接拒绝启动），该分支仅在非生产可达
         if (process.env.SMS_DEV_CONSOLE === '1') return new ConsoleSmsProvider()
         return new UnconfiguredSmsProvider()
       },
