@@ -47,7 +47,14 @@ export class WechatPayClient {
   constructor(
     private readonly config: WechatPayConfig,
     private readonly fetchImpl: typeof fetch = fetch,
-  ) {}
+  ) {
+    // 启动即亮明验签模式：排障时看第一屏日志就知道配置是否生效
+    this.logger.log(
+      config.publicKeyPem
+        ? `回调验签模式：微信支付公钥（${config.publicKeyId}），不拉平台证书`
+        : '回调验签模式：平台证书（/v3/certificates）。新商户号没有平台证书，若回调验签持续失败请配置 WXPAY_PUBLIC_KEY_PATH / WXPAY_PUBLIC_KEY_ID',
+    )
+  }
 
   async get<T>(path: string): Promise<T> {
     return this.request<T>('GET', path)
@@ -109,7 +116,19 @@ export class WechatPayClient {
 
   /** 下载并解密平台证书（GET /v3/certificates），更新缓存。 */
   async refreshPlatformCertificates(): Promise<void> {
-    const response = await this.get<{ data: PlatformCertificateItem[] }>('/v3/certificates')
+    let response: { data: PlatformCertificateItem[] }
+    try {
+      response = await this.get<{ data: PlatformCertificateItem[] }>('/v3/certificates')
+    } catch (error) {
+      // 新商户号没有平台证书（公钥模式）：这个报错的意思是要去商户平台下载微信支付公钥并配置环境变量
+      if (error instanceof WechatPayError && error.wechatCode === 'RESOURCE_NOT_EXISTS') {
+        this.logger.error(
+          '该商户号无平台证书（微信支付公钥模式）。请到商户平台-API安全下载微信支付公钥，' +
+            '并在 .env 配置 WXPAY_PUBLIC_KEY_PATH 与 WXPAY_PUBLIC_KEY_ID（PUB_KEY_ID_ 开头）后重启服务',
+        )
+      }
+      throw error
+    }
     for (const item of response.data) {
       try {
         const certPem = decryptResource(
