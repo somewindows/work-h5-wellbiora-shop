@@ -23,6 +23,7 @@
 - 仓库内容：设计/需求文档（`docs/`）、静态 HTML 高保真原型（`prototype/app/`，**V3 统一版**）、前端工程（`frontend/`）、产品图片素材、方法论沉淀（`docs/methodology/`）、一个打包归档（`H5商城原型与文档/H5商城原型与文档.zip`）。
 - 原型页直接用浏览器打开 `prototype/app/index-v2.html` 即可预览。
 - 已安装 `.agents/skills/baoyu-design/`（vendored，源自 github.com/JimLiu/baoyu-design）：高保真原型设计 skill。skill 自带的 `agents/*.mjs` 记账/编译脚本不可运行，跳过即可。
+- 已安装 `.agents/skills/mp-*/`（2026-09-12 vendored，源自 github.com/mattpocock/skills）：5 个工程纪律 skill——`mp-tdd`（红绿重构）、`mp-diagnosing-bugs`（疑难 bug 分阶段诊断环）、`mp-code-review`（双轴 diff 评审）、`mp-codebase-design`（深模块设计）、`mp-writing-for-agents`（写 agent 文档）。各自带的支持 md 按需再读；`agents/openai.yaml`（Codex 专用）未安装。升级用 `npx skills update` 或手动重新拉取。
 - **原型已统一收口到 `prototype/app/`（V3）**：MVP 9 页（原 8 页 + 登录页 login.html，2026-08-26 验收时补）全部完成且互链可点，后续新页面原型直接放 `prototype/app/`；`designs/` 目录已废弃。V1 三页（index/products/product.html）为历史版本，冻结勿改。
 
 ## 三、技术栈约定（后续生成代码必须遵循，不要换框架）
@@ -100,6 +101,7 @@ H5-shop/
 │   └── README.md                  # 启动步骤与默认账号说明
 ├── assets/                        # 根目录素材夹（目前为空；实际素材在 docs/wellbiora资料夹/）
 ├── .agents/skills/baoyu-design/   # vendored 原型设计 skill（勿改，升级用 npx skills update）
+├── .agents/skills/mp-*/           # vendored Matt Pocock 工程纪律 skills（mp-tdd / mp-diagnosing-bugs / mp-code-review / mp-codebase-design / mp-writing-for-agents）
 └── H5商城原型与文档/H5商城原型与文档.zip   # 文档+原型打包归档
 ```
 
@@ -134,7 +136,7 @@ H5-shop/
 - 全程用中文回答，代码注释用中文。
 - 每个功能按「文件结构 → 完整可运行代码 → 要点说明」输出，标注每个文件的存放路径。
 - 改已有代码时，只给改动部分并说明替换了什么，不要每次重发全量文件。
-- **支付链路评审关**（2026-09-12 起）：凡改动 `server/src/payments/`、`server/src/orders/order.service.ts` 的支付/退款/回调逻辑，提交前先派一个独立子代理做对抗性评审（专挑：不变量破坏、幂等性、金额单位与边界、异常路径会不会 500、各调用路径参数一致性），评审通过才允许 commit。
+- **支付链路评审关**（2026-09-12 起）：凡改动 `server/src/payments/`、`server/src/orders/order.service.ts` 的支付/退款/回调逻辑，提交前先派一个独立子代理做对抗性评审（专挑：不变量破坏、幂等性、金额单位与边界、异常路径会不会 500、各调用路径参数一致性；可调用 `mp-code-review` skill），评审通过才允许 commit。
 - **避坑先查**：改动某个外部对接模块前，先读 `docs/pitfalls/` 下对应主题的清单（如碰微信支付必读 `2026-09-12-微信支付联调避坑.md`）；新踩的坑修完后按同格式追加新文件。
 - 涉及君梦接口时，主动提醒：**测试环境先行、签名调试、`orderDeclaNo` 和 `plaformCode`（注意君梦文档原始拼写）等待确认项**。
 - 不确定的需求，先向项目负责人确认再写代码，不要自行假设业务规则。
