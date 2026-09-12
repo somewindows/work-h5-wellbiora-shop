@@ -161,7 +161,11 @@ export class OrderService {
   /** 组装支付参数：本地 mock 忽略上下文；微信 JSAPI 需要 openid（缺失时适配器抛 40007 引导前端授权）。 */
   private async createPayParams(userId: string, order: OrderRecord, description?: string): Promise<Record<string, string>> {
     const user = await this.users.findById(userId)
-    const ctx: PayContext = { openid: user?.wechatOpenId ?? null, totalFen: order.totalFen, description }
+    // 微信要求同一 out_trade_no 重复下单时参数必须一致：description 缺省时回取订单首个商品名，
+    // 与创建订单时传的保持一致——否则续付/重试（pay-params、同 requestId 重进）再下单
+    // 会被微信以「商户订单号重复，但下单参数不一致」拒绝
+    const resolvedDescription = description ?? (await this.orderRepository.findItems(order.id))[0]?.name
+    const ctx: PayContext = { openid: user?.wechatOpenId ?? null, totalFen: order.totalFen, description: resolvedDescription }
     return this.paymentAdapter.createPayParams(order.orderNo, ctx)
   }
 

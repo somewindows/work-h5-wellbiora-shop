@@ -9,7 +9,7 @@ import { InMemoryUsersRepository } from '../users/users.repository'
 import { InMemoryOrderRepository } from './order.repository'
 import { OrderService } from './order.service'
 import { LocalWarehouseAdapter } from './local-warehouse.adapter'
-import { LocalPaymentAdapter } from './local-payment.adapter'
+import { LocalPaymentAdapter, type PaymentAdapter, type PayContext } from './local-payment.adapter'
 
 describe('OrderService', () => {
   const crypto = new PersonalDataCryptoService(Buffer.alloc(32, 5).toString('base64'))
@@ -133,6 +133,28 @@ describe('OrderService', () => {
       await expect(
         service.handleWechatRefundNotified({ orderNo: 'WB20990101NONE', refundNo: 'R1', refundStatus: 'SUCCESS' }),
       ).rejects.toMatchObject({ code: 40404 })
+    })
+  })
+
+  describe('支付参数 description 一致性', () => {
+    it('创建订单与续付（pay-params/同 requestId 重进）的 description 必须一致，否则微信拒绝重复下单', async () => {
+      const captured: (PayContext | undefined)[] = []
+      const spyAdapter: PaymentAdapter = {
+        createPayParams: jest.fn((_orderNo: string, ctx?: PayContext) => {
+          captured.push(ctx)
+          return Promise.resolve({ provider: 'mock' })
+        }),
+        refund: jest.fn(),
+      }
+      const spyService = new OrderService(cart, profile, new InMemoryOrderRepository(), new LocalWarehouseAdapter(catalog), crypto, spyAdapter, catalog, users)
+
+      const { orderNo } = await spyService.create('user-1', { requestId: 'request-desc' })
+      await spyService.getPayParams('user-1', orderNo)
+      await spyService.create('user-1', { requestId: 'request-desc' }) // 幂等重进
+
+      expect(captured).toHaveLength(3)
+      const product = await catalog.findById('WB10001')
+      for (const ctx of captured) expect(ctx?.description).toBe(product?.name)
     })
   })
 })
