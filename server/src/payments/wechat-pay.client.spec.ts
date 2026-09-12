@@ -190,4 +190,19 @@ describe('微信支付 V3 客户端', () => {
       client.verifyNotification({ timestamp, nonce: 'nonce', signature, serial: 'PUB_KEY_ID_OTHER' }, rawBody),
     ).resolves.toBe(false)
   })
+
+  it('微信支付公钥模式：请求头带 Wechatpay-Serial 公钥 ID', async () => {
+    const publicKeyId = 'PUB_KEY_ID_0114000000000000000000000001'
+    const publicKeyConfig: WechatPayConfig = { ...config, publicKeyPem: platformPublicKeyPem, publicKeyId }
+    const captured: { init?: RequestInit } = {}
+    const fetchImpl: typeof fetch = (async (_url: string | URL, init?: RequestInit) => {
+      captured.init = init ?? {}
+      return jsonResponse({})
+    }) as typeof fetch
+    const client = new WechatPayClient(publicKeyConfig, fetchImpl)
+
+    await client.get('/v3/pay/transactions/out-trade-no/XXX?mchid=1117333649')
+
+    expect((captured.init?.headers as Record<string, string>)['Wechatpay-Serial']).toBe(publicKeyId)
+  })
 })

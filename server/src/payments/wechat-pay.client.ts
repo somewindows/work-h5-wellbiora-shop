@@ -142,6 +142,9 @@ export class WechatPayClient {
         // /v3/certificates 直接回 PARAM_ERROR 传入了不支持的Accept-Language——平台证书因此永远拉不下来、
         // 回调全部验签失败。显式给一个合法语言标签覆盖掉默认值。
         'Accept-Language': 'zh-CN',
+        // 公钥模式下按微信指引在请求头带上公钥 ID，微信应答会用该公钥签名
+        // （见 https://pay.weixin.qq.com/doc/v3/partner/4012925323 「请求-应答场景」）
+        ...(this.config.publicKeyId ? { 'Wechatpay-Serial': this.config.publicKeyId } : {}),
         ...(method === 'POST' ? { 'Content-Type': 'application/json' } : {}),
       },
       ...(method === 'POST' ? { body } : {}),
