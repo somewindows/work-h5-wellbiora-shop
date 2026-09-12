@@ -85,7 +85,7 @@ export class OrderService {
   }
 
   async list(userId: string, status?: string): Promise<{ total: number; list: OrderResponse[] }> {
-    const normalizedStatus = status === 'cancel' ? 'cancelled' : status
+    const normalizedStatus = status ? (SERVER_STATUS_BY_H5[status] ?? status) : status
     const orders = await this.orderRepository.findByUser(userId, normalizedStatus)
     return { total: orders.length, list: await Promise.all(orders.map((order) => this.toResponse(order))) }
   }
@@ -250,7 +250,7 @@ export class OrderService {
     const items = await this.orderRepository.findItems(order.id)
     const idcard = this.crypto.decrypt(order.idcardEncrypted)
     return {
-      orderNo: order.orderNo, status: order.status, createdAt: order.createdAt.toISOString(),
+      orderNo: order.orderNo, status: H5_STATUS_BY_SERVER[order.status] ?? order.status, createdAt: order.createdAt.toISOString(),
       items: items.map((item) => ({ productId: item.productId, name: item.name, spec: item.spec, priceFen: item.priceFen, quantity: item.quantity, img: item.img, themeLight: item.themeLight })),
       address: { name: order.receiverName, phone: maskPhone(order.receiverPhone), line: `${order.receiverRegion} ${order.receiverDetail}` },
       idName: order.realnameName, idcard: `${idcard.slice(0, 3)}***********${idcard.slice(-4)}`,
@@ -261,3 +261,7 @@ export class OrderService {
 }
 
 function maskPhone(phone: string): string { return phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2') }
+
+// 复审 R14：后台状态机（admin 手动同步）写入 receive/complete，H5 契约使用 recv/done，在 API 边界双向映射
+const H5_STATUS_BY_SERVER: Record<string, string> = { receive: 'recv', complete: 'done' }
+const SERVER_STATUS_BY_H5: Record<string, string> = { recv: 'receive', done: 'complete', cancel: 'cancelled' }

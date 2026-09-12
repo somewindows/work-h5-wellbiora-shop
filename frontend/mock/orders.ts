@@ -2,15 +2,10 @@
  * Mock：订单数据（搬自原型 orders-data.js，价格换算为分）
  * 状态机：pay 待付款 → ship 待发货 → recv 待收货 → done 已完成 / cancelled 已取消
  */
-import type { Order, OrderStatus } from '../src/types'
+import type { Order } from '../src/types'
 
-export const ORDER_STATUS_MAP: Record<OrderStatus, { label: string; en: string }> = {
-  pay: { label: '待付款', en: 'Awaiting Payment' },
-  ship: { label: '待发货', en: 'Preparing' },
-  recv: { label: '待收货', en: 'In Transit' },
-  done: { label: '已完成', en: 'Completed' },
-  cancelled: { label: '已取消', en: 'Cancelled' },
-}
+// 状态文案已上移为正式代码（生产页面也引用），此处仅为兼容再导出
+export { ORDER_STATUS_MAP } from '../src/utils/order-status'
 
 export const MOCK_ORDERS: Order[] = [
   {

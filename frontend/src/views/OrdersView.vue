@@ -9,7 +9,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { cancelOrder as requestCancelOrder, getOrders } from '@/api'
 import type { Order, OrderStatus } from '@/types'
-import { ORDER_STATUS_MAP } from '../../mock/orders'
+import { orderStatusInfo } from '@/utils/order-status'
 import { fenToYuan } from '@/utils/format'
 import { useWechatPay } from '@/composables/useWechatPay'
 
@@ -166,7 +166,7 @@ onMounted(async () => {
       >
         <div class="o-head">
           <span class="o-no">{{ o.orderNo }}</span>
-          <span class="o-status" :class="statusClass(o.status)">{{ ORDER_STATUS_MAP[o.status].label }}</span>
+          <span class="o-status" :class="statusClass(o.status)">{{ orderStatusInfo(o.status).label }}</span>
         </div>
         <div v-for="p in o.items" :key="p.productId" class="oitem">
           <div class="pic" :style="{ background: p.themeLight }"><img :src="p.img" :alt="p.name" /></div>

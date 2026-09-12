@@ -2,14 +2,17 @@ import './common/environment'
 
 import { ValidationPipe } from '@nestjs/common'
 import { NestFactory } from '@nestjs/core'
+import type { NestExpressApplication } from '@nestjs/platform-express'
 
 import { AppModule } from './app.module'
 import { assertProductionConfig } from './common/production-guard'
+import { configureTrustProxy } from './common/trust-proxy'
 
 async function bootstrap(): Promise<void> {
   assertProductionConfig()
 
-  const app = await NestFactory.create(AppModule, { rawBody: true })
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { rawBody: true })
+  configureTrustProxy(app)
   const origins = (process.env.CORS_ORIGIN ?? 'http://localhost:5173')
     .split(',')
     .map((origin) => origin.trim())

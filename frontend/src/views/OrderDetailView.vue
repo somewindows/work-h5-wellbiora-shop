@@ -10,7 +10,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { cancelOrder as requestCancelOrder, getOrder } from '@/api'
 import type { Order, OrderStatus } from '@/types'
-import { ORDER_STATUS_MAP } from '../../mock/orders'
+import { orderStatusInfo } from '@/utils/order-status'
 import { fenToYuan, formatDateTime } from '@/utils/format'
 import { useWechatPay } from '@/composables/useWechatPay'
 
@@ -30,13 +30,14 @@ const HEAD_DESC: Record<OrderStatus, string> = {
   cancelled: '订单已取消',
 }
 
-const statusInfo = computed(() => (order.value ? ORDER_STATUS_MAP[order.value.status] : null))
+// 未知状态由 orderStatusInfo 兜底为「状态未知」，保证页面主体仍渲染（复审 R14）
+const statusInfo = computed(() => (order.value ? orderStatusInfo(order.value.status) : null))
 
-/** 状态头描述：已取消订单拼接取消原因 */
+/** 状态头描述：已取消订单拼接取消原因；未知状态无描述文案 */
 const headDesc = computed(() => {
   const o = order.value
   if (!o) return ''
-  const base = HEAD_DESC[o.status]
+  const base = HEAD_DESC[o.status] ?? ''
   return o.status === 'cancelled' && o.cancelledReason ? `${base}：${o.cancelledReason}` : base
 })
 

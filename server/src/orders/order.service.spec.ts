@@ -136,6 +136,31 @@ describe('OrderService', () => {
     })
   })
 
+  describe('H5 状态契约映射（复审 R14）', () => {
+    it('后台同步写入 receive/complete 的订单，H5 读取与筛选均使用 recv/done', async () => {
+      const orders = new InMemoryOrderRepository()
+      const svc = new OrderService(cart, profile, orders, new LocalWarehouseAdapter(catalog), crypto, new LocalPaymentAdapter(), catalog, users)
+      const { orderNo } = await svc.create('user-1', { requestId: 'request-status-1' })
+
+      const [created] = await orders.findByUser('user-1')
+      await orders.saveOrder({ ...created, status: 'receive' })
+      expect((await svc.get('user-1', orderNo)).status).toBe('recv')
+      expect((await svc.list('user-1', 'recv')).list.map((o) => o.orderNo)).toContain(orderNo)
+      expect((await svc.list('user-1', 'done')).list).toHaveLength(0)
+
+      await orders.saveOrder({ ...created, status: 'complete' })
+      expect((await svc.get('user-1', orderNo)).status).toBe('done')
+      expect((await svc.list('user-1', 'done')).list.map((o) => o.orderNo)).toContain(orderNo)
+    })
+
+    it('pay/ship/cancelled 原样透传，cancel 筛选仍归一为 cancelled', async () => {
+      const { orderNo } = await service.create('user-1', { requestId: 'request-status-2' })
+      expect((await service.list('user-1', 'pay')).list.map((o) => o.orderNo)).toContain(orderNo)
+      await service.cancel('user-1', orderNo)
+      expect((await service.list('user-1', 'cancel')).list.map((o) => o.orderNo)).toContain(orderNo)
+    })
+  })
+
   describe('支付参数 description 一致性', () => {
     it('创建订单与续付（pay-params/同 requestId 重进）的 description 必须一致，否则微信拒绝重复下单', async () => {
       const captured: (PayContext | undefined)[] = []
