@@ -331,7 +331,6 @@ onMounted(async () => {
 .ocard .o-no {
   font-size: 11px;
   color: #a8a29a;
-  font-family: var(--font-serif);
   letter-spacing: 0.04em;
 }
 .ocard .o-status {

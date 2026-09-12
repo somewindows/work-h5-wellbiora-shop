@@ -12,3 +12,15 @@ export function fenToYuan(fen: number): string {
 export function fenToPrice(fen: number): string {
   return `¥${fenToYuan(fen)}`
 }
+
+/**
+ * 时间格式化：后端 ISO 串（UTC）→ 本地 'YYYY-MM-DD HH:mm'
+ * 解析不了的输入（如 mock 的 'YYYY-MM-DD HH:mm'）原样返回
+ */
+export function formatDateTime(value: string | null | undefined): string {
+  if (!value) return ''
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return value
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
+}

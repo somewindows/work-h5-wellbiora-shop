@@ -210,7 +210,7 @@ export function createOrder(requestId: string): Promise<{ orderNo: string; payPa
     mockOrders.unshift({
       orderNo,
       status: 'pay',
-      createdAt: new Date().toLocaleString('zh-CN', { hour12: false }),
+      createdAt: new Date().toISOString(),
       items: checked.map((i) => ({
         productId: i.productId,
         name: i.name,

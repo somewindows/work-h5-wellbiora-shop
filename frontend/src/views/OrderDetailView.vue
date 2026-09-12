@@ -11,7 +11,7 @@ import { showToast } from 'vant'
 import { cancelOrder as requestCancelOrder, getOrder } from '@/api'
 import type { Order, OrderStatus } from '@/types'
 import { ORDER_STATUS_MAP } from '../../mock/orders'
-import { fenToYuan } from '@/utils/format'
+import { fenToYuan, formatDateTime } from '@/utils/format'
 import { useWechatPay } from '@/composables/useWechatPay'
 
 const route = useRoute()
@@ -238,8 +238,8 @@ onMounted(async () => {
         </div>
         <div style="margin-top: 6px">
           <div class="inforow"><span class="k">订单编号</span><span class="v">{{ order.orderNo }}</span></div>
-          <div class="inforow"><span class="k">下单时间</span><span class="v">{{ order.createdAt }}</span></div>
-          <div v-if="order.payTime" class="inforow"><span class="k">支付时间</span><span class="v">{{ order.payTime }}</span></div>
+          <div class="inforow"><span class="k">下单时间</span><span class="v">{{ formatDateTime(order.createdAt) }}</span></div>
+          <div v-if="order.payTime" class="inforow"><span class="k">支付时间</span><span class="v">{{ formatDateTime(order.payTime) }}</span></div>
           <div v-if="order.declareNo" class="inforow"><span class="k">海关申报单号</span><span class="v">{{ order.declareNo }}</span></div>
           <div class="inforow"><span class="k">清关模式</span><span class="v">1210 保税备货 · 义乌保税仓</span></div>
         </div>
@@ -452,8 +452,6 @@ onMounted(async () => {
   font-size: 10px;
   color: #a8a29a;
   margin-top: 2px;
-  font-family: var(--font-serif);
-  letter-spacing: 0.03em;
 }
 
 /* ---------- 地址卡 ---------- */
@@ -610,8 +608,6 @@ onMounted(async () => {
   text-align: right;
   color: #1a1a1a;
   line-height: 1.5;
-  font-family: var(--font-serif);
-  letter-spacing: 0.03em;
 }
 
 /* ---------- 底部操作栏（安全区适配） ---------- */
