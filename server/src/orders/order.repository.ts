@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { randomUUID } from 'node:crypto'
-import { Between, type EntityManager, Repository } from 'typeorm'
+import { Between, LessThan, type EntityManager, Repository } from 'typeorm'
 
 import { OrderEntity } from './order.entity'
 import { OrderItemEntity } from './order-item.entity'
@@ -43,6 +43,13 @@ export interface OrderRepository {
   findByUser(userId: string, status?: string): Promise<OrderRecord[]>
   findAdminPage(query: AdminOrderPageQuery): Promise<{ total: number; list: OrderRecord[] }>
   sumDeclaredFen(idcardFingerprint: string, from: Date, to: Date): Promise<number>
+  /** 超时关单任务用：查找 cutoff 之前创建、仍待支付的订单（按创建时间升序，限量防单轮过大） */
+  findPendingExpired(cutoff: Date, limit: number): Promise<OrderRecord[]>
+  /**
+   * 超时关单任务用：仅当订单仍是 待支付（pay+pending）时才取消，返回是否取消成功。
+   * 竞态安全（评审 4.3 阻断项）：扫描后支付回调先登记支付的订单，条件更新影响 0 行，让位不覆盖。
+   */
+  cancelIfPendingPayment(orderId: string, cancelledAt: Date): Promise<boolean>
   /** 复审 R03：把多个写操作放进同一数据库事务；内存实现直接执行（无事务语义） */
   runInTransaction<T>(work: (manager?: EntityManager) => Promise<T>): Promise<T>
   createOrder(input: NewOrder): OrderRecord
@@ -84,6 +91,13 @@ export class TypeOrmOrderRepository implements OrderRepository {
     return Number(result?.total ?? 0)
   }
   createOrder(input: NewOrder): OrderEntity { return this.orders.create(input) }
+  findPendingExpired(cutoff: Date, limit: number): Promise<OrderEntity[]> {
+    return this.orders.find({ where: { status: 'pay', paymentStatus: 'pending', createdAt: LessThan(cutoff) }, order: { createdAt: 'ASC' }, take: limit })
+  }
+  async cancelIfPendingPayment(orderId: string, cancelledAt: Date): Promise<boolean> {
+    const result = await this.orders.update({ id: orderId, status: 'pay', paymentStatus: 'pending' }, { status: 'cancelled', cancelledAt })
+    return (result.affected ?? 0) > 0
+  }
   runInTransaction<T>(work: (manager?: EntityManager) => Promise<T>): Promise<T> { return this.orders.manager.transaction(work) }
   saveOrder(order: OrderRecord, manager?: EntityManager): Promise<OrderEntity> {
     return manager ? manager.save(OrderEntity, order as OrderEntity) : this.orders.save(order)
@@ -123,6 +137,18 @@ export class InMemoryOrderRepository implements OrderRepository {
   }
   async sumDeclaredFen(fingerprint: string, from: Date, to: Date): Promise<number> { return [...this.orders.values()].filter((order) => order.idcardFingerprint === fingerprint && order.paidAt && order.createdAt >= from && order.createdAt < to).reduce((sum, order) => sum + order.totalFen, 0) }
   createOrder(input: NewOrder): OrderRecord { const now = new Date(); return { id: randomUUID(), createdAt: now, updatedAt: now, ...input } }
+  async findPendingExpired(cutoff: Date, limit: number): Promise<OrderRecord[]> {
+    return [...this.orders.values()]
+      .filter((order) => order.status === 'pay' && order.paymentStatus === 'pending' && order.createdAt < cutoff)
+      .sort((left, right) => left.createdAt.getTime() - right.createdAt.getTime())
+      .slice(0, limit)
+  }
+  async cancelIfPendingPayment(orderId: string, cancelledAt: Date): Promise<boolean> {
+    const order = this.orders.get(orderId)
+    if (!order || order.status !== 'pay' || order.paymentStatus !== 'pending') return false
+    this.orders.set(orderId, { ...order, status: 'cancelled', cancelledAt, updatedAt: new Date() })
+    return true
+  }
   async runInTransaction<T>(work: (manager?: EntityManager) => Promise<T>): Promise<T> { return work() }
   async saveOrder(order: OrderRecord): Promise<OrderRecord> { order.updatedAt = new Date(); this.orders.set(order.id, { ...order }); return order }
   createItem(input: NewOrderItem): OrderItemRecord { return { id: randomUUID(), ...input } }

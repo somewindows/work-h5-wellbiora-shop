@@ -7,6 +7,7 @@ import { ProfileModule } from '../profile/profile.module'
 import { SecurityModule } from '../security/security.module'
 import { UsersModule } from '../users/users.module'
 import { isInMemoryStorage } from '../common/runtime-mode'
+import { TaskSchedulerService } from '../common/task-scheduler.service'
 import { PaymentNotifyController } from '../payments/payment-notify.controller'
 import { PaymentsModule } from '../payments/payments.module'
 import { WechatPayClient } from '../payments/wechat-pay.client'
@@ -17,6 +18,7 @@ import { AdminOrderController } from './admin-order.controller'
 import { AdminOrderService } from './admin-order.service'
 import { LocalPaymentAdapter, PAYMENT_ADAPTER } from './local-payment.adapter'
 import { LocalWarehouseAdapter } from './local-warehouse.adapter'
+import { OrderExpiryJob } from './order-expiry.job'
 import { OrderController } from './order.controller'
 import { OrderEntity } from './order.entity'
 import { OrderItemEntity } from './order-item.entity'
@@ -24,6 +26,7 @@ import { OrderStatusEventEntity } from './order-event.entity'
 import { InMemoryOrderRepository, ORDER_REPOSITORY, TypeOrmOrderRepository } from './order.repository'
 import { OrderService } from './order.service'
 import { RefundEntity } from './refund.entity'
+import { RefundSettleJob } from './refund-settle.job'
 import { InMemoryRefundRepository, REFUND_REPOSITORY, TypeOrmRefundRepository } from './refund.repository'
 import { RefundService } from './refund.service'
 import { WAREHOUSE_ADAPTER } from './warehouse.adapter'
@@ -43,6 +46,9 @@ export class OrdersModule {
         ? [OrderController, AdminOrderController, PaymentNotifyController]
         : [OrderController, AdminOrderController],
       providers: [
+        TaskSchedulerService,
+        OrderExpiryJob,
+        RefundSettleJob,
         OrderService,
         AdminOrderService,
         RefundService,

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { randomUUID } from 'node:crypto'
-import type { Repository } from 'typeorm'
+import { LessThan, type Repository } from 'typeorm'
 
 import { RefundEntity } from './refund.entity'
 
@@ -30,6 +30,8 @@ export interface RefundRepository {
   save(refund: RefundRecord): Promise<RefundRecord>
   findByRefundNo(refundNo: string): Promise<RefundRecord | null>
   findByOrderId(orderId: string): Promise<RefundRecord[]>
+  /** 退款收敛任务用：查找在途（processing）且创建早于 olderThan 的退款单 */
+  findProcessing(olderThan: Date): Promise<RefundRecord[]>
 }
 
 @Injectable()
@@ -50,6 +52,10 @@ export class TypeOrmRefundRepository implements RefundRepository {
 
   findByOrderId(orderId: string): Promise<RefundEntity[]> {
     return this.repository.find({ where: { orderId }, order: { createdAt: 'ASC' } })
+  }
+
+  findProcessing(olderThan: Date): Promise<RefundEntity[]> {
+    return this.repository.find({ where: { status: 'processing', createdAt: LessThan(olderThan) }, order: { createdAt: 'ASC' } })
   }
 }
 
@@ -78,6 +84,13 @@ export class InMemoryRefundRepository implements RefundRepository {
   async findByOrderId(orderId: string): Promise<RefundRecord[]> {
     return [...this.refunds.values()]
       .filter((refund) => refund.orderId === orderId)
+      .sort((left, right) => left.createdAt.getTime() - right.createdAt.getTime())
+      .map((refund) => ({ ...refund }))
+  }
+
+  async findProcessing(olderThan: Date): Promise<RefundRecord[]> {
+    return [...this.refunds.values()]
+      .filter((refund) => refund.status === 'processing' && refund.createdAt < olderThan)
       .sort((left, right) => left.createdAt.getTime() - right.createdAt.getTime())
       .map((refund) => ({ ...refund }))
   }

@@ -146,7 +146,16 @@ export class RefundService {
         remark: `退款单 ${refund.refundNo} 状态异常（${remoteStatus}），需人工跟进`,
       })
       this.logger.warn(`退款单 ${refund.refundNo}（订单 ${order.orderNo}）状态 ${remoteStatus}，需人工跟进`)
-    } else if (status === PROCESSING_STATUS) {
+    } else if (status === 'failed') {
+      // 未受理（发起方查询确认 404 或收敛任务判定长期查无）：释放占用额度，允许人工重新发起
+      await this.settleOrder(order)
+      await this.orderRepository.recordStatusEvent({
+        orderId: order.id, fromStatus: order.status, toStatus: order.status, source: 'payment',
+        remark: `退款单 ${refund.refundNo} 未被支付通道受理，额度已释放，可重新发起`,
+      })
+      this.logger.warn(`退款单 ${refund.refundNo}（订单 ${order.orderNo}）未被通道受理，额度已释放`)
+    } else {
+      // processing 及未知态：只按账本重算订单状态，不产生事件噪音
       await this.settleOrder(order)
     }
     return saved
