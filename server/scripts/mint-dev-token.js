@@ -49,7 +49,9 @@ async function main() {
     }
     const token = jwt.sign({ sub: userId, phone }, secret, { expiresIn: '7d' })
     console.log(`\ntoken（7 天有效）：\n${token}\n`)
-    console.log('浏览器 F12 控制台执行后刷新页面：')
+    console.log('手机/微信里直接打开这个链接即登录（前端会把 token 写入 localStorage 并抹掉地址栏参数）：')
+    console.log(`https://wellbiora.com.cn/?dev_token=${token}#/`)
+    console.log('\nPC 浏览器也可用 F12 控制台执行后刷新页面：')
     console.log(`localStorage.setItem('token', '${token}')`)
   } finally {
     await conn.end()
