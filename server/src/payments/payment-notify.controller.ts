@@ -19,6 +19,10 @@ interface WechatRefundResource {
   out_trade_no: string
   out_refund_no: string
   refund_status: string
+  refund_id?: string
+  success_time?: string
+  /** 退款金额明细：refund = 本次退款（分），商户平台发起的退款补登时用 */
+  amount?: { refund?: number }
 }
 
 interface WechatNotifyBody {
@@ -98,6 +102,9 @@ export class PaymentNotifyController {
         orderNo: resource.out_trade_no,
         refundNo: resource.out_refund_no,
         refundStatus: resource.refund_status,
+        refundId: resource.refund_id,
+        amountFen: resource.amount?.refund,
+        succeededAt: resource.success_time ? new Date(resource.success_time) : undefined,
       })
       response.json({ code: 'SUCCESS', message: '成功' })
     } catch (error) {

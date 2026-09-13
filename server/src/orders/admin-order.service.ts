@@ -8,6 +8,7 @@ import type { AdminOrderQueryDto, AdminOrderConfirmDto, AdminOrderRefundDto } fr
 import { PAYMENT_ADAPTER, type PaymentAdapter } from './local-payment.adapter'
 import { ORDER_REPOSITORY, type OrderRecord, type OrderRepository, type OrderStatusEventRecord } from './order.repository'
 import { OrderService } from './order.service'
+import { RefundService } from './refund.service'
 import { WAREHOUSE_ADAPTER, type WarehouseAdapter } from './warehouse.adapter'
 
 /**
@@ -54,8 +55,12 @@ export interface AdminOrderDetail extends AdminOrderListItem {
   address: { name: string; phone: string; line: string }
   idName: string
   idcard: string
+  /** 累计已到账退款（分），口径 = 退款单账本 success 合计 */
   refundFen: number | null
   refundedAt: string | null
+  /** 剩余可退（分）= 实付 - 已到账 - 在途占用 */
+  refundableFen: number
+  refunds: { refundNo: string; amountFen: number; status: string; channel: string; reason: string | null; succeededAt: string | null; createdAt: string }[]
   cancelledAt: string | null
   statusEvents: { fromStatus: string | null; toStatus: string; source: string; remark: string | null; createdAt: string }[]
 }
@@ -71,6 +76,7 @@ export class AdminOrderService {
     private readonly crypto: PersonalDataCryptoService,
     private readonly audit: AuditLogService,
     private readonly orderService: OrderService,
+    private readonly refundService: RefundService,
   ) {}
 
   async list(query: AdminOrderQueryDto): Promise<{ total: number; list: AdminOrderListItem[] }> {
@@ -89,6 +95,8 @@ export class AdminOrderService {
     const order = await this.requireOrder(orderNo)
     const items = await this.orderRepository.findItems(order.id)
     const events = await this.orderRepository.findStatusEvents(order.id)
+    const refunds = await this.refundService.listByOrder(order.id)
+    const summary = await this.refundService.summarize(order)
     const idcard = this.crypto.decrypt(order.idcardEncrypted)
     return {
       ...this.toListItem(order),
@@ -100,6 +108,11 @@ export class AdminOrderService {
       idcard: `${idcard.slice(0, 3)}***********${idcard.slice(-4)}`,
       refundFen: order.refundFen,
       refundedAt: order.refundedAt?.toISOString() ?? null,
+      refundableFen: summary.refundableFen,
+      refunds: refunds.map((refund) => ({
+        refundNo: refund.refundNo, amountFen: refund.amountFen, status: refund.status, channel: refund.channel,
+        reason: refund.reason, succeededAt: refund.succeededAt?.toISOString() ?? null, createdAt: refund.createdAt.toISOString(),
+      })),
       cancelledAt: order.cancelledAt?.toISOString() ?? null,
       statusEvents: events.map((event) => this.toEventResponse(event)),
     }
@@ -171,16 +184,24 @@ export class AdminOrderService {
         }
       }
     } else if (order.paymentStatus === 'paid') {
-      // 已支付：按取消窗口校验，可取消则撤单 + 原路全额退款
+      // 已支付：按取消窗口校验，可取消则撤单 + 原路退款（复审 R04/R05：走退款状态机，受理≠到账）
       if (!isWarehouseCancellable(order.warehouseStatus)) {
         throw new BusinessException(40002, '订单已申报清关，不可线上取消，请走人工拦截/拒收流程')
       }
+      // 退款前置到撤仓之前：已部分退款的订单按剩余可退发起，校验失败则不会留下「仓储已撤、本地未取消」的夹缝态
+      const summary = await this.refundService.summarize(order)
+      let refundRemark = '退款已全部到账，无资金动作'
+      if (summary.refundableFen > 0) {
+        const { refund } = await this.refundService.requestRefund(order, summary.refundableFen, '取消订单退款')
+        refundRemark = `发起退款 ${refund.amountFen} 分（退款单 ${refund.refundNo}，${refundStatusText(refund.status)}）`
+      } else if (summary.processing) {
+        refundRemark = `在途退款单 ${summary.processing.refundNo}（${summary.processing.amountFen} 分）处理中`
+      }
       await this.warehouse.cancelOrder(orderNo)
-      const refund = await this.paymentAdapter.refund(orderNo, order.totalFen, order.totalFen)
-      saved = await this.orderRepository.saveOrder({
-        ...order, status: 'cancelled', paymentStatus: 'refunded', refundFen: order.totalFen, refundedAt: now, cancelledAt: now,
-      })
-      await this.orderRepository.recordStatusEvent({ orderId: order.id, fromStatus: order.status, toStatus: 'cancelled', source: 'admin', remark: `管理员取消并全额退款（退款单 ${refund.refundNo}）` })
+      // 退款状态机可能已重写 paymentStatus（refunded/refunding）：重读订单避免旧对象覆盖
+      const fresh = await this.requireOrder(orderNo)
+      saved = await this.orderRepository.saveOrder({ ...fresh, status: 'cancelled', cancelledAt: now })
+      await this.orderRepository.recordStatusEvent({ orderId: order.id, fromStatus: order.status, toStatus: 'cancelled', source: 'admin', remark: `管理员取消，${refundRemark}` })
     } else {
       throw new BusinessException(40002, '当前订单状态不支持取消')
     }
@@ -192,16 +213,32 @@ export class AdminOrderService {
     this.requireConfirm(dto)
     const order = await this.requireOrder(orderNo)
     if (order.paymentStatus === 'pending') throw new BusinessException(40002, '订单未支付，不能退款')
-    if (order.paymentStatus === 'refunded') throw new BusinessException(40002, '订单已退款，请勿重复退款')
+    if (order.paymentStatus === 'refunded') throw new BusinessException(40002, '订单已全额退款，请勿重复退款')
 
-    const amountFen = dto.amountFen ?? order.totalFen
-    if (amountFen > order.totalFen) throw new BusinessException(40003, '退款金额不能超过实付金额')
-
-    const result = await this.paymentAdapter.refund(orderNo, amountFen, order.totalFen)
-    const saved = await this.orderRepository.saveOrder({
-      ...order, paymentStatus: 'refunded', refundFen: amountFen, refundedAt: new Date(),
+    // 复审 R04/R05：金额口径 = 剩余可退（实付 - 已到账 - 在途占用），支持部分退款后再退；
+    // 有在途退款时收敛到同一笔（重复点击/重试幂等，R05），不同金额明确拒绝
+    const summary = await this.refundService.summarize(order)
+    if (summary.processing) {
+      if (dto.amountFen != null && dto.amountFen !== summary.processing.amountFen) {
+        throw new BusinessException(40002, `该订单有一笔处理中的退款（${summary.processing.amountFen} 分），请等待其结果后再发起`)
+      }
+      const { refund } = await this.refundService.requestRefund(order, summary.processing.amountFen, '管理员退款')
+      await this.orderRepository.recordStatusEvent({
+        orderId: order.id, fromStatus: order.status, toStatus: order.status, source: 'admin',
+        remark: `重复退款请求已收敛到在途退款单 ${refund.refundNo}（${refund.amountFen} 分）`,
+      })
+      return this.detail(orderNo)
+    }
+    const amountFen = dto.amountFen ?? summary.refundableFen
+    if (amountFen <= 0 || amountFen > summary.refundableFen) {
+      throw new BusinessException(40003, `退款金额需在 1 与剩余可退金额之间（剩余可退 ${summary.refundableFen} 分）`)
+    }
+    const { refund } = await this.refundService.requestRefund(order, amountFen, '管理员退款')
+    await this.orderRepository.recordStatusEvent({
+      orderId: order.id, fromStatus: order.status, toStatus: order.status, source: 'admin',
+      remark: `管理员发起退款 ${refund.amountFen} 分（退款单 ${refund.refundNo}，${refundStatusText(refund.status)}）`,
     })
-    await this.orderRepository.recordStatusEvent({ orderId: order.id, fromStatus: order.status, toStatus: order.status, source: 'admin', remark: `管理员退款 ${amountFen} 分（退款单 ${result.refundNo}）` })
+    const saved = await this.requireOrder(orderNo)
     await this.audit.record(actor, 'refund_order', 'order', orderNo, this.toAuditOrder(order), this.toAuditOrder(saved))
     return this.detail(orderNo)
   }
@@ -243,3 +280,9 @@ export class AdminOrderService {
 }
 
 function maskPhone(phone: string): string { return phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2') }
+
+/** 退款单状态文案（事件流/提示用） */
+function refundStatusText(status: string): string {
+  const map: Record<string, string> = { processing: '已受理，退款处理中', success: '已到账', abnormal: '异常，需人工跟进', closed: '已关闭', failed: '通道未受理，可重新发起' }
+  return map[status] ?? status
+}

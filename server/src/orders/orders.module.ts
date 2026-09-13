@@ -23,6 +23,9 @@ import { OrderItemEntity } from './order-item.entity'
 import { OrderStatusEventEntity } from './order-event.entity'
 import { InMemoryOrderRepository, ORDER_REPOSITORY, TypeOrmOrderRepository } from './order.repository'
 import { OrderService } from './order.service'
+import { RefundEntity } from './refund.entity'
+import { InMemoryRefundRepository, REFUND_REPOSITORY, TypeOrmRefundRepository } from './refund.repository'
+import { RefundService } from './refund.service'
 import { WAREHOUSE_ADAPTER } from './warehouse.adapter'
 
 @Module({})
@@ -35,14 +38,16 @@ export class OrdersModule {
       module: OrdersModule,
       imports: isTest
         ? [AuthModule, CartModule.register(), ProfileModule.register(), SecurityModule, UsersModule.register(), PaymentsModule.register()]
-        : [AuthModule, CartModule.register(), ProfileModule.register(), SecurityModule, UsersModule.register(), PaymentsModule.register(), TypeOrmModule.forFeature([OrderEntity, OrderItemEntity, OrderStatusEventEntity])],
+        : [AuthModule, CartModule.register(), ProfileModule.register(), SecurityModule, UsersModule.register(), PaymentsModule.register(), TypeOrmModule.forFeature([OrderEntity, OrderItemEntity, OrderStatusEventEntity, RefundEntity])],
       controllers: wechatPayConfigured
         ? [OrderController, AdminOrderController, PaymentNotifyController]
         : [OrderController, AdminOrderController],
       providers: [
         OrderService,
         AdminOrderService,
+        RefundService,
         { provide: ORDER_REPOSITORY, useClass: isTest ? InMemoryOrderRepository : TypeOrmOrderRepository },
+        { provide: REFUND_REPOSITORY, useClass: isTest ? InMemoryRefundRepository : TypeOrmRefundRepository },
         { provide: WAREHOUSE_ADAPTER, useClass: LocalWarehouseAdapter },
         {
           provide: PAYMENT_ADAPTER,

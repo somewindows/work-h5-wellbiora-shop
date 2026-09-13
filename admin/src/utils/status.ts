@@ -20,7 +20,26 @@ const ORDER_STATUS_MAP: Record<string, StatusMeta> = {
 const PAYMENT_STATUS_MAP: Record<string, StatusMeta> = {
   pending: { label: '待支付', tagType: 'warning' },
   paid: { label: '已支付', tagType: 'success' },
+  refunding: { label: '退款中', tagType: 'warning' },
   refunded: { label: '已退款', tagType: 'info' },
+}
+
+/** 退款单状态（复审 R04：受理≠到账，success 才是终态） */
+const REFUND_STATUS_MAP: Record<string, StatusMeta> = {
+  processing: { label: '处理中', tagType: 'warning' },
+  success: { label: '已到账', tagType: 'success' },
+  abnormal: { label: '异常', tagType: 'danger' },
+  closed: { label: '已关闭', tagType: 'info' },
+  failed: { label: '未受理', tagType: 'danger' },
+}
+
+export function refundStatusMeta(status: string): StatusMeta {
+  return REFUND_STATUS_MAP[status] ?? { label: status || '未知', tagType: 'info' }
+}
+
+/** 退款发起渠道文案 */
+export function refundChannelLabel(channel: string): string {
+  return channel === 'platform' ? '商户平台' : '后台'
 }
 
 /** 订单状态 Tab 选项（全部 = 不传 status） */

@@ -9,7 +9,7 @@ import { cancelOrder, getOrder, refundOrder, syncOrder, syncOrderPayment } from 
 import { getErrorMessage } from '@/api/request'
 import type { AdminOrderDetail } from '@/types'
 import { fenToYuan, formatDateTime, formatMoney, yuanToFen } from '@/utils/format'
-import { eventSourceLabel, orderStatusMeta, paymentStatusMeta } from '@/utils/status'
+import { eventSourceLabel, orderStatusMeta, paymentStatusMeta, refundChannelLabel, refundStatusMeta } from '@/utils/status'
 
 const route = useRoute()
 const orderNo = route.params.orderNo as string
@@ -80,26 +80,32 @@ async function confirmCancel(): Promise<void> {
   }
 }
 
-// ---------- 退款（二次确认 + 金额校验：0 < 金额 ≤ 实付，缺省全额） ----------
+// ---------- 退款（二次确认 + 金额校验：0 < 金额 ≤ 剩余可退，缺省退剩余全部） ----------
+// 复审 R04/R05：受理≠到账，结果以退款单账本状态为准；部分退款后可再退剩余
 const refundVisible = ref(false)
 const refunding = ref(false)
 const refundYuan = ref(0)
 
+const refundableFen = computed(() => order.value?.refundableFen ?? 0)
+const refundEnabled = computed(() =>
+  Boolean(order.value) && ['paid', 'refunding'].includes(order.value!.paymentStatus) && refundableFen.value > 0,
+)
+
 function openRefund(): void {
   if (!order.value) return
-  refundYuan.value = Number(fenToYuan(order.value.totalFen))
+  refundYuan.value = Number(fenToYuan(refundableFen.value))
   refundVisible.value = true
 }
 
 async function confirmRefund(): Promise<void> {
   if (!order.value) return
   const amountFen = yuanToFen(refundYuan.value)
-  if (amountFen <= 0 || amountFen > order.value.totalFen) {
-    ElMessage.warning(`退款金额需在 0 与实付金额 ${formatMoney(order.value.totalFen)} 之间`)
+  if (amountFen <= 0 || amountFen > refundableFen.value) {
+    ElMessage.warning(`退款金额需在 0 与剩余可退 ${formatMoney(refundableFen.value)} 之间`)
     return
   }
   try {
-    await ElMessageBox.confirm(`确认退款 ${formatMoney(amountFen)} 吗？退款将原路退回用户支付账户。`, '退款确认', {
+    await ElMessageBox.confirm(`确认退款 ${formatMoney(amountFen)} 吗？退款将原路退回用户支付账户，到账以微信处理结果为准。`, '退款确认', {
       type: 'warning',
       confirmButtonText: '确认退款',
       cancelButtonText: '再想想',
@@ -110,7 +116,8 @@ async function confirmRefund(): Promise<void> {
   refunding.value = true
   try {
     order.value = await refundOrder(orderNo, amountFen)
-    ElMessage.success('退款成功')
+    const latest = order.value.refunds.at(-1)
+    ElMessage.success(latest?.status === 'success' ? '退款已到账' : '退款已受理，到账以微信回调为准')
     refundVisible.value = false
   } catch (error) {
     ElMessage.error(getErrorMessage(error))
@@ -146,7 +153,7 @@ onMounted(load)
           size="small"
           type="warning"
           plain
-          :disabled="!canOperate || order.paymentStatus !== 'paid'"
+          :disabled="!refundEnabled"
           @click="openRefund"
         >退款</el-button>
       </div>
@@ -195,6 +202,29 @@ onMounted(load)
       </el-table>
       <div class="total-line">合计：<span class="total-amount">{{ formatMoney(order.totalFen) }}</span></div>
 
+      <!-- 退款单账本（复审 R04/R05：受理≠到账，以 success 为终态；部分退款可多次） -->
+      <template v-if="order.refunds.length > 0">
+        <h3 class="section-title">退款记录（剩余可退 {{ formatMoney(order.refundableFen) }}）</h3>
+        <el-table :data="order.refunds" border>
+          <el-table-column prop="refundNo" label="退款单号" min-width="200" />
+          <el-table-column label="金额" width="100" align="right">
+            <template #default="{ row }">{{ formatMoney(row.amountFen) }}</template>
+          </el-table-column>
+          <el-table-column label="状态" width="100" align="center">
+            <template #default="{ row }">
+              <el-tag :type="refundStatusMeta(row.status).tagType" size="small">{{ refundStatusMeta(row.status).label }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="发起渠道" width="100" align="center">
+            <template #default="{ row }">{{ refundChannelLabel(row.channel) }}</template>
+          </el-table-column>
+          <el-table-column label="到账时间" width="170">
+            <template #default="{ row }">{{ formatDateTime(row.succeededAt) || '—' }}</template>
+          </el-table-column>
+          <el-table-column prop="reason" label="原因" min-width="140" show-overflow-tooltip />
+        </el-table>
+      </template>
+
       <h3 class="section-title">收货与实名信息（已脱敏）</h3>
       <el-descriptions :column="1" border class="info-block">
         <el-descriptions-item label="收货人">{{ order.address.name }}（{{ order.address.phone }}）</el-descriptions-item>
@@ -231,7 +261,7 @@ onMounted(load)
         <div class="refund-form">
           <span>退款金额（元）：</span>
           <el-input-number v-model="refundYuan" :min="0.01" :precision="2" style="width: 180px" />
-          <span class="sub-text">实付 {{ formatMoney(order.totalFen) }}，默认全额</span>
+          <span class="sub-text">实付 {{ formatMoney(order.totalFen) }}，剩余可退 {{ formatMoney(order.refundableFen) }}，默认退剩余全部</span>
         </div>
         <template #footer>
           <el-button @click="refundVisible = false">取消</el-button>

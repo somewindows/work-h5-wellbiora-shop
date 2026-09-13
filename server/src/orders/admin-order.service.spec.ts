@@ -9,6 +9,8 @@ import { LocalPaymentAdapter, type PaymentAdapter } from './local-payment.adapte
 import { LocalWarehouseAdapter } from './local-warehouse.adapter'
 import { InMemoryOrderRepository, type OrderRecord } from './order.repository'
 import type { OrderService, WechatPaidInput } from './order.service'
+import { InMemoryRefundRepository } from './refund.repository'
+import { RefundService } from './refund.service'
 
 describe('AdminOrderService', () => {
   const actor = { id: 'admin-1', username: 'operator' }
@@ -17,6 +19,7 @@ describe('AdminOrderService', () => {
   let warehouse: LocalWarehouseAdapter
   let payment: LocalPaymentAdapter
   let auditLogs: InMemoryAuditLogRepository
+  let refundService: RefundService
   let orderService: { handleWechatPaid: jest.Mock }
   let service: AdminOrderService
   let seq = 0
@@ -53,7 +56,8 @@ describe('AdminOrderService', () => {
         if (order) await orders.saveOrder({ ...order, status: 'ship', paymentStatus: 'paid', paidAt: input.paidAt, wechatTransactionId: input.transactionId })
       }),
     }
-    service = new AdminOrderService(orders, warehouse, payment, crypto, new AuditLogService(auditLogs), orderService as unknown as OrderService)
+    refundService = new RefundService(new InMemoryRefundRepository(), orders, payment)
+    service = new AdminOrderService(orders, warehouse, payment, crypto, new AuditLogService(auditLogs), orderService as unknown as OrderService, refundService)
   })
 
   it('取消待支付订单：仅关单，无资金动作', async () => {
@@ -123,6 +127,83 @@ describe('AdminOrderService', () => {
     expect(payment.listRefunds()).toHaveLength(1)
   })
 
+  it('通道受理在途（PROCESSING）时订单置退款中，回调到账后收敛为已退款（复审 R04）', async () => {
+    const processingAdapter = {
+      createPayParams: jest.fn(),
+      refund: jest.fn((_no: string, _amount: number, _total: number, outRefundNo: string) =>
+        Promise.resolve({ refundNo: outRefundNo, refundId: '5030000001', status: 'PROCESSING' })),
+    } as unknown as PaymentAdapter
+    const refunds = new RefundService(new InMemoryRefundRepository(), orders, processingAdapter)
+    const svc = new AdminOrderService(orders, warehouse, processingAdapter, crypto, new AuditLogService(auditLogs), orderService as unknown as OrderService, refunds)
+    const order = await createPaidOrder()
+
+    const detail = await svc.refund(order.orderNo, { confirm: true }, actor)
+
+    expect(detail).toMatchObject({ paymentStatus: 'refunding', refundFen: null })
+    expect(detail.refunds).toMatchObject([{ refundNo: `R${order.orderNo}01`, amountFen: 32900, status: 'processing', channel: 'admin' }])
+
+    await refunds.applyRefundStatus({ orderNo: order.orderNo, refundNo: `R${order.orderNo}01`, refundStatus: 'SUCCESS' })
+    const settled = await svc.detail(order.orderNo)
+    expect(settled).toMatchObject({ paymentStatus: 'refunded', refundFen: 32900, refundableFen: 0 })
+  })
+
+  it('部分退款到账后可再退剩余金额；在途同额重复退款收敛到同一笔（复审 R04/R05）', async () => {
+    const order = await createPaidOrder()
+
+    const first = await service.refund(order.orderNo, { confirm: true, amountFen: 10000 }, actor)
+    expect(first).toMatchObject({ paymentStatus: 'paid', refundFen: 10000, refundableFen: 22900 })
+
+    const second = await service.refund(order.orderNo, { confirm: true, amountFen: 22900 }, actor)
+    expect(second).toMatchObject({ paymentStatus: 'refunded', refundFen: 32900, refundableFen: 0 })
+    expect(second.refunds.map((refund) => refund.amountFen)).toEqual([10000, 22900])
+    // 全额到账后退款入口关闭
+    await expect(service.refund(order.orderNo, { confirm: true }, actor)).rejects.toMatchObject({ code: 40002 })
+    expect(payment.listRefunds()).toHaveLength(2)
+  })
+
+  it('在途退款未完成时重复退款（同额）幂等收敛，不产生新退款单（复审 R05）', async () => {
+    const processingAdapter = {
+      createPayParams: jest.fn(),
+      refund: jest.fn((_no: string, _amount: number, _total: number, outRefundNo: string) =>
+        Promise.resolve({ refundNo: outRefundNo, status: 'PROCESSING' })),
+    } as unknown as PaymentAdapter
+    const svc = new AdminOrderService(orders, warehouse, processingAdapter, crypto, new AuditLogService(auditLogs), orderService as unknown as OrderService, new RefundService(new InMemoryRefundRepository(), orders, processingAdapter))
+    const order = await createPaidOrder()
+
+    await svc.refund(order.orderNo, { confirm: true }, actor)
+    const repeat = await svc.refund(order.orderNo, { confirm: true }, actor)
+
+    expect(processingAdapter.refund).toHaveBeenCalledTimes(1)
+    expect(repeat.refunds).toHaveLength(1)
+    expect(repeat.statusEvents.some((event) => event.remark?.includes('收敛到在途退款单'))).toBe(true)
+  })
+
+  it('已部分退款的订单取消：按剩余可退发起退款（退款校验先于撤仓，复审 R04）', async () => {
+    const order = await createPaidOrder()
+    await service.refund(order.orderNo, { confirm: true, amountFen: 10000 }, actor)
+
+    const detail = await service.cancel(order.orderNo, { confirm: true }, actor)
+
+    expect(detail).toMatchObject({ status: 'cancelled', paymentStatus: 'refunded', refundFen: 32900 })
+    expect(payment.listRefunds().map((refund) => refund.amountFen)).toEqual([10000, 22900])
+    expect(detail.statusEvents.some((event) => event.remark?.includes('发起退款 22900 分'))).toBe(true)
+  })
+
+  it('有在途部分退款时取消被拒绝（先等退款结果），仓储不撤单', async () => {
+    const processingAdapter = {
+      createPayParams: jest.fn(),
+      refund: jest.fn((_no: string, _amount: number, _total: number, outRefundNo: string) =>
+        Promise.resolve({ refundNo: outRefundNo, status: 'PROCESSING' })),
+    } as unknown as PaymentAdapter
+    const svc = new AdminOrderService(orders, warehouse, processingAdapter, crypto, new AuditLogService(auditLogs), orderService as unknown as OrderService, new RefundService(new InMemoryRefundRepository(), orders, processingAdapter))
+    const order = await createPaidOrder()
+    await svc.refund(order.orderNo, { confirm: true, amountFen: 10000 }, actor)
+
+    await expect(svc.cancel(order.orderNo, { confirm: true }, actor)).rejects.toMatchObject({ code: 40002 })
+    // 退款校验在撤仓之前：仓储侧不受影响
+    await expect(warehouse.getOrderStatus(order.orderNo)).resolves.toMatchObject({ status: 'local-accepted' })
+  })
+
   it('同步仓储状态：出库映射为待收货，终止状态收敛为已取消并带海关退单标记', async () => {
     const order = await createPaidOrder()
     warehouse.mockOrderStatus(order.orderNo, '40')
@@ -162,7 +243,7 @@ describe('AdminOrderService', () => {
   describe('syncPayment（主动查单补状态）', () => {
     const buildService = (queryPayment: jest.Mock): AdminOrderService => {
       const adapter = { createPayParams: jest.fn(), refund: jest.fn(), queryPayment } as unknown as PaymentAdapter
-      return new AdminOrderService(orders, warehouse, adapter, crypto, new AuditLogService(auditLogs), orderService as unknown as OrderService)
+      return new AdminOrderService(orders, warehouse, adapter, crypto, new AuditLogService(auditLogs), orderService as unknown as OrderService, new RefundService(new InMemoryRefundRepository(), orders, adapter))
     }
 
     it('微信侧已支付：补登记支付结果、订单转已支付并写审计', async () => {

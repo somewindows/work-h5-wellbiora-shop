@@ -74,7 +74,7 @@ describe('WechatPaymentAdapter', () => {
   })
 
   describe('refund（原路退款）', () => {
-    it('退款报文符合 V3 契约，返回商户退款单号', async () => {
+    it('退款报文符合 V3 契约：商户退款单号由服务层传入，受理状态原样透传（复审 R04/R05）', async () => {
       let capturedPayload: Record<string, unknown> | null = null
       const client = stubClient((path, payload) => {
         expect(path).toBe('/v3/refund/domestic/refunds')
@@ -83,12 +83,12 @@ describe('WechatPaymentAdapter', () => {
       })
       const adapter = new WechatPaymentAdapter(client, config)
 
-      const result = await adapter.refund('WB20260910ABCDEF', 10000, 32900)
+      const result = await adapter.refund('WB20260910ABCDEF', 10000, 32900, 'RWB20260910ABCDEF01')
 
-      expect(result.refundNo).toMatch(/^RWB20260910ABCDEF/)
-      expect(result.refundNo.length).toBeLessThanOrEqual(32)
+      expect(result).toMatchObject({ refundNo: 'RWB20260910ABCDEF01', refundId: '5030', status: 'PROCESSING' })
       expect(capturedPayload).toMatchObject({
         out_trade_no: 'WB20260910ABCDEF',
+        out_refund_no: 'RWB20260910ABCDEF01',
         notify_url: config.refundNotifyUrl,
         amount: { refund: 10000, total: 32900, currency: 'CNY' },
       })
@@ -96,7 +96,31 @@ describe('WechatPaymentAdapter', () => {
 
     it('缺少原订单金额时拒绝发起退款', async () => {
       const adapter = new WechatPaymentAdapter(stubClient(() => Promise.resolve({})), config)
-      await expect(adapter.refund('WB20260910ABCDEF', 10000)).rejects.toThrow(/totalFen/)
+      await expect(adapter.refund('WB20260910ABCDEF', 10000, 0, 'RWB20260910ABCDEF01')).rejects.toThrow(/totalFen/)
+    })
+  })
+
+  describe('queryRefund（按商户退款单号查退款，复审 R05）', () => {
+    it('查询路径正确，响应映射为退款状态', async () => {
+      let capturedPath = ''
+      const client = stubGetClient((path) => {
+        capturedPath = path
+        return Promise.resolve({ refund_id: '5030', out_refund_no: 'RWB20260910ABCDEF01', status: 'SUCCESS' })
+      })
+      const adapter = new WechatPaymentAdapter(client, config)
+
+      const result = await adapter.queryRefund('RWB20260910ABCDEF01')
+
+      expect(capturedPath).toBe('/v3/refund/domestic/refunds/RWB20260910ABCDEF01')
+      expect(result).toEqual({ status: 'SUCCESS', refundId: '5030' })
+    })
+
+    it('微信侧未受理（404）返回 null，其他错误照常抛出', async () => {
+      const notFound = new WechatPaymentAdapter(stubGetClient(() => Promise.reject(new WechatPayError('RESOURCE_NOT_EXISTS', '退款单不存在', 404))), config)
+      await expect(notFound.queryRefund('RWB20260910ABCDEF99')).resolves.toBeNull()
+
+      const broken = new WechatPaymentAdapter(stubGetClient(() => Promise.reject(new WechatPayError('SYSTEM_ERROR', '系统错误', 500))), config)
+      await expect(broken.queryRefund('RWB20260910ABCDEF01')).rejects.toThrow('系统错误')
     })
   })
 

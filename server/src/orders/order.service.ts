@@ -12,6 +12,7 @@ import { WechatCustomsService } from '../payments/wechat-customs.service'
 import type { CreateOrderDto } from './order.dto'
 import { PAYMENT_ADAPTER, type PayContext, type PaymentAdapter } from './local-payment.adapter'
 import { ORDER_REPOSITORY, type OrderRecord, type OrderRepository } from './order.repository'
+import { RefundService } from './refund.service'
 import { WAREHOUSE_ADAPTER, type WarehouseAdapter } from './warehouse.adapter'
 
 const SINGLE_ORDER_LIMIT_FEN = 500000
@@ -32,6 +33,11 @@ export interface WechatRefundNotifyInput {
   orderNo: string
   refundNo: string
   refundStatus: string
+  /** 微信退款单号（refund_id） */
+  refundId?: string
+  /** 退款金额（分），商户平台发起的退款补登时用 */
+  amountFen?: number
+  succeededAt?: Date
 }
 
 export interface OrderItemResponse {
@@ -59,6 +65,7 @@ export class OrderService {
     @Inject(PAYMENT_ADAPTER) private readonly paymentAdapter: PaymentAdapter,
     @Inject(CATALOG_REPOSITORY) private readonly products: SellableProductSource,
     @Inject(USERS_REPOSITORY) private readonly users: UsersRepository,
+    private readonly refundService: RefundService,
     @Optional() private readonly customs?: WechatCustomsService,
   ) {}
 
@@ -188,24 +195,11 @@ export class OrderService {
   }
 
   /** 退款结果回调：退款终态确认；本地已在发起退款时落库，这里只补记事件。 */
+  /**
+   * 微信退款回调：委托退款状态机收敛（复审 R04/R05：受理≠到账；本地无单按商户平台发起补登；重复通知幂等）。
+   */
   async handleWechatRefundNotified(input: WechatRefundNotifyInput): Promise<void> {
-    const order = await this.orderRepository.findOneByOrderNo(input.orderNo)
-    if (!order) throw new BusinessException(40404, '订单不存在', 404)
-    if (input.refundStatus !== 'SUCCESS') {
-      this.logger.warn(`退款回调非成功态：${order.orderNo} 退款单 ${input.refundNo} 状态 ${input.refundStatus}`)
-      await this.orderRepository.recordStatusEvent({
-        orderId: order.id, fromStatus: order.status, toStatus: order.status,
-        source: 'payment', remark: `退款单 ${input.refundNo} 状态异常（${input.refundStatus}），需人工跟进`,
-      })
-      return
-    }
-    if (order.paymentStatus !== 'refunded') {
-      const saved = await this.orderRepository.saveOrder({ ...order, paymentStatus: 'refunded', refundedAt: new Date() })
-      await this.orderRepository.recordStatusEvent({
-        orderId: saved.id, fromStatus: order.status, toStatus: saved.status,
-        source: 'payment', remark: `退款回调确认成功（退款单 ${input.refundNo}）`,
-      })
-    }
+    await this.refundService.applyRefundStatus(input)
   }
 
   /** 组装支付参数：本地 mock 忽略上下文；微信 JSAPI 需要 openid（缺失时适配器抛 40007 引导前端授权）。 */

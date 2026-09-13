@@ -13,6 +13,7 @@ import { AdminLoginRateLimitEntity } from '../admin/admin-login-rate-limit.entit
 import { OrderEntity } from '../orders/order.entity'
 import { OrderItemEntity } from '../orders/order-item.entity'
 import { OrderStatusEventEntity } from '../orders/order-event.entity'
+import { RefundEntity } from '../orders/refund.entity'
 
 export default new DataSource({
   type: 'mysql',
@@ -21,7 +22,7 @@ export default new DataSource({
   username: process.env.MYSQL_USER ?? 'wellbiora',
   password: process.env.MYSQL_PASSWORD ?? '',
   database: process.env.MYSQL_DATABASE ?? 'wellbiora_shop',
-  entities: [UserEntity, SmsVerificationCodeEntity, SmsIpRateLimitEntity, AdminAccountEntity, CatalogProductEntity, AuditLogEntity, ContentVersionEntity, AdminLoginRateLimitEntity, OrderEntity, OrderItemEntity, OrderStatusEventEntity],
+  entities: [UserEntity, SmsVerificationCodeEntity, SmsIpRateLimitEntity, AdminAccountEntity, CatalogProductEntity, AuditLogEntity, ContentVersionEntity, AdminLoginRateLimitEntity, OrderEntity, OrderItemEntity, OrderStatusEventEntity, RefundEntity],
   migrations: [`${__dirname}/migrations/*.{js,ts}`],
   synchronize: false,
 })

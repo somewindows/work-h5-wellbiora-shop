@@ -87,6 +87,17 @@ export interface AdminOrderListItem {
   paidAt: string | null
 }
 
+/** 退款单账本条目（复审 R04/R05：受理≠到账，status=success 才是终态） */
+export interface AdminRefundItem {
+  refundNo: string
+  amountFen: number
+  status: string
+  channel: string
+  reason: string | null
+  succeededAt: string | null
+  createdAt: string
+}
+
 /** 管理端订单详情（AdminOrderDetail，phone/idcard 服务端已脱敏） */
 export interface AdminOrderDetail extends AdminOrderListItem {
   userId: string
@@ -95,8 +106,12 @@ export interface AdminOrderDetail extends AdminOrderListItem {
   address: { name: string; phone: string; line: string }
   idName: string
   idcard: string
+  /** 累计已到账退款（分） */
   refundFen: number | null
   refundedAt: string | null
+  /** 剩余可退（分）= 实付 - 已到账 - 在途占用 */
+  refundableFen: number
+  refunds: AdminRefundItem[]
   cancelledAt: string | null
   statusEvents: { fromStatus: string | null; toStatus: string; source: string; remark: string | null; createdAt: string }[]
 }

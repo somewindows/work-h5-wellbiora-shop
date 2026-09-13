@@ -11,6 +11,7 @@ import { RealnameProfileEntity } from '../profile/realname-profile.entity'
 import { OrderEntity } from '../orders/order.entity'
 import { OrderItemEntity } from '../orders/order-item.entity'
 import { OrderStatusEventEntity } from '../orders/order-event.entity'
+import { RefundEntity } from '../orders/refund.entity'
 import { AdminAccountEntity } from '../admin/admin-account.entity'
 import { CatalogProductEntity } from '../catalog/catalog-product.entity'
 import { AuditLogEntity } from '../admin/audit-log.entity'
@@ -36,7 +37,7 @@ export class DatabaseModule {
             username: config.get<string>('MYSQL_USER', 'wellbiora'),
             password: config.get<string>('MYSQL_PASSWORD', ''),
             database: config.get<string>('MYSQL_DATABASE', 'wellbiora_shop'),
-            entities: [UserEntity, SmsVerificationCodeEntity, SmsIpRateLimitEntity, CartItemEntity, AddressEntity, RealnameProfileEntity, OrderEntity, OrderItemEntity, OrderStatusEventEntity, AdminAccountEntity, CatalogProductEntity, AuditLogEntity, ContentVersionEntity, AdminLoginRateLimitEntity],
+            entities: [UserEntity, SmsVerificationCodeEntity, SmsIpRateLimitEntity, CartItemEntity, AddressEntity, RealnameProfileEntity, OrderEntity, OrderItemEntity, OrderStatusEventEntity, RefundEntity, AdminAccountEntity, CatalogProductEntity, AuditLogEntity, ContentVersionEntity, AdminLoginRateLimitEntity],
             synchronize: false,
           }),
         }),

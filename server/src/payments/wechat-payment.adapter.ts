@@ -4,7 +4,7 @@ import { Logger } from '@nestjs/common'
 
 import { BusinessException } from '../common/business.exception'
 
-import type { PaymentAdapter, PaymentQueryResult, PaymentRefundResult, PayContext } from '../orders/local-payment.adapter'
+import type { PaymentAdapter, PaymentQueryResult, PaymentRefundQueryResult, PaymentRefundResult, PayContext } from '../orders/local-payment.adapter'
 import { buildV3Message, signV3 } from './wechat-pay.crypto'
 import { WechatPayError, type WechatPayClient } from './wechat-pay.client'
 import type { WechatPayConfig } from './wechat-pay.config'
@@ -15,6 +15,13 @@ interface JsapiPrepayResponse {
 }
 
 interface WechatRefundResponse {
+  refund_id: string
+  out_refund_no: string
+  status: string
+}
+
+/** V3 查退款（GET /v3/refund/domestic/refunds/{out_refund_no}）响应的关键字段 */
+interface WechatRefundQuery {
   refund_id: string
   out_refund_no: string
   status: string
@@ -73,17 +80,28 @@ export class WechatPaymentAdapter implements PaymentAdapter {
     }
   }
 
-  async refund(orderNo: string, amountFen: number, totalFen?: number): Promise<PaymentRefundResult> {
+  async refund(orderNo: string, amountFen: number, totalFen: number, outRefundNo: string): Promise<PaymentRefundResult> {
     if (!totalFen || totalFen <= 0) throw new Error('微信退款缺少原订单实付金额（totalFen）')
-    // out_refund_no ≤ 32 位：R + 订单号(22) + 9 位随机，支持同一单多次部分退款
-    const outRefundNo = `R${orderNo}${randomUUID().replaceAll('-', '').slice(0, 9).toUpperCase()}`
+    // 复审 R05：out_refund_no 由服务层生成并先落库；重试复用同一号，微信侧幂等受理
     const result = await this.client.post<WechatRefundResponse>('/v3/refund/domestic/refunds', {
       out_trade_no: orderNo,
       out_refund_no: outRefundNo,
       notify_url: this.config.refundNotifyUrl,
       amount: { refund: amountFen, total: totalFen, currency: 'CNY' },
     })
-    return { refundNo: result.out_refund_no }
+    // 复审 R04：受理状态原样透传（通常 PROCESSING），由服务层按状态机收敛，禁止受理即终态
+    return { refundNo: result.out_refund_no, refundId: result.refund_id, status: result.status }
+  }
+
+  /** 复审 R05：网络异常后按原退款单号查退款状态；微信侧未受理该单返回 404 → null。 */
+  async queryRefund(outRefundNo: string): Promise<PaymentRefundQueryResult | null> {
+    try {
+      const result = await this.client.get<WechatRefundQuery>(`/v3/refund/domestic/refunds/${outRefundNo}`)
+      return { status: result.status, refundId: result.refund_id }
+    } catch (error) {
+      if (error instanceof WechatPayError && error.httpStatus === 404) return null
+      throw error
+    }
   }
 
   /** 复审 R09：取消订单后关闭微信交易，防止用户取消后仍能完成支付。微信侧已支付/已关单会返回错误，由调用方 best-effort 捕获。 */
