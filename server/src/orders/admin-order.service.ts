@@ -170,10 +170,22 @@ export class AdminOrderService {
     if (order.status === 'cancelled') throw new BusinessException(40002, '订单已取消')
 
     const now = new Date()
-    let saved: OrderRecord
+    // 复审 R09：待支付分支用条件更新替代整体覆盖写；落败时重读，已 paid 则转 paid 分支继续处理
+    let target = order
+    let pendingCancelled = false
     if (order.paymentStatus === 'pending') {
+      pendingCancelled = await this.orderRepository.cancelIfPendingPayment(order.id, now)
+      if (!pendingCancelled) {
+        target = await this.requireOrder(orderNo)
+        if (target.status === 'cancelled') throw new BusinessException(40002, '订单已取消')
+        if (target.paymentStatus === 'pending') throw new BusinessException(40002, '当前订单状态不支持取消')
+      }
+    }
+
+    let saved: OrderRecord
+    if (pendingCancelled) {
       // 待支付：直接关闭本地订单，无资金动作
-      saved = await this.orderRepository.saveOrder({ ...order, status: 'cancelled', cancelledAt: now })
+      saved = { ...order, status: 'cancelled', cancelledAt: now }
       await this.orderRepository.recordStatusEvent({ orderId: order.id, fromStatus: order.status, toStatus: 'cancelled', source: 'admin', remark: '管理员取消待支付订单' })
       // 复审 R09：同步关闭微信交易；关单失败不阻断——迟到扣款会登记支付事实并转人工退款
       if (this.paymentAdapter.closePayment) {
@@ -183,16 +195,16 @@ export class AdminOrderService {
           this.logger.warn(`管理员取消订单后关闭微信交易失败（订单 ${orderNo}）：${error instanceof Error ? error.message : String(error)}`)
         }
       }
-    } else if (order.paymentStatus === 'paid') {
+    } else if (target.paymentStatus === 'paid') {
       // 已支付：按取消窗口校验，可取消则撤单 + 原路退款（复审 R04/R05：走退款状态机，受理≠到账）
-      if (!isWarehouseCancellable(order.warehouseStatus)) {
+      if (!isWarehouseCancellable(target.warehouseStatus)) {
         throw new BusinessException(40002, '订单已申报清关，不可线上取消，请走人工拦截/拒收流程')
       }
       // 退款前置到撤仓之前：已部分退款的订单按剩余可退发起，校验失败则不会留下「仓储已撤、本地未取消」的夹缝态
-      const summary = await this.refundService.summarize(order)
+      const summary = await this.refundService.summarize(target)
       let refundRemark = '退款已全部到账，无资金动作'
       if (summary.refundableFen > 0) {
-        const { refund } = await this.refundService.requestRefund(order, summary.refundableFen, '取消订单退款')
+        const { refund } = await this.refundService.requestRefund(target, summary.refundableFen, '取消订单退款')
         refundRemark = `发起退款 ${refund.amountFen} 分（退款单 ${refund.refundNo}，${refundStatusText(refund.status)}）`
       } else if (summary.processing) {
         refundRemark = `在途退款单 ${summary.processing.refundNo}（${summary.processing.amountFen} 分）处理中`
@@ -201,7 +213,7 @@ export class AdminOrderService {
       // 退款状态机可能已重写 paymentStatus（refunded/refunding）：重读订单避免旧对象覆盖
       const fresh = await this.requireOrder(orderNo)
       saved = await this.orderRepository.saveOrder({ ...fresh, status: 'cancelled', cancelledAt: now })
-      await this.orderRepository.recordStatusEvent({ orderId: order.id, fromStatus: order.status, toStatus: 'cancelled', source: 'admin', remark: `管理员取消，${refundRemark}` })
+      await this.orderRepository.recordStatusEvent({ orderId: target.id, fromStatus: target.status, toStatus: 'cancelled', source: 'admin', remark: `管理员取消，${refundRemark}` })
     } else {
       throw new BusinessException(40002, '当前订单状态不支持取消')
     }

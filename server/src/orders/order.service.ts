@@ -122,10 +122,18 @@ export class OrderService {
 
   async cancel(userId: string, orderNo: string): Promise<OrderResponse> {
     const order = await this.requireOrder(userId, orderNo)
+    // 前置检查保留用于快速失败提示；真正的并发安全由下方条件更新保证
     if (order.status !== 'pay' || order.paymentStatus !== 'pending') {
       throw new BusinessException(40002, '当前订单状态不支持取消，请联系客服处理')
     }
-    const saved = await this.orderRepository.saveOrder({ ...order, status: 'cancelled', cancelledAt: new Date() })
+    // 复审 R09：条件更新替代「读旧对象整体覆盖写」——与支付回调并发落败时受影响 0 行，让位不覆盖支付结果
+    const cancelledAt = new Date()
+    const cancelled = await this.orderRepository.cancelIfPendingPayment(order.id, cancelledAt)
+    if (!cancelled) {
+      const fresh = await this.requireOrder(userId, orderNo)
+      this.logger.warn(`取消订单 ${orderNo} 竞态落败：当前状态 ${fresh.status}/${fresh.paymentStatus}，以支付结果为准`)
+      throw new BusinessException(40002, '当前订单状态不支持取消，请联系客服处理')
+    }
     await this.orderRepository.recordStatusEvent({ orderId: order.id, fromStatus: order.status, toStatus: 'cancelled', source: 'user', remark: '用户取消订单' })
     // 复审 R09：本地取消后同步关闭微信交易，防止用户取消后仍能完成支付；
     // 关单失败不阻断取消——若微信侧实际已扣款，迟到回调会登记支付事实并转人工退款
@@ -136,7 +144,7 @@ export class OrderService {
         this.logger.warn(`取消订单后关闭微信交易失败（订单 ${orderNo}）：${error instanceof Error ? error.message : String(error)}`)
       }
     }
-    return this.toResponse(saved)
+    return this.toResponse({ ...order, status: 'cancelled', cancelledAt })
   }
 
   async getPayParams(userId: string, orderNo: string): Promise<Record<string, string>> {
@@ -167,31 +175,68 @@ export class OrderService {
     // 复审 R09：取消后收到的真实扣款必须登记支付事实——否则钱在微信侧、本地无痕，
     // 连后台人工退款入口都被「订单未支付」校验挡死。不推仓不报关，转人工退款。
     if (order.status === 'cancelled') {
-      const saved = await this.orderRepository.saveOrder({
-        ...order,
-        paymentStatus: 'paid', paidAt: input.paidAt, wechatTransactionId: input.transactionId,
-        systemRemark: '订单取消后收到微信扣款，需人工退款处理',
-      })
-      await this.orderRepository.recordStatusEvent({
-        orderId: saved.id, fromStatus: 'cancelled', toStatus: 'cancelled', source: 'payment',
-        remark: `订单已取消但收到微信支付成功（交易单 ${input.transactionId}），已登记支付事实，待人工退款`,
-      })
-      this.logger.error(`订单 ${order.orderNo} 取消后收到真实扣款（交易单 ${input.transactionId}），需人工退款`)
+      const registered = await this.registerLatePayment(order, input)
+      if (!registered) {
+        // 竞态落败：重读——并发重复回调已登记则幂等返回，否则状态异常报错触发微信重推
+        const fresh = await this.orderRepository.findOneByOrderNo(input.orderNo)
+        if (fresh?.paymentStatus === 'paid') return
+        throw new BusinessException(40002, '订单状态已变化，无法登记支付结果')
+      }
       return
     }
     if (order.status !== 'pay') {
       throw new BusinessException(40002, '订单状态已变化，无法登记支付结果')
     }
 
+    // 顺序不变：先推仓再写库，推仓失败抛出让微信按节奏重推回调
     await this.warehouse.pushOrder(order.orderNo)
-    const saved = await this.orderRepository.saveOrder({
-      ...order, status: 'ship', paymentStatus: 'paid', warehouseStatus: 'local-accepted',
+    // 复审 R09：条件更新替代整体覆盖写——与取消并发落败时受影响 0 行，不覆盖取消结果
+    const marked = await this.orderRepository.markPaidIfPending(order.id, {
+      paidAt: input.paidAt, wechatTransactionId: input.transactionId, warehouseStatus: 'local-accepted',
+    })
+    if (marked) {
+      await this.orderRepository.recordStatusEvent({
+        orderId: order.id, fromStatus: 'pay', toStatus: 'ship', source: 'payment', remark: '微信支付回调确认成功',
+      })
+      await this.declareCustoms(
+        { ...order, status: 'ship', paymentStatus: 'paid', warehouseStatus: 'local-accepted', paidAt: input.paidAt, wechatTransactionId: input.transactionId },
+        input.transactionId,
+      )
+      return
+    }
+    // 复审 R09：条件更新落败——重读订单按最新状态分支处理
+    const fresh = await this.orderRepository.findOneByOrderNo(input.orderNo)
+    if (!fresh) throw new BusinessException(40404, '订单不存在', 404)
+    if (fresh.paymentStatus === 'paid') return // 并发重复回调已获胜，幂等
+    if (fresh.status === 'cancelled' && fresh.paymentStatus === 'pending') {
+      // 取消在推仓之后获胜，产生了孤儿推仓：best-effort 撤销（失败仅告警），再补登支付事实转人工退款
+      try {
+        await this.warehouse.cancelOrder(order.orderNo)
+      } catch (error) {
+        this.logger.warn(`订单 ${order.orderNo} 取消后撤销孤儿推仓失败，待人工核对仓储侧：${error instanceof Error ? error.message : String(error)}`)
+      }
+      const registered = await this.registerLatePayment(order, input)
+      if (registered) return
+      // 登记也落败：再重读，并发回调已登记则幂等
+      const latest = await this.orderRepository.findOneByOrderNo(input.orderNo)
+      if (latest?.paymentStatus === 'paid') return
+    }
+    throw new BusinessException(40002, '订单状态已变化，无法登记支付结果')
+  }
+
+  /** 复审 R09：取消后收到的迟到扣款补登支付事实（条件更新）+ 事件 + 告警；返回是否登记成功。 */
+  private async registerLatePayment(order: OrderRecord, input: WechatPaidInput): Promise<boolean> {
+    const registered = await this.orderRepository.registerLatePaymentIfCancelled(order.id, {
       paidAt: input.paidAt, wechatTransactionId: input.transactionId,
+      systemRemark: '订单取消后收到微信扣款，需人工退款处理',
     })
+    if (!registered) return false
     await this.orderRepository.recordStatusEvent({
-      orderId: order.id, fromStatus: 'pay', toStatus: 'ship', source: 'payment', remark: '微信支付回调确认成功',
+      orderId: order.id, fromStatus: 'cancelled', toStatus: 'cancelled', source: 'payment',
+      remark: `订单已取消但收到微信支付成功（交易单 ${input.transactionId}），已登记支付事实，待人工退款`,
     })
-    await this.declareCustoms(saved, input.transactionId)
+    this.logger.error(`订单 ${order.orderNo} 取消后收到真实扣款（交易单 ${input.transactionId}），需人工退款`)
+    return true
   }
 
   /** 退款结果回调：退款终态确认；本地已在发起退款时落库，这里只补记事件。 */
@@ -243,13 +288,15 @@ export class OrderService {
       throw new BusinessException(40404, '测试支付接口不可用', 404)
     }
     const order = await this.requireOrder(userId, orderNo)
+    // 前置检查保留用于快速失败提示；真正的并发安全由下方条件更新保证
     if (order.status !== 'pay') throw new BusinessException(40002, '当前订单不能确认支付')
     await this.warehouse.pushOrder(order.orderNo)
-    const saved = await this.orderRepository.saveOrder({
-      ...order, status: 'ship', paymentStatus: 'paid', warehouseStatus: 'local-accepted', paidAt: new Date(),
-    })
+    // 复审 R09：与支付回调同一条件更新，避免与取消/回调并发时旧对象覆盖对方结果
+    const paidAt = new Date()
+    const marked = await this.orderRepository.markPaidIfPending(order.id, { paidAt, wechatTransactionId: null, warehouseStatus: 'local-accepted' })
+    if (!marked) throw new BusinessException(40002, '当前订单不能确认支付')
     await this.orderRepository.recordStatusEvent({ orderId: order.id, fromStatus: 'pay', toStatus: 'ship', source: 'system', remark: '本地 mock 支付成功' })
-    return this.toResponse(saved)
+    return this.toResponse({ ...order, status: 'ship', paymentStatus: 'paid', warehouseStatus: 'local-accepted', paidAt })
   }
 
   private async prepare(userId: string): Promise<{ cartItems: CartItemRecord[]; items: OrderItemResponse[]; totalFen: number; address: { name: string; phone: string; region: string; detail: string }; realname: { name: string; idcardEncrypted: string; idcardFingerprint: string } }> {

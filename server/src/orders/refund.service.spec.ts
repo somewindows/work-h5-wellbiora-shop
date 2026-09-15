@@ -164,4 +164,24 @@ describe('RefundService', () => {
     const [record] = await refunds.findByOrderId(order.id)
     expect(record.reason).toContain('金额待人工核对')
   })
+
+  it('结算只定向更新支付状态三列，不覆盖并发改动的订单其他字段（复审 R09）', async () => {
+    // 通道同步到账（SUCCESS）：requestRefund 内部直接结算
+    const adapter = adapterWith({
+      refund: jest.fn((_orderNo: string, _amount: number, _total: number, outRefundNo: string): Promise<PaymentRefundResult> =>
+        Promise.resolve({ refundNo: outRefundNo, refundId: '5030000010', status: 'SUCCESS' })),
+    })
+    const service = new RefundService(refunds, orders, adapter)
+    // 调用方持有旧快照：发起退款前订单已被同步任务改写（出库 + 海关查验备注）
+    const stale = { ...order }
+    await orders.saveOrder({ ...order, status: 'receive', warehouseStatus: '40', systemRemark: '海关查验' })
+
+    await service.requestRefund(stale, 10000, '管理员退款')
+
+    // 旧代码会拿 stale 整体覆盖写，把 status/warehouseStatus/systemRemark 改回旧值
+    expect(await orders.findOneByOrderNo(order.orderNo)).toMatchObject({
+      paymentStatus: 'paid', refundFen: 10000,
+      status: 'receive', warehouseStatus: '40', systemRemark: '海关查验',
+    })
+  })
 })

@@ -50,6 +50,19 @@ export interface OrderRepository {
    * 竞态安全（评审 4.3 阻断项）：扫描后支付回调先登记支付的订单，条件更新影响 0 行，让位不覆盖。
    */
   cancelIfPendingPayment(orderId: string, cancelledAt: Date): Promise<boolean>
+  /**
+   * 复审 R09：支付回调登记支付用——仅当订单仍是 待支付（pay+pending）时才置 已支付+待发货，
+   * 返回是否写入成功。纯条件更新消除「读旧对象整体覆盖写」窗口：与取消并发落败时受影响 0 行，
+   * 让位不覆盖，由调用方重读按最新状态分支处理。
+   */
+  markPaidIfPending(orderId: string, fields: { paidAt: Date; wechatTransactionId: string | null; warehouseStatus: string }): Promise<boolean>
+  /**
+   * 复审 R09：取消后收到的迟到扣款补登支付事实——仅当订单仍是 已取消且未登记支付（cancelled+pending）
+   * 时才写入，返回是否写入成功；并发重复回调落败时返回 false，由调用方重读幂等收敛。
+   */
+  registerLatePaymentIfCancelled(orderId: string, fields: { paidAt: Date; wechatTransactionId: string; systemRemark: string }): Promise<boolean>
+  /** 复审 R09：退款结算定向更新 paymentStatus/refundFen/refundedAt 三列，不整体覆盖订单其他字段 */
+  updateRefundSettlement(orderId: string, fields: { paymentStatus: string; refundFen: number | null; refundedAt: Date | null }): Promise<void>
   /** 复审 R03：把多个写操作放进同一数据库事务；内存实现直接执行（无事务语义） */
   runInTransaction<T>(work: (manager?: EntityManager) => Promise<T>): Promise<T>
   createOrder(input: NewOrder): OrderRecord
@@ -97,6 +110,23 @@ export class TypeOrmOrderRepository implements OrderRepository {
   async cancelIfPendingPayment(orderId: string, cancelledAt: Date): Promise<boolean> {
     const result = await this.orders.update({ id: orderId, status: 'pay', paymentStatus: 'pending' }, { status: 'cancelled', cancelledAt })
     return (result.affected ?? 0) > 0
+  }
+  async markPaidIfPending(orderId: string, fields: { paidAt: Date; wechatTransactionId: string | null; warehouseStatus: string }): Promise<boolean> {
+    const result = await this.orders.update(
+      { id: orderId, status: 'pay', paymentStatus: 'pending' },
+      { status: 'ship', paymentStatus: 'paid', ...fields },
+    )
+    return (result.affected ?? 0) > 0
+  }
+  async registerLatePaymentIfCancelled(orderId: string, fields: { paidAt: Date; wechatTransactionId: string; systemRemark: string }): Promise<boolean> {
+    const result = await this.orders.update(
+      { id: orderId, status: 'cancelled', paymentStatus: 'pending' },
+      { paymentStatus: 'paid', ...fields },
+    )
+    return (result.affected ?? 0) > 0
+  }
+  async updateRefundSettlement(orderId: string, fields: { paymentStatus: string; refundFen: number | null; refundedAt: Date | null }): Promise<void> {
+    await this.orders.update({ id: orderId }, fields)
   }
   runInTransaction<T>(work: (manager?: EntityManager) => Promise<T>): Promise<T> { return this.orders.manager.transaction(work) }
   saveOrder(order: OrderRecord, manager?: EntityManager): Promise<OrderEntity> {
@@ -148,6 +178,23 @@ export class InMemoryOrderRepository implements OrderRepository {
     if (!order || order.status !== 'pay' || order.paymentStatus !== 'pending') return false
     this.orders.set(orderId, { ...order, status: 'cancelled', cancelledAt, updatedAt: new Date() })
     return true
+  }
+  async markPaidIfPending(orderId: string, fields: { paidAt: Date; wechatTransactionId: string | null; warehouseStatus: string }): Promise<boolean> {
+    const order = this.orders.get(orderId)
+    if (!order || order.status !== 'pay' || order.paymentStatus !== 'pending') return false
+    this.orders.set(orderId, { ...order, status: 'ship', paymentStatus: 'paid', ...fields, updatedAt: new Date() })
+    return true
+  }
+  async registerLatePaymentIfCancelled(orderId: string, fields: { paidAt: Date; wechatTransactionId: string; systemRemark: string }): Promise<boolean> {
+    const order = this.orders.get(orderId)
+    if (!order || order.status !== 'cancelled' || order.paymentStatus !== 'pending') return false
+    this.orders.set(orderId, { ...order, paymentStatus: 'paid', ...fields, updatedAt: new Date() })
+    return true
+  }
+  async updateRefundSettlement(orderId: string, fields: { paymentStatus: string; refundFen: number | null; refundedAt: Date | null }): Promise<void> {
+    const order = this.orders.get(orderId)
+    if (!order) return
+    this.orders.set(orderId, { ...order, ...fields, updatedAt: new Date() })
   }
   async runInTransaction<T>(work: (manager?: EntityManager) => Promise<T>): Promise<T> { return work() }
   async saveOrder(order: OrderRecord): Promise<OrderRecord> { order.updatedAt = new Date(); this.orders.set(order.id, { ...order }); return order }

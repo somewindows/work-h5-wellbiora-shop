@@ -163,21 +163,24 @@ export class RefundService {
 
   /** 按退款单账本重算订单支付状态：全额=refunded / 有在途=refunding / 其余=paid。 */
   private async settleOrder(order: OrderRecord): Promise<void> {
-    const refunds = await this.refundRepository.findByOrderId(order.id)
+    // 复审 R09：调用方传入的订单对象可能陈旧，先重读最新状态再结算——护栏判断与金额口径都以新鲜快照为准
+    const fresh = await this.orderRepository.findOneByOrderNo(order.orderNo)
+    if (!fresh) return
+    const refunds = await this.refundRepository.findByOrderId(fresh.id)
     // 旧数据兼容：已置 refunded 但无账本记录（迁移前退的款），不重算以免"复活"为可退款
-    if (refunds.length === 0 && order.paymentStatus === 'refunded') return
+    if (refunds.length === 0 && fresh.paymentStatus === 'refunded') return
     const succeeded = refunds.filter((refund) => refund.status === 'success')
     const refundedFen = succeeded.reduce((sum, refund) => sum + refund.amountFen, 0)
     const hasProcessing = refunds.some((refund) => refund.status === PROCESSING_STATUS)
     const latest = succeeded.reduce<Date | null>((max, refund) => (refund.succeededAt && (!max || refund.succeededAt > max) ? refund.succeededAt : max), null)
     // 降级护栏：已全额退款的订单，账本重算不足额（如旧退款单补登缺金额）时只告警不降级回可退
-    if (order.paymentStatus === 'refunded' && refundedFen < order.totalFen) {
-      this.logger.error(`订单 ${order.orderNo} 已全额退款但账本重算仅 ${refundedFen} 分，拒绝降级，请人工核对退款账本`)
+    if (fresh.paymentStatus === 'refunded' && refundedFen < fresh.totalFen) {
+      this.logger.error(`订单 ${fresh.orderNo} 已全额退款但账本重算仅 ${refundedFen} 分，拒绝降级，请人工核对退款账本`)
       return
     }
-    const paymentStatus = refundedFen >= order.totalFen ? 'refunded' : hasProcessing ? 'refunding' : 'paid'
-    await this.orderRepository.saveOrder({
-      ...order,
+    const paymentStatus = refundedFen >= fresh.totalFen ? 'refunded' : hasProcessing ? 'refunding' : 'paid'
+    // 复审 R09：定向更新三列替代整体覆盖写，不覆盖并发路径改动的其他字段（如仓储状态/备注）
+    await this.orderRepository.updateRefundSettlement(fresh.id, {
       paymentStatus,
       refundFen: refundedFen > 0 ? refundedFen : null,
       refundedAt: latest,

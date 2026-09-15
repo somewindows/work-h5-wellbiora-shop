@@ -94,6 +94,31 @@ describe('OrderService', () => {
     await expect(service.cancel('user-1', second.orderNo)).rejects.toMatchObject({ code: 40002 })
   })
 
+  it('取消与支付回调竞态落败：条件更新让位，抛 40002 且不覆盖支付结果（复审 R09）', async () => {
+    const { orderNo } = await service.create('user-1', { requestId: 'request-race-cancel' })
+    // 模拟竞态：cancel 前置检查读到旧快照（待支付），但支付回调在条件写库前已登记支付
+    const stale = (await orders.findOneByOrderNo(orderNo))!
+    await orders.saveOrder({ ...stale, status: 'ship', paymentStatus: 'paid', paidAt: new Date(), wechatTransactionId: 'tx-winner' })
+    jest.spyOn(orders, 'findByOrderNo').mockResolvedValueOnce(stale)
+
+    await expect(service.cancel('user-1', orderNo)).rejects.toMatchObject({ code: 40002 })
+
+    // 支付结果未被旧对象覆盖
+    expect(await orders.findOneByOrderNo(orderNo)).toMatchObject({ status: 'ship', paymentStatus: 'paid', wechatTransactionId: 'tx-winner' })
+  })
+
+  it('mock 支付确认与取消竞态落败：抛 40002 不复活已取消订单（复审 R09）', async () => {
+    const { orderNo } = await service.create('user-1', { requestId: 'request-race-mock' })
+    // 模拟竞态：confirmMockPayment 前置检查读到旧快照（待支付），但取消在条件写库前已获胜
+    const stale = (await orders.findOneByOrderNo(orderNo))!
+    await orders.cancelIfPendingPayment(stale.id, new Date())
+    jest.spyOn(orders, 'findByOrderNo').mockResolvedValueOnce(stale)
+
+    await expect(service.confirmMockPayment('user-1', orderNo)).rejects.toMatchObject({ code: 40002 })
+
+    expect(await orders.findOneByOrderNo(orderNo)).toMatchObject({ status: 'cancelled', paymentStatus: 'pending' })
+  })
+
   it('预检价格以 catalog 当前价为准', async () => {
     const product = await catalog.findById('WB10001')
     await catalog.save({ ...product!, priceFen: 12345 })
@@ -189,6 +214,65 @@ describe('OrderService', () => {
 
       const order = await service.get('user-1', orderNo)
       expect(order.status).toBe('ship')
+    })
+
+    it('回调推仓后取消获胜：撤销孤儿推仓、登记支付事实、不复活订单（复审 R09）', async () => {
+      const ordersRepo = new InMemoryOrderRepository()
+      const warehouse = new LocalWarehouseAdapter(catalog)
+      const paymentAdapter = new LocalPaymentAdapter()
+      const svc = new OrderService(
+        cart, profile, ordersRepo, warehouse, crypto, paymentAdapter, catalog, users,
+        new RefundService(new InMemoryRefundRepository(), ordersRepo, paymentAdapter),
+      )
+      const { orderNo } = await svc.create('user-1', { requestId: 'request-race-cb' })
+      // 模拟竞态：取消在回调 pushOrder 之后、条件写库之前获胜
+      const pushOrder = warehouse.pushOrder.bind(warehouse)
+      jest.spyOn(warehouse, 'pushOrder').mockImplementation(async (no: string) => {
+        await pushOrder(no)
+        await svc.cancel('user-1', orderNo)
+      })
+
+      await svc.handleWechatPaid(paidInput(orderNo))
+
+      const record = await ordersRepo.findOneByOrderNo(orderNo)
+      expect(record).toMatchObject({
+        status: 'cancelled',
+        paymentStatus: 'paid',
+        wechatTransactionId: '4200000123456789012345678901',
+        systemRemark: '订单取消后收到微信扣款，需人工退款处理',
+      })
+      // 孤儿推仓已撤销（君梦码 50 = 订单取消）
+      await expect(warehouse.getOrderStatus(orderNo)).resolves.toMatchObject({ status: '50' })
+      const events = await ordersRepo.findStatusEvents(record!.id)
+      expect(events.some((event) => event.remark?.includes('待人工退款'))).toBe(true)
+    })
+
+    it('迟到扣款登记竞态落败：并发回调已登记则幂等返回，不重复记事件（复审 R09）', async () => {
+      const ordersRepo = new InMemoryOrderRepository()
+      const paymentAdapter = new LocalPaymentAdapter()
+      const svc = new OrderService(
+        cart, profile, ordersRepo, new LocalWarehouseAdapter(catalog), crypto, paymentAdapter, catalog, users,
+        new RefundService(new InMemoryRefundRepository(), ordersRepo, paymentAdapter),
+      )
+      const { orderNo } = await svc.create('user-1', { requestId: 'request-race-late' })
+      await svc.cancel('user-1', orderNo)
+      // 模拟并发回调先登记：本调用条件更新落败（返回 false），但订单实际已是 paid，且并发方已记事件
+      const register = ordersRepo.registerLatePaymentIfCancelled.bind(ordersRepo)
+      jest.spyOn(ordersRepo, 'registerLatePaymentIfCancelled').mockImplementation(async (orderId, fields) => {
+        await register(orderId, fields)
+        await ordersRepo.recordStatusEvent({
+          orderId, fromStatus: 'cancelled', toStatus: 'cancelled', source: 'payment',
+          remark: `订单已取消但收到微信支付成功（交易单 ${fields.wechatTransactionId}），已登记支付事实，待人工退款`,
+        })
+        return false
+      })
+
+      await svc.handleWechatPaid(paidInput(orderNo))
+
+      const record = await ordersRepo.findOneByOrderNo(orderNo)
+      expect(record).toMatchObject({ status: 'cancelled', paymentStatus: 'paid' })
+      const events = await ordersRepo.findStatusEvents(record!.id)
+      expect(events.filter((event) => event.remark?.includes('待人工退款'))).toHaveLength(1) // 只有并发方记的一次
     })
   })
 

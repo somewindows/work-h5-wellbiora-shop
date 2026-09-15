@@ -113,6 +113,45 @@ describe('AdminOrderService', () => {
     await expect(service.cancel(order.orderNo, { confirm: true }, actor)).rejects.toMatchObject({ code: 40002 })
   })
 
+  it('取消待支付订单与支付回调竞态落败：转已支付分支撤仓退款（复审 R09）', async () => {
+    const order = await createOrder()
+    // 模拟竞态：cancel 前置检查读到旧快照（待支付），但支付回调在条件写库前已登记支付并推仓
+    const stale = { ...order }
+    await orders.saveOrder({ ...order, status: 'ship', paymentStatus: 'paid', paidAt: new Date(), warehouseStatus: 'local-accepted' })
+    await warehouse.pushOrder(order.orderNo)
+    jest.spyOn(orders, 'findOneByOrderNo').mockResolvedValueOnce(stale)
+
+    const detail = await service.cancel(order.orderNo, { confirm: true }, actor)
+
+    expect(detail).toMatchObject({ status: 'cancelled', paymentStatus: 'refunded', refundFen: 32900 })
+    expect(payment.listRefunds()).toMatchObject([{ orderNo: order.orderNo, amountFen: 32900 }])
+    await expect(warehouse.getOrderStatus(order.orderNo)).resolves.toMatchObject({ status: '50' })
+    // 审计快照 = 管理员发起时所见的待支付订单
+    await expect(auditLogs.findByTarget('order', order.orderNo)).resolves.toMatchObject([
+      { action: 'cancel_order', beforeData: { status: 'pay', paymentStatus: 'pending' }, afterData: { status: 'cancelled', paymentStatus: 'refunded' } },
+    ])
+  })
+
+  it('取消条件更新落败且订单仍待支付：抛 40002 不改单（复审 R09）', async () => {
+    const order = await createOrder()
+    jest.spyOn(orders, 'cancelIfPendingPayment').mockResolvedValueOnce(false)
+
+    await expect(service.cancel(order.orderNo, { confirm: true }, actor)).rejects.toMatchObject({ code: 40002 })
+
+    expect(await orders.findOneByOrderNo(order.orderNo)).toMatchObject({ status: 'pay', paymentStatus: 'pending' })
+    expect(payment.closedOrders).toHaveLength(0)
+  })
+
+  it('取消条件更新落败且订单已被并发取消：抛「订单已取消」（复审 R09）', async () => {
+    const order = await createOrder()
+    // 模拟竞态：另一取消在条件写库前已获胜
+    const stale = { ...order }
+    await orders.cancelIfPendingPayment(order.id, new Date())
+    jest.spyOn(orders, 'findOneByOrderNo').mockResolvedValueOnce(stale)
+
+    await expect(service.cancel(order.orderNo, { confirm: true }, actor)).rejects.toMatchObject({ code: 40002, message: '订单已取消' })
+  })
+
   it('未支付订单不能退款，已退款订单不能重复退款，超额退款被拒绝', async () => {
     const unpaid = await createOrder()
     await expect(service.refund(unpaid.orderNo, { confirm: true }, actor)).rejects.toMatchObject({ code: 40002 })
