@@ -6,7 +6,7 @@ import { ProfileService } from '../profile/profile.service'
 import { InMemoryAddressRepository, InMemoryRealnameProfileRepository } from '../profile/profile.repository'
 import { InMemoryUsersRepository } from '../users/users.repository'
 
-import { InMemoryOrderRepository } from './order.repository'
+import { InMemoryOrderRepository, type OrderRecord } from './order.repository'
 import { OrderService } from './order.service'
 import { LocalWarehouseAdapter } from './local-warehouse.adapter'
 import { LocalPaymentAdapter, type PaymentAdapter, type PaymentRefundResult, type PayContext } from './local-payment.adapter'
@@ -71,14 +71,14 @@ describe('OrderService', () => {
   it('并发同幂等键撞唯一约束时，读取先提交的订单返回一致结果（复审 R03）', async () => {
     const ordersRepo = new InMemoryOrderRepository()
     const svc = buildService(ordersRepo, new LocalPaymentAdapter())
-    // 模拟并发请求先提交的订单（服务层预检时尚未提交）
+    // 模拟并发请求先提交的订单（服务层预检时尚未提交）；findByUserAndRequest 前置 + 锁内重查（复审 R06）各返回一次空
     await ordersRepo.saveOrder(ordersRepo.createOrder({
       orderNo: 'WB20260912WINNER0001', userId: 'user-1', requestId: 'request-race', status: 'pay', paymentStatus: 'pending',
       warehouseStatus: null, totalFen: 32900, realnameName: '张三', idcardEncrypted: 'x', idcardFingerprint: 'fp',
       receiverName: '张三', receiverPhone: '13800000000', receiverRegion: 'r', receiverDetail: 'd',
       paidAt: null, cancelledAt: null, systemRemark: null, refundFen: null, refundedAt: null, wechatTransactionId: null,
     }))
-    jest.spyOn(ordersRepo, 'findByUserAndRequest').mockResolvedValueOnce(null)
+    jest.spyOn(ordersRepo, 'findByUserAndRequest').mockResolvedValueOnce(null).mockResolvedValueOnce(null)
     jest.spyOn(ordersRepo, 'runInTransaction').mockRejectedValueOnce(Object.assign(new Error('Duplicate entry'), { code: 'ER_DUP_ENTRY' }))
 
     await expect(svc.create('user-1', { requestId: 'request-race' })).resolves.toEqual({ orderNo: 'WB20260912WINNER0001' })
@@ -402,6 +402,134 @@ describe('OrderService', () => {
       expect(captured).toHaveLength(2)
       const product = await catalog.findById('WB10001')
       for (const ctx of captured) expect(ctx?.description).toBe(product?.name)
+    })
+  })
+
+  describe('年度额度预占（复审 R06：下单即占用，取消/超时/全额退款释放，年度归属=创建年）', () => {
+    // 与 beforeEach 实名一致的证件指纹（不同账号同证件共享额度）
+    const fingerprint = crypto.fingerprint('110101199001011234')
+    let seedSeq = 0
+    /** 直接往仓储播种订单（创建年/金额/指纹/状态可控），默认当年已支付 */
+    const seedOrder = async (overrides: Partial<OrderRecord>): Promise<OrderRecord> => {
+      seedSeq += 1
+      const order = await orders.saveOrder(orders.createOrder({
+        orderNo: `WB20260915QUOTA${String(seedSeq).padStart(3, '0')}`, userId: 'user-1', requestId: `req-quota-${seedSeq}`,
+        status: 'ship', paymentStatus: 'paid', warehouseStatus: null, totalFen: 0,
+        realnameName: '张三', idcardEncrypted: 'x', idcardFingerprint: fingerprint,
+        receiverName: '张三', receiverPhone: '13800000000', receiverRegion: 'r', receiverDetail: 'd',
+        paidAt: null, cancelledAt: null, systemRemark: null, refundFen: null, refundedAt: null, wechatTransactionId: null,
+      }))
+      return orders.saveOrder({ ...order, ...overrides })
+    }
+    const thisYear = (): { from: Date; to: Date } => ({ from: new Date(new Date().getFullYear(), 0, 1), to: new Date(new Date().getFullYear() + 1, 0, 1) })
+    const setPrice = async (priceFen: number): Promise<void> => {
+      const product = await catalog.findById('WB10001')
+      await catalog.save({ ...product!, priceFen })
+    }
+    const refillCart = async (): Promise<void> => {
+      // 失败的 create（如额度拒绝）不会清空购物车：同商品已存在时复位而不是重复添加
+      const existing = await cart.findByUserAndProduct('user-1', 'WB10001')
+      if (existing) { await cart.save({ ...existing, quantity: 1, checked: true }); return }
+      await cart.save(cart.create({ userId: 'user-1', productId: 'WB10001', quantity: 1, checked: true }))
+    }
+
+    it('占用集合语义：待支付/已支付/退款中占用，未支付取消/全额退款释放', async () => {
+      await seedOrder({ totalFen: 100, status: 'pay', paymentStatus: 'pending' }) // 待支付预占
+      await seedOrder({ totalFen: 200, paidAt: new Date() }) // 已支付占用
+      await seedOrder({ totalFen: 300, paymentStatus: 'refunding', paidAt: new Date() }) // 退款在途仍占用
+      await seedOrder({ totalFen: 400, status: 'cancelled', paymentStatus: 'pending', cancelledAt: new Date() }) // pending+cancelled：取消/超时关单释放
+      await seedOrder({ totalFen: 500, status: 'cancelled', paidAt: new Date(), cancelledAt: new Date() }) // 迟扣款已登记（paid），钱已收仍占用
+      await seedOrder({ totalFen: 600, status: 'cancelled', paymentStatus: 'refunded', paidAt: new Date(), refundFen: 600 }) // 全额退款释放
+      await seedOrder({ totalFen: 700, status: 'complete', paidAt: new Date() }) // 历史已成交占用
+      await seedOrder({ totalFen: 800, idcardFingerprint: 'fp-other' }) // 其他证件不计入
+      const lastYear = new Date().getFullYear() - 1
+      await seedOrder({ totalFen: 900, createdAt: new Date(lastYear, 6, 1), paidAt: new Date(lastYear, 6, 2) }) // 上年创建不计入今年
+
+      const { from, to } = thisYear()
+      await expect(orders.sumOccupiedYearlyFen(fingerprint, from, to)).resolves.toBe(100 + 200 + 300 + 500 + 700)
+    })
+
+    it('顺序预建两单超限：已占用 25000 元时第一笔 1000 元创建成功（占满 26000），第二笔创建即拒', async () => {
+      await setPrice(100000) // 1000 元
+      await seedOrder({ totalFen: 2500000, paidAt: new Date() }) // 已占用 25000 元
+
+      await expect(service.create('user-1', { requestId: 'quota-seq-1' })).resolves.toMatchObject({ orderNo: expect.any(String) })
+      await refillCart()
+      // 旧口径（只算已支付）会放行第二笔，支付后累计 27000 超限；预占口径在创建即拦截
+      await expect(service.create('user-1', { requestId: 'quota-seq-2' })).rejects.toMatchObject({ code: 40001 })
+    })
+
+    it('取消待支付订单释放预占额度（超时关单同为 cancelled+pending，仓储语义已覆盖），释放后可再创建', async () => {
+      await setPrice(100000)
+      await seedOrder({ totalFen: 2500000, paidAt: new Date() })
+
+      const first = await service.create('user-1', { requestId: 'quota-cancel-1' })
+      await service.cancel('user-1', first.orderNo)
+      await refillCart()
+      await expect(service.create('user-1', { requestId: 'quota-cancel-2' })).resolves.toMatchObject({ orderNo: expect.any(String) })
+    })
+
+    it('全额退款释放额度，部分退款不释放（退款返还以海关为准，本地从简）', async () => {
+      await setPrice(500000) // 5000 元（单笔上限）
+      await seedOrder({ totalFen: 2100000, paidAt: new Date() }) // 已占用 21000 元
+
+      const created = await service.create('user-1', { requestId: 'quota-refund-1' }) // 21000+5000=26000 恰好达标
+      await service.handleWechatPaid({ orderNo: created.orderNo, transactionId: 'tx-quota-1', paidTotalFen: 500000, paidAt: new Date() })
+
+      // 部分退款 1000 元：订单回到 paid 仍占用 → 再建单被拒
+      await refundService.requestRefund((await orders.findOneByOrderNo(created.orderNo))!, 100000, '部分退款')
+      expect(await orders.findOneByOrderNo(created.orderNo)).toMatchObject({ paymentStatus: 'paid', refundFen: 100000 })
+      await refillCart()
+      await expect(service.create('user-1', { requestId: 'quota-refund-2' })).rejects.toMatchObject({ code: 40001 })
+
+      // 退剩余 4000 元：全额 refunded → 释放 → 可再建
+      await refundService.requestRefund((await orders.findOneByOrderNo(created.orderNo))!, 400000, '剩余退款')
+      expect(await orders.findOneByOrderNo(created.orderNo)).toMatchObject({ paymentStatus: 'refunded', refundFen: 500000 })
+      await refillCart()
+      await expect(service.create('user-1', { requestId: 'quota-refund-3' })).resolves.toMatchObject({ orderNo: expect.any(String) })
+    })
+
+    it('不同账号同一证件共享年度额度', async () => {
+      const user2 = await users.create('13900000000')
+      user2.id = 'user-2'
+      await profile.createAddress('user-2', { name: '张三', phone: '13900000000', region: '浙江省 金华市 义乌市', detail: '稠城街道 2 号' })
+      await profile.saveRealname('user-2', { name: '张三', idcard: '110101199001011234' }) // 同证件 → 同指纹
+      await cart.save(cart.create({ userId: 'user-2', productId: 'WB10001', quantity: 1, checked: true }))
+      await setPrice(500000)
+      await seedOrder({ totalFen: 2100000, paidAt: new Date() })
+
+      await expect(service.create('user-1', { requestId: 'quota-share-1' })).resolves.toMatchObject({ orderNo: expect.any(String) }) // 占满 26000
+      await expect(service.create('user-2', { requestId: 'quota-share-2' })).rejects.toMatchObject({ code: 40001 }) // 换账号也绕不过
+    })
+
+    it('并发创建同指纹订单：命名锁排队，只有一笔能占满年限额', async () => {
+      const user2 = await users.create('13900000000')
+      user2.id = 'user-2'
+      await profile.createAddress('user-2', { name: '张三', phone: '13900000000', region: '浙江省 金华市 义乌市', detail: '稠城街道 2 号' })
+      await profile.saveRealname('user-2', { name: '张三', idcard: '110101199001011234' })
+      await cart.save(cart.create({ userId: 'user-2', productId: 'WB10001', quantity: 1, checked: true }))
+      await setPrice(500000)
+      await seedOrder({ totalFen: 2100000, paidAt: new Date() })
+
+      // 无锁时两笔都按「已占用 21000」的旧快照放行（合计 31000 超限）；有锁时后进锁者看到对方的待支付预占
+      const results = await Promise.allSettled([
+        service.create('user-1', { requestId: 'quota-cc-1' }),
+        service.create('user-2', { requestId: 'quota-cc-2' }),
+      ])
+
+      const fulfilled = results.filter((result) => result.status === 'fulfilled')
+      const rejected = results.filter((result) => result.status === 'rejected')
+      expect(fulfilled).toHaveLength(1)
+      expect(rejected).toHaveLength(1)
+      expect((rejected[0] as PromiseRejectedResult).reason).toMatchObject({ code: 40001 })
+    })
+
+    it('跨年支付：额度归订单创建年（12 月创建、次年 1 月支付仍占创建年，不切换归属年）', async () => {
+      const year = new Date().getFullYear()
+      await seedOrder({ totalFen: 2500000, createdAt: new Date(year, 11, 20), paidAt: new Date(year + 1, 0, 5) })
+
+      await expect(orders.sumOccupiedYearlyFen(fingerprint, new Date(year, 0, 1), new Date(year + 1, 0, 1))).resolves.toBe(2500000)
+      await expect(orders.sumOccupiedYearlyFen(fingerprint, new Date(year + 1, 0, 1), new Date(year + 2, 0, 1))).resolves.toBe(0)
     })
   })
 })

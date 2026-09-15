@@ -78,36 +78,46 @@ export class OrderService {
     const existing = await this.orderRepository.findByUserAndRequest(userId, dto.requestId)
     if (existing) return { orderNo: existing.orderNo }
 
-    const prepared = await this.prepare(userId)
-    const orderNo = `WB${new Date().toISOString().slice(0, 10).replaceAll('-', '')}${randomUUID().replaceAll('-', '').slice(0, 12).toUpperCase()}`
-    const order = this.orderRepository.createOrder({
-      orderNo, userId, requestId: dto.requestId, status: 'pay', paymentStatus: 'pending', warehouseStatus: null,
-      totalFen: prepared.totalFen, realnameName: prepared.realname.name, idcardEncrypted: prepared.realname.idcardEncrypted,
-      idcardFingerprint: prepared.realname.idcardFingerprint, receiverName: prepared.address.name, receiverPhone: prepared.address.phone,
-      receiverRegion: prepared.address.region, receiverDetail: prepared.address.detail, paidAt: null, cancelledAt: null,
-      systemRemark: null, refundFen: null, refundedAt: null, wechatTransactionId: null,
-    })
-    // 复审 R03：主单 + 明细 + 购物车删除 + 状态事件同一事务提交，任一步失败整体回滚，
-    // 不再出现空明细订单/部分清空购物车；订单存在即完整，幂等重进无需再校验明细
-    try {
-      await this.orderRepository.runInTransaction(async (manager) => {
-        await this.orderRepository.saveOrder(order, manager)
-        await this.orderRepository.saveItems(prepared.items.map((item) => this.orderRepository.createItem({ orderId: order.id, ...item })), manager)
-        for (const cartItem of prepared.cartItems) await this.cartRepository.remove(cartItem, manager)
-        await this.orderRepository.recordStatusEvent({ orderId: order.id, fromStatus: null, toStatus: 'pay', source: 'user', remark: '用户提交订单' }, manager)
+    // 复审 R06：下单即预占年度额度。「额度检查 + 订单插入」必须放进同一证件指纹的命名锁内串行，
+    // 否则并发创建各自按旧快照放行，可预建多笔待付款单绕过 26000 元年限额。
+    // 锁按实名指纹而非用户：不同账号同证件共享额度。指纹先单独取一次进锁
+    // （prepare 锁内会再查一次实名，多一次查询可接受，换来锁内逻辑无需改签名）
+    const { idcardFingerprint } = await this.profileService.getRealnameForOrder(userId)
+    return this.orderRepository.withYearlyQuotaLock(idcardFingerprint, async () => {
+      // 锁内重查幂等键：排队期间同 requestId 的并发请求可能已先行提交（并清空购物车）
+      const raced = await this.orderRepository.findByUserAndRequest(userId, dto.requestId)
+      if (raced) return { orderNo: raced.orderNo }
+      const prepared = await this.prepare(userId)
+      const orderNo = `WB${new Date().toISOString().slice(0, 10).replaceAll('-', '')}${randomUUID().replaceAll('-', '').slice(0, 12).toUpperCase()}`
+      const order = this.orderRepository.createOrder({
+        orderNo, userId, requestId: dto.requestId, status: 'pay', paymentStatus: 'pending', warehouseStatus: null,
+        totalFen: prepared.totalFen, realnameName: prepared.realname.name, idcardEncrypted: prepared.realname.idcardEncrypted,
+        idcardFingerprint: prepared.realname.idcardFingerprint, receiverName: prepared.address.name, receiverPhone: prepared.address.phone,
+        receiverRegion: prepared.address.region, receiverDetail: prepared.address.detail, paidAt: null, cancelledAt: null,
+        systemRemark: null, refundFen: null, refundedAt: null, wechatTransactionId: null,
       })
-    } catch (error) {
-      // 并发同幂等键撞 (userId, requestId) 唯一约束：本次事务已整体回滚，读取先提交的同一结果
-      if ((error as { code?: string }).code === 'ER_DUP_ENTRY') {
-        const winner = await this.orderRepository.findByUserAndRequest(userId, dto.requestId)
-        if (winner) return { orderNo: winner.orderNo }
+      // 复审 R03：主单 + 明细 + 购物车删除 + 状态事件同一事务提交，任一步失败整体回滚，
+      // 不再出现空明细订单/部分清空购物车；订单存在即完整，幂等重进无需再校验明细
+      try {
+        await this.orderRepository.runInTransaction(async (manager) => {
+          await this.orderRepository.saveOrder(order, manager)
+          await this.orderRepository.saveItems(prepared.items.map((item) => this.orderRepository.createItem({ orderId: order.id, ...item })), manager)
+          for (const cartItem of prepared.cartItems) await this.cartRepository.remove(cartItem, manager)
+          await this.orderRepository.recordStatusEvent({ orderId: order.id, fromStatus: null, toStatus: 'pay', source: 'user', remark: '用户提交订单' }, manager)
+        })
+      } catch (error) {
+        // 并发同幂等键撞 (userId, requestId) 唯一约束：本次事务已整体回滚，读取先提交的同一结果
+        if ((error as { code?: string }).code === 'ER_DUP_ENTRY') {
+          const winner = await this.orderRepository.findByUserAndRequest(userId, dto.requestId)
+          if (winner) return { orderNo: winner.orderNo }
+        }
+        throw error
       }
-      throw error
-    }
-    // 复审 R02：创建订单与获取支付参数分离。订单落库成功即返回订单号；
-    // 支付参数由订单详情页经 GET pay-params 单独获取，缺 openid 走授权回跳续付，
-    // 不再让「未授权」导致订单已建却返回错误、用户找不到待付款订单
-    return { orderNo }
+      // 复审 R02：创建订单与获取支付参数分离。订单落库成功即返回订单号；
+      // 支付参数由订单详情页经 GET pay-params 单独获取，缺 openid 走授权回跳续付，
+      // 不再让「未授权」导致订单已建却返回错误、用户找不到待付款订单
+      return { orderNo }
+    })
   }
 
   async list(userId: string, status?: string): Promise<{ total: number; list: OrderResponse[] }> {
@@ -158,6 +168,8 @@ export class OrderService {
    * 幂等：同一 transactionId 重复推送直接返回；金额与本地订单不符拒绝并告警。
    */
   async handleWechatPaid(input: WechatPaidInput): Promise<void> {
+    // 复审 R06：支付回调不复查年度额度——下单时已按「创建年」预占（含本单），支付只是确认；
+    // 跨年支付（12 月创建、1 月支付）也不切换归属年，避免年底集中支付时额度口径漂移
     const order = await this.orderRepository.findOneByOrderNo(input.orderNo)
     if (!order) throw new BusinessException(40404, '订单不存在', 404)
     if (order.paymentStatus === 'paid') return
@@ -315,8 +327,10 @@ export class OrderService {
     if (totalFen > SINGLE_ORDER_LIMIT_FEN) throw new BusinessException(40001, '单笔订单不能超过 5000 元')
     const from = new Date(new Date().getFullYear(), 0, 1)
     const to = new Date(new Date().getFullYear() + 1, 0, 1)
-    const yearlyDeclaredFen = await this.orderRepository.sumDeclaredFen(realname.idcardFingerprint, from, to)
-    if (yearlyDeclaredFen + totalFen > YEARLY_LIMIT_FEN) throw new BusinessException(40001, '个人年度交易不能超过 26000 元')
+    // 复审 R06：额度口径改为「下单即预占」——待支付单也计入占用（取消/超时/全额退款随查询语义自动释放）。
+    // 预检仅作 UX 提示；权威校验在 create 的 withYearlyQuotaLock 锁内（同一查询、同一口径）
+    const yearlyOccupiedFen = await this.orderRepository.sumOccupiedYearlyFen(realname.idcardFingerprint, from, to)
+    if (yearlyOccupiedFen + totalFen > YEARLY_LIMIT_FEN) throw new BusinessException(40001, '个人年度交易不能超过 26000 元')
     return { cartItems, items, totalFen, address, realname }
   }
 
