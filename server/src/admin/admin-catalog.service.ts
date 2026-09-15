@@ -1,4 +1,5 @@
-import { HttpStatus, Inject, Injectable } from '@nestjs/common'
+import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common'
+import type { EntityManager } from 'typeorm'
 
 import { BusinessException } from '../common/business.exception'
 import { CATALOG_REPOSITORY, type CatalogProductRecord, type CatalogRepository } from '../catalog/catalog.repository'
@@ -14,8 +15,13 @@ const CONTENT_BLOCK_TYPES = new Set([
   'hero', 'notice_bar', 'product_rail', 'product_grid', 'image_banner', 'cert_wall', 'brand_block',
 ])
 
+/** 复审 R15：商品编号「分配 + 插入」冲突重试上限（并发创建撞相同最小空号时重新分配） */
+const MAX_PRODUCT_ID_ATTEMPTS = 5
+
 @Injectable()
 export class AdminCatalogService {
+  private readonly logger = new Logger(AdminCatalogService.name)
+
   constructor(
     @Inject(CATALOG_REPOSITORY) private readonly repository: CatalogRepository,
     @Inject(CONTENT_VERSION_REPOSITORY) private readonly history: ContentVersionRepository,
@@ -35,33 +41,46 @@ export class AdminCatalogService {
   }
 
   async createProduct(dto: CreateAdminProductDto, actor: AdminActor): Promise<CatalogProductRecord> {
-    const now = new Date()
-    const saved = await this.repository.save({
-      id: await this.repository.nextProductId(),
-      name: dto.name.trim(),
-      en: dto.en.trim(),
-      priceFen: dto.priceFen,
-      theme: dto.theme,
-      themeLight: dto.themeLight,
-      cardImg: dto.cardImg,
-      tags: dto.tags?.map((tag) => tag.trim()).filter(Boolean) ?? [],
-      spec: dto.spec,
-      flavor: dto.flavor?.trim() || undefined,
-      ingredients: dto.ingredients,
-      originCert: dto.originCert,
-      usage: dto.usage?.trim() || undefined,
-      complianceText: dto.complianceText,
-      blocks: [],
-      draftBlocks: [],
-      contentVersion: 0,
-      isActive: false,
-      goodsNo: null,
-      warehouseCode: null,
-      createdAt: now,
-      updatedAt: now,
-    })
-    await this.audit.record(actor, 'create_product', 'catalog_product', saved.id, null, this.toAuditProduct(saved))
-    return saved
+    // 复审 R15：「分配最小空号 + 插入」冲突重试闭环——并发创建会拿到相同空号，
+    // insert-only 语义撞唯一键（ER_DUP_ENTRY）后重新分配重试；禁止 save() 静默 upsert 覆盖先创建的商品。
+    // 「最小空闲编号可复用」业务规则不变
+    for (let attempt = 1; attempt <= MAX_PRODUCT_ID_ATTEMPTS; attempt++) {
+      const id = await this.repository.nextProductId()
+      const now = new Date()
+      try {
+        const saved = await this.repository.insertProduct({
+          id,
+          name: dto.name.trim(),
+          en: dto.en.trim(),
+          priceFen: dto.priceFen,
+          theme: dto.theme,
+          themeLight: dto.themeLight,
+          cardImg: dto.cardImg,
+          tags: dto.tags?.map((tag) => tag.trim()).filter(Boolean) ?? [],
+          spec: dto.spec,
+          flavor: dto.flavor?.trim() || undefined,
+          ingredients: dto.ingredients,
+          originCert: dto.originCert,
+          usage: dto.usage?.trim() || undefined,
+          complianceText: dto.complianceText,
+          blocks: [],
+          draftBlocks: [],
+          contentVersion: 0,
+          isActive: false,
+          goodsNo: null,
+          warehouseCode: null,
+          createdAt: now,
+          updatedAt: now,
+        })
+        if (attempt > 1) this.logger.warn(`新建商品编号冲突重试后分配成功：第 ${attempt} 次分配到 ${saved.id}`)
+        await this.audit.record(actor, 'create_product', 'catalog_product', saved.id, null, this.toAuditProduct(saved))
+        return saved
+      } catch (error) {
+        if ((error as { code?: string }).code !== 'ER_DUP_ENTRY') throw error
+        this.logger.warn(`新建商品编号 ${id} 撞唯一键冲突（第 ${attempt}/${MAX_PRODUCT_ID_ATTEMPTS} 次），重新分配`)
+      }
+    }
+    throw new BusinessException(40002, '商品编号分配冲突，请稍后重试')
   }
 
   async updateProduct(id: string, dto: UpdateAdminProductDto, actor: AdminActor): Promise<CatalogProductRecord> {
@@ -91,10 +110,15 @@ export class AdminCatalogService {
   async publishDraft(id: string, actor: AdminActor): Promise<CatalogProductRecord> {
     const product = await this.getProduct(id)
     this.validateBlocks(product.draftBlocks)
-    await this.saveVersionIfMissing(product, actor)
-    await this.repository.publishDraft(id)
+    // 复审 R15：条件发布——把已校验的草稿快照 + 期望版本传入仓储，事务内锁行重读校验，
+    // 期间草稿被另一次保存替换（或并发发布已推进版本）则整体回滚并提示；
+    // 发布主记录 + 历史快照（旧版兜底 + 新版）同事务，任一步失败不留半成品
+    await this.repository.runInTransaction(async (manager) => {
+      await this.repository.publishDraft(id, { contentVersion: product.contentVersion, draftBlocks: product.draftBlocks }, manager)
+      await this.saveVersionIfMissing(id, product.contentVersion, product.blocks, actor.id, manager)
+      await this.saveVersionIfMissing(id, product.contentVersion + 1, product.draftBlocks, actor.id, manager)
+    })
     const published = await this.getProduct(id)
-    await this.saveVersionIfMissing(published, actor)
     await this.audit.record(actor, 'publish', 'catalog_product', id, product.blocks, published.blocks)
     return published
   }
@@ -105,13 +129,12 @@ export class AdminCatalogService {
       ? await this.history.findByProductAndVersion(id, product.contentVersion - 1)
       : null
     if (!previous) throw new BusinessException(40002, '没有可回滚的上一发布版本')
-    const saved = await this.repository.save({
-      ...product,
-      blocks: structuredClone(previous.blocks),
-      draftBlocks: structuredClone(previous.blocks),
-      contentVersion: product.contentVersion + 1,
+    // 复审 R15：条件回滚——并发回滚/发布推进版本后落败方抛错让位；主记录与新版本快照同事务
+    await this.repository.runInTransaction(async (manager) => {
+      await this.repository.rollbackToVersion(id, product.contentVersion, previous.blocks, manager)
+      await this.history.save({ productId: id, version: product.contentVersion + 1, blocks: previous.blocks, createdBy: actor.id }, manager)
     })
-    await this.history.save({ productId: id, version: saved.contentVersion, blocks: saved.blocks, createdBy: actor.id })
+    const saved = await this.getProduct(id)
     await this.audit.record(
       actor, 'rollback', 'catalog_product', id,
       { contentVersion: product.contentVersion, blocks: product.blocks },
@@ -248,8 +271,8 @@ export class AdminCatalogService {
     return { id, name, en, priceFen, theme, themeLight, cardImg, tags, spec, flavor, ingredients, originCert, usage, goodsNo, warehouseCode, isActive }
   }
 
-  private async saveVersionIfMissing(product: CatalogProductRecord, actor: AdminActor): Promise<void> {
-    const existing = await this.history.findByProductAndVersion(product.id, product.contentVersion)
-    if (!existing) await this.history.save({ productId: product.id, version: product.contentVersion, blocks: product.blocks, createdBy: actor.id })
+  private async saveVersionIfMissing(productId: string, version: number, blocks: ContentBlock[], createdBy: string, manager?: EntityManager): Promise<void> {
+    const existing = await this.history.findByProductAndVersion(productId, version)
+    if (!existing) await this.history.save({ productId, version, blocks, createdBy }, manager)
   }
 }

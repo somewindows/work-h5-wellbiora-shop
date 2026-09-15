@@ -19,7 +19,9 @@ describe('InMemoryCatalogRepository', () => {
     ])
 
     expect((await repository.findPublishedById('WB10001'))).toMatchObject({ blocks: product.blocks })
-    await repository.publishDraft('WB10001')
+    // 复审 R15：条件发布需传入已校验的草稿快照 + 期望版本
+    const current = (await repository.findById('WB10001'))!
+    await repository.publishDraft('WB10001', { contentVersion: current.contentVersion, draftBlocks: current.draftBlocks })
 
     await expect(repository.findPublishedById('WB10001')).resolves.toMatchObject({
       blocks: [{ type: 'gallery', images: ['/assets/next.jpg'] }],

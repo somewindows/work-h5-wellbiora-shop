@@ -1,6 +1,9 @@
-import { Injectable } from '@nestjs/common'
+import { HttpStatus, Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import { Repository } from 'typeorm'
+import { type EntityManager, Repository } from 'typeorm'
+import type { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity'
+
+import { BusinessException } from '../common/business.exception'
 
 import type { ContentBlock, Product, ProductDetail } from './catalog.types'
 import { CatalogProductEntity } from './catalog-product.entity'
@@ -31,9 +34,26 @@ export interface CatalogRepository extends SellableProductSource {
   findAdminPage(options: { keyword?: string; isActive?: boolean; page: number; pageSize: number }): Promise<{ total: number; list: CatalogProductRecord[] }>
   /** 生成下一个商品 ID：WB + 5 位递增数字，取 10001 起最小未占用的编号（删除商品后编号可回收复用） */
   nextProductId(): Promise<string>
+  /**
+   * 复审 R15：insert-only 语义插入新商品——主键已存在必须报 ER_DUP_ENTRY，
+   * 禁止 save() 的静默 upsert 覆盖先创建的商品；与 nextProductId 组成「分配 + 插入」冲突重试闭环。
+   */
+  insertProduct(record: CatalogProductRecord): Promise<CatalogProductRecord>
   save(record: CatalogProductRecord): Promise<CatalogProductRecord>
   saveDraftBlocks(id: string, blocks: ContentBlock[]): Promise<void>
-  publishDraft(id: string): Promise<void>
+  /**
+   * 复审 R15：条件发布——仅当当前 contentVersion 与草稿内容均和服务层已校验快照一致时才发布
+   * （TypeOrm 在事务内悲观锁行重读校验），不一致抛 40002「草稿已变更，请刷新后重新发布」。
+   * 与历史快照写入一起放进 runInTransaction，任一步失败整体回滚不留半成品。
+   */
+  publishDraft(id: string, expected: { contentVersion: number; draftBlocks: ContentBlock[] }, manager?: EntityManager): Promise<void>
+  /**
+   * 复审 R15：条件回滚——仅当当前 contentVersion 与预期一致时才回滚到 target 内容，
+   * 不一致抛 40002「发布版本已变更，请刷新后重试」（并发回滚/发布落败让位，不用旧对象覆盖）。
+   */
+  rollbackToVersion(id: string, expectedContentVersion: number, target: ContentBlock[], manager?: EntityManager): Promise<void>
+  /** 复审 R15：发布/回滚的多写放进同一事务；内存实现以快照兜底恢复（仅覆盖本仓储） */
+  runInTransaction<T>(work: (manager?: EntityManager) => Promise<T>): Promise<T>
 }
 
 function computeNextProductId(ids: string[]): string {
@@ -46,6 +66,20 @@ function computeNextProductId(ids: string[]): string {
 
 function cloneBlocks(blocks: ContentBlock[]): ContentBlock[] {
   return structuredClone(blocks)
+}
+
+/** 复审 R15：内容摘要比对——键序无关的规范化序列化（MySQL JSON 会做键序归一化，显式规范化更稳） */
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>
+    return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`).join(',')}}`
+  }
+  return JSON.stringify(value) ?? 'null'
+}
+
+function sameBlocks(left: ContentBlock[], right: ContentBlock[]): boolean {
+  return canonicalJson(left) === canonicalJson(right)
 }
 
 function toPublicProduct(record: CatalogProductRecord): Product {
@@ -151,6 +185,12 @@ export class TypeOrmCatalogRepository implements CatalogRepository {
     return { total: filtered.length, list: filtered.slice(start, start + options.pageSize) }
   }
 
+  async insertProduct(record: CatalogProductRecord): Promise<CatalogProductRecord> {
+    // 复审 R15：insert-only——主键已存在必须报 ER_DUP_ENTRY（save() 会按主键静默 upsert 覆盖先创建的商品）
+    await this.repository.insert(toEntityInput(record) as QueryDeepPartialEntity<CatalogProductEntity>)
+    return record
+  }
+
   async save(record: CatalogProductRecord): Promise<CatalogProductRecord> {
     return toRecord(await this.repository.save(this.repository.create(toEntityInput(record))))
   }
@@ -162,12 +202,44 @@ export class TypeOrmCatalogRepository implements CatalogRepository {
     await this.repository.save(product)
   }
 
-  async publishDraft(id: string): Promise<void> {
-    const product = await this.repository.findOneBy({ id })
-    if (!product) return
+  async publishDraft(id: string, expected: { contentVersion: number; draftBlocks: ContentBlock[] }, manager?: EntityManager): Promise<void> {
+    const product = await this.findForUpdate(id, manager)
+    if (!product) throw new BusinessException(40404, '商品不存在', HttpStatus.NOT_FOUND)
+    // 复审 R15：条件发布——服务层校验完成后草稿若被另一次保存替换（或并发发布已推进版本），拒绝发布
+    if (product.contentVersion !== expected.contentVersion || !sameBlocks(product.draftBlocks as ContentBlock[], expected.draftBlocks)) {
+      throw new BusinessException(40002, '草稿已变更，请刷新后重新发布')
+    }
     product.blocks = cloneBlocks(product.draftBlocks as ContentBlock[]) as Record<string, unknown>[]
     product.contentVersion += 1
-    await this.repository.save(product)
+    await this.persist(product, manager)
+  }
+
+  async rollbackToVersion(id: string, expectedContentVersion: number, target: ContentBlock[], manager?: EntityManager): Promise<void> {
+    const product = await this.findForUpdate(id, manager)
+    if (!product) throw new BusinessException(40404, '商品不存在', HttpStatus.NOT_FOUND)
+    // 复审 R15：条件回滚——并发回滚/发布已推进版本时落败让位
+    if (product.contentVersion !== expectedContentVersion) {
+      throw new BusinessException(40002, '发布版本已变更，请刷新后重试')
+    }
+    product.blocks = cloneBlocks(target) as Record<string, unknown>[]
+    product.draftBlocks = cloneBlocks(target) as Record<string, unknown>[]
+    product.contentVersion += 1
+    await this.persist(product, manager)
+  }
+
+  runInTransaction<T>(work: (manager?: EntityManager) => Promise<T>): Promise<T> {
+    return this.repository.manager.transaction(work)
+  }
+
+  /** 事务内 pessimistic_write 行锁（SELECT ... FOR UPDATE）串行化「校验 + 写入」；无事务时普通读取 */
+  private findForUpdate(id: string, manager?: EntityManager): Promise<CatalogProductEntity | null> {
+    return manager
+      ? manager.getRepository(CatalogProductEntity).findOne({ where: { id }, lock: { mode: 'pessimistic_write' } })
+      : this.repository.findOneBy({ id })
+  }
+
+  private persist(product: CatalogProductEntity, manager?: EntityManager): Promise<CatalogProductEntity> {
+    return manager ? manager.save(product) : this.repository.save(product)
   }
 }
 
@@ -210,6 +282,17 @@ export class InMemoryCatalogRepository implements CatalogRepository {
     return { total: filtered.length, list: filtered.slice(start, start + options.pageSize).map((product) => structuredClone(product)) }
   }
 
+  async insertProduct(record: CatalogProductRecord): Promise<CatalogProductRecord> {
+    // 复审 R15：insert-only——key 已存在视为冲突抛 ER_DUP_ENTRY，禁止 Map.set 覆盖已有条目；
+    // 检查与写入在同步段内原子完成（之间不插入 await）
+    if (this.products.has(record.id)) {
+      throw Object.assign(new Error(`Duplicate entry '${record.id}' for key 'PRIMARY'`), { code: 'ER_DUP_ENTRY' })
+    }
+    const saved = structuredClone({ ...record, updatedAt: new Date() })
+    this.products.set(saved.id, saved)
+    return structuredClone(saved)
+  }
+
   async save(record: CatalogProductRecord): Promise<CatalogProductRecord> {
     const saved = structuredClone({ ...record, updatedAt: new Date() })
     this.products.set(saved.id, saved)
@@ -223,11 +306,40 @@ export class InMemoryCatalogRepository implements CatalogRepository {
     product.updatedAt = new Date()
   }
 
-  async publishDraft(id: string): Promise<void> {
+  async publishDraft(id: string, expected: { contentVersion: number; draftBlocks: ContentBlock[] }): Promise<void> {
+    // 复审 R15：镜像条件发布语义——校验与写入在同步段内原子完成
     const product = this.products.get(id)
-    if (!product) return
+    if (!product) throw new BusinessException(40404, '商品不存在', HttpStatus.NOT_FOUND)
+    if (product.contentVersion !== expected.contentVersion || !sameBlocks(product.draftBlocks, expected.draftBlocks)) {
+      throw new BusinessException(40002, '草稿已变更，请刷新后重新发布')
+    }
     product.blocks = cloneBlocks(product.draftBlocks)
     product.contentVersion += 1
     product.updatedAt = new Date()
+  }
+
+  async rollbackToVersion(id: string, expectedContentVersion: number, target: ContentBlock[]): Promise<void> {
+    // 复审 R15：镜像条件回滚语义——校验与写入在同步段内原子完成
+    const product = this.products.get(id)
+    if (!product) throw new BusinessException(40404, '商品不存在', HttpStatus.NOT_FOUND)
+    if (product.contentVersion !== expectedContentVersion) {
+      throw new BusinessException(40002, '发布版本已变更，请刷新后重试')
+    }
+    product.blocks = cloneBlocks(target)
+    product.draftBlocks = cloneBlocks(target)
+    product.contentVersion += 1
+    product.updatedAt = new Date()
+  }
+
+  async runInTransaction<T>(work: (manager?: EntityManager) => Promise<T>): Promise<T> {
+    // 内存无事务：快照兜底，work 抛错时恢复本仓储状态，镜像「多写同事务整体回滚」语义
+    const backup = new Map([...this.products.entries()].map(([id, product]) => [id, structuredClone(product)]))
+    try {
+      return await work()
+    } catch (error) {
+      this.products.clear()
+      for (const [id, product] of backup) this.products.set(id, product)
+      throw error
+    }
   }
 }
