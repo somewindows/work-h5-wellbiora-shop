@@ -83,7 +83,22 @@ describe('WechatCustomsService（自助清关报关）', () => {
     }) as typeof fetch
     const service = createService(fetchImpl)
 
-    await expect(service.queryDeclaration(input.orderNo, input.transactionId)).resolves.toEqual({ state: 'SUCCESS', certCheckResult: 'SAME' })
+    await expect(service.queryDeclaration(input.orderNo, input.transactionId)).resolves.toMatchObject({ state: 'SUCCESS', certCheckResult: 'SAME' })
+  })
+
+  it('报关查询回执保留全部原始字段（含海关异常说明），并剔除签名', async () => {
+    const fetchImpl: typeof fetch = (async () =>
+      xmlResponse({
+        return_code: 'SUCCESS', result_code: 'SUCCESS', state: 'EXCEPT', cert_check_result: 'SAME',
+        explanation: '电商企业备案信息不存在', modify_time: '20260916172000', sign: 'SHOULD_BE_STRIPPED',
+      })) as typeof fetch
+    const service = createService(fetchImpl)
+
+    const result = await service.queryDeclaration(input.orderNo, input.transactionId)
+
+    expect(result.state).toBe('EXCEPT')
+    expect(result.detail).toMatchObject({ explanation: '电商企业备案信息不存在', modify_time: '20260916172000' })
+    expect(result.detail).not.toHaveProperty('sign')
   })
 
   it('未启用时直接调用报清晰错误', async () => {

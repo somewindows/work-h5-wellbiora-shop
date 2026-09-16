@@ -14,6 +14,8 @@ const ACTION_OPTIONS = [
   { value: 'publish', label: '发布内容' },
   { value: 'rollback', label: '回滚内容' },
   { value: 'sync_order', label: '同步订单' },
+  { value: 'sync_payment', label: '查单补状态' },
+  { value: 'query_customs', label: '查询报关状态' },
   { value: 'cancel_order', label: '取消订单' },
   { value: 'refund_order', label: '订单退款' },
 ]

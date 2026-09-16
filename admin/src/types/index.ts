@@ -116,6 +116,15 @@ export interface AdminOrderDetail extends AdminOrderListItem {
   statusEvents: { fromStatus: string | null; toStatus: string; source: string; remark: string | null; createdAt: string }[]
 }
 
+/** 报关状态查询结果（海关应答原始字段见 detail，排查 EXCEPT 异常用） */
+export interface AdminCustomsDeclarationResult {
+  orderNo: string
+  transactionId: string
+  state: string
+  certCheckResult: string
+  detail: Record<string, string>
+}
+
 /** 操作日志记录（AuditLogRecord，createdAt 经 JSON 序列化为字符串） */
 export interface AuditLogRecord {
   id: string

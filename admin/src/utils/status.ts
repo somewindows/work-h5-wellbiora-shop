@@ -33,6 +33,27 @@ const REFUND_STATUS_MAP: Record<string, StatusMeta> = {
   failed: { label: '未受理', tagType: 'danger' },
 }
 
+/** 海关申报状态（微信自助清关 customdeclarequery 回执） */
+const CUSTOMS_STATE_MAP: Record<string, StatusMeta> = {
+  UNDECLARED: { label: '未申报', tagType: 'info' },
+  SUBMITTED: { label: '已提交海关', tagType: 'primary' },
+  PROCESSING: { label: '海关处理中', tagType: 'primary' },
+  SUCCESS: { label: '申报成功', tagType: 'success' },
+  FAIL: { label: '申报失败', tagType: 'danger' },
+  EXCEPT: { label: '申报异常', tagType: 'danger' },
+}
+
+export function customsStateMeta(state: string): StatusMeta {
+  return CUSTOMS_STATE_MAP[state] ?? { label: state || '未知', tagType: 'info' }
+}
+
+/** 订购人/支付人身份校验结果文案 */
+export function certCheckLabel(result: string): string {
+  if (result === 'SAME') return '一致'
+  if (result === 'DIFFERENT') return '不一致（三单对碰会对不上，需排查）'
+  return '未校验'
+}
+
 export function refundStatusMeta(status: string): StatusMeta {
   return REFUND_STATUS_MAP[status] ?? { label: status || '未知', tagType: 'info' }
 }
@@ -65,6 +86,7 @@ export const EVENT_SOURCE_MAP: Record<string, string> = {
   user: '用户操作',
   admin: '管理员操作',
   sync: '仓储同步',
+  payment: '支付回调',
   system: '系统',
 }
 

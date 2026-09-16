@@ -5,11 +5,11 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
-import { cancelOrder, getOrder, refundOrder, syncOrder, syncOrderPayment } from '@/api/orders'
+import { cancelOrder, getOrder, queryCustomsDeclaration, refundOrder, syncOrder, syncOrderPayment } from '@/api/orders'
 import { getErrorMessage } from '@/api/request'
-import type { AdminOrderDetail } from '@/types'
+import type { AdminCustomsDeclarationResult, AdminOrderDetail } from '@/types'
 import { fenToYuan, formatDateTime, formatMoney, yuanToFen } from '@/utils/format'
-import { eventSourceLabel, orderStatusMeta, paymentStatusMeta, refundChannelLabel, refundStatusMeta } from '@/utils/status'
+import { certCheckLabel, customsStateMeta, eventSourceLabel, orderStatusMeta, paymentStatusMeta, refundChannelLabel, refundStatusMeta } from '@/utils/status'
 
 const route = useRoute()
 const orderNo = route.params.orderNo as string
@@ -126,6 +126,25 @@ async function confirmRefund(): Promise<void> {
   }
 }
 
+// ---------- 报关状态查询（只读，拉取海关申报回执排查异常；已支付订单才可能有申报记录） ----------
+const customsVisible = ref(false)
+const customsLoading = ref(false)
+const customsResult = ref<AdminCustomsDeclarationResult | null>(null)
+
+const canQueryCustoms = computed(() => Boolean(order.value) && order.value!.paymentStatus !== 'pending')
+
+async function onQueryCustoms(): Promise<void> {
+  customsLoading.value = true
+  try {
+    customsResult.value = await queryCustomsDeclaration(orderNo)
+    customsVisible.value = true
+  } catch (error) {
+    ElMessage.error(getErrorMessage(error))
+  } finally {
+    customsLoading.value = false
+  }
+}
+
 const canOperate = computed(() => order.value && order.value.status !== 'cancelled')
 
 onMounted(load)
@@ -148,6 +167,13 @@ onMounted(load)
           :loading="syncingPayment"
           @click="onSyncPayment"
         >查单补状态</el-button>
+        <el-button
+          v-if="canQueryCustoms"
+          size="small"
+          plain
+          :loading="customsLoading"
+          @click="onQueryCustoms"
+        >查询报关状态</el-button>
         <el-button size="small" type="danger" plain :disabled="!canOperate" @click="cancelVisible = true">取消订单</el-button>
         <el-button
           size="small"
@@ -266,6 +292,36 @@ onMounted(load)
         <template #footer>
           <el-button @click="refundVisible = false">取消</el-button>
           <el-button type="warning" :loading="refunding" @click="confirmRefund">确认退款</el-button>
+        </template>
+      </el-dialog>
+
+      <!-- 报关状态查询结果对话框（文本渲染，不用 v-html） -->
+      <el-dialog v-model="customsVisible" title="海关申报回执" width="560px">
+        <template v-if="customsResult">
+          <el-descriptions :column="2" border class="info-block">
+            <el-descriptions-item label="申报状态">
+              <el-tag :type="customsStateMeta(customsResult.state).tagType" size="small">{{ customsStateMeta(customsResult.state).label }}</el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="身份校验">{{ certCheckLabel(customsResult.certCheckResult) }}</el-descriptions-item>
+            <el-descriptions-item label="商户订单号">{{ customsResult.orderNo }}</el-descriptions-item>
+            <el-descriptions-item label="微信交易号">{{ customsResult.transactionId }}</el-descriptions-item>
+          </el-descriptions>
+          <el-alert
+            v-if="customsResult.state === 'EXCEPT' || customsResult.state === 'FAIL'"
+            type="error"
+            show-icon
+            :closable="false"
+            class="reject-alert"
+            title="海关申报未通过，请根据下方海关原始回执排查（常见：企业海关备案未生效、备案号不符）"
+          />
+          <h3 class="section-title">海关原始回执</h3>
+          <el-descriptions :column="1" border size="small">
+            <el-descriptions-item v-for="(value, key) in customsResult.detail" :key="key" :label="String(key)">{{ value || '—' }}</el-descriptions-item>
+          </el-descriptions>
+        </template>
+        <template #footer>
+          <el-button @click="customsVisible = false">关闭</el-button>
+          <el-button type="primary" :loading="customsLoading" @click="onQueryCustoms">重新查询</el-button>
         </template>
       </el-dialog>
     </template>

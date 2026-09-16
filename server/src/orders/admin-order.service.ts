@@ -1,7 +1,8 @@
-import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common'
+import { HttpStatus, Inject, Injectable, Logger, Optional } from '@nestjs/common'
 
 import { type AdminActor, AuditLogService } from '../admin/audit-log.service'
 import { BusinessException } from '../common/business.exception'
+import { WechatCustomsService } from '../payments/wechat-customs.service'
 import { PersonalDataCryptoService } from '../security/personal-data-crypto.service'
 
 import type { AdminOrderQueryDto, AdminOrderConfirmDto, AdminOrderRefundDto } from './admin-order.dto'
@@ -65,6 +66,17 @@ export interface AdminOrderDetail extends AdminOrderListItem {
   statusEvents: { fromStatus: string | null; toStatus: string; source: string; remark: string | null; createdAt: string }[]
 }
 
+export interface AdminCustomsDeclarationResult {
+  orderNo: string
+  transactionId: string
+  /** UNDECLARED / SUBMITTED / PROCESSING / SUCCESS / FAIL / EXCEPT */
+  state: string
+  /** UNCHECKED / SAME / DIFFERENT：订购人与支付人身份一致性校验结果 */
+  certCheckResult: string
+  /** 海关应答全部原始字段（剔除签名），排查 EXCEPT 等异常原因用 */
+  detail: Record<string, string>
+}
+
 @Injectable()
 export class AdminOrderService {
   private readonly logger = new Logger(AdminOrderService.name)
@@ -77,6 +89,7 @@ export class AdminOrderService {
     private readonly audit: AuditLogService,
     private readonly orderService: OrderService,
     private readonly refundService: RefundService,
+    @Optional() private readonly customs?: WechatCustomsService,
   ) {}
 
   async list(query: AdminOrderQueryDto): Promise<{ total: number; list: AdminOrderListItem[] }> {
@@ -163,6 +176,23 @@ export class AdminOrderService {
     const saved = await this.requireOrder(orderNo)
     await this.audit.record(actor, 'sync_payment', 'order', orderNo, this.toAuditOrder(order), this.toAuditOrder(saved))
     return this.detail(orderNo)
+  }
+
+  /** 报关状态查询：只读拉取微信侧海关申报回执（含全部原始字段），排查申报异常（EXCEPT）原因 */
+  async queryCustomsDeclaration(orderNo: string, actor: AdminActor): Promise<AdminCustomsDeclarationResult> {
+    const order = await this.requireOrder(orderNo)
+    if (!order.wechatTransactionId) throw new BusinessException(40002, '订单未支付或无微信交易号，无申报记录可查')
+    if (!this.customs?.isEnabled()) throw new BusinessException(40002, '报关能力未启用（缺少 WXPAY_API_V2_KEY / WXPAY_CUSTOMS_CODE / WXPAY_MCH_CUSTOMS_NO）')
+
+    let result
+    try {
+      result = await this.customs.queryDeclaration(orderNo, order.wechatTransactionId)
+    } catch (error) {
+      // 微信侧业务错误（err_code_des 往往正是排查线索），透传给管理员而不是落成 500
+      throw new BusinessException(40002, `报关查询失败：${error instanceof Error ? error.message : String(error)}`)
+    }
+    await this.audit.record(actor, 'query_customs', 'order', orderNo, null, { state: result.state, certCheckResult: result.certCheckResult })
+    return { orderNo, transactionId: order.wechatTransactionId, ...result }
   }
 
   async cancel(orderNo: string, dto: AdminOrderConfirmDto, actor: AdminActor): Promise<AdminOrderDetail> {    this.requireConfirm(dto)

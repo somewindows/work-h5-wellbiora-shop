@@ -5,7 +5,7 @@ import { CurrentAdmin } from '../admin/current-admin.decorator'
 import type { AdminActor } from '../admin/audit-log.service'
 
 import { AdminOrderConfirmDto, AdminOrderQueryDto, AdminOrderRefundDto } from './admin-order.dto'
-import { AdminOrderService, type AdminOrderDetail, type AdminOrderListItem } from './admin-order.service'
+import { AdminOrderService, type AdminCustomsDeclarationResult, type AdminOrderDetail, type AdminOrderListItem } from './admin-order.service'
 
 @Controller('admin/orders')
 @UseGuards(AdminJwtAuthGuard)
@@ -33,6 +33,12 @@ export class AdminOrderController {
   @HttpCode(200)
   syncPayment(@Param('orderNo') orderNo: string, @CurrentAdmin() admin: AdminActor): Promise<AdminOrderDetail> {
     return this.adminOrderService.syncPayment(orderNo, admin)
+  }
+
+  /** 报关状态查询：只读拉取海关申报回执（含原始字段），排查申报异常原因 */
+  @Get(':orderNo/customs-declaration')
+  queryCustomsDeclaration(@Param('orderNo') orderNo: string, @CurrentAdmin() admin: AdminActor): Promise<AdminCustomsDeclarationResult> {
+    return this.adminOrderService.queryCustomsDeclaration(orderNo, admin)
   }
 
   @Post(':orderNo/cancel')

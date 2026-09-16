@@ -26,6 +26,11 @@ export interface CustomsDeclarationResult {
   certCheckResult: string
 }
 
+/** 报关查询结果：在提交结果之上附带海关应答的全部原始字段，用于排查 EXCEPT 等异常原因 */
+export interface CustomsDeclarationQueryResult extends CustomsDeclarationResult {
+  detail: Record<string, string>
+}
+
 const DECLARE_URL = 'https://api.mch.weixin.qq.com/cgi-bin/mch/customs/customdeclareorder'
 const QUERY_URL = 'https://api.mch.weixin.qq.com/cgi-bin/mch/customs/customdeclarequery'
 
@@ -56,11 +61,13 @@ export class WechatCustomsService {
     return { state: response.state ?? '', certCheckResult: response.cert_check_result ?? 'UNCHECKED' }
   }
 
-  /** 报关结果查询。 */
-  async queryDeclaration(orderNo: string, transactionId: string): Promise<CustomsDeclarationResult> {
+  /** 报关结果查询。detail 为海关应答全部原始字段（剔除签名），供后台排查异常原因。 */
+  async queryDeclaration(orderNo: string, transactionId: string): Promise<CustomsDeclarationQueryResult> {
     this.assertEnabled()
     const response = await this.postCustomsXml(QUERY_URL, { out_trade_no: orderNo, transaction_id: transactionId })
-    return { state: response.state ?? '', certCheckResult: response.cert_check_result ?? 'UNCHECKED' }
+    const detail = { ...response }
+    delete detail.sign
+    return { state: response.state ?? '', certCheckResult: response.cert_check_result ?? 'UNCHECKED', detail }
   }
 
   private assertEnabled(): void {

@@ -11,6 +11,7 @@ import { InMemoryOrderRepository, type OrderRecord } from './order.repository'
 import type { OrderService, WechatPaidInput } from './order.service'
 import { InMemoryRefundRepository } from './refund.repository'
 import { RefundService } from './refund.service'
+import type { WechatCustomsService } from '../payments/wechat-customs.service'
 
 describe('AdminOrderService', () => {
   const actor = { id: 'admin-1', username: 'operator' }
@@ -321,6 +322,52 @@ describe('AdminOrderService', () => {
 
       expect(detail.paymentStatus).toBe('paid')
       expect(orderService.handleWechatPaid).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('queryCustomsDeclaration（报关状态查询）', () => {
+    const buildCustoms = (queryDeclaration: jest.Mock, enabled = true) =>
+      ({ isEnabled: () => enabled, queryDeclaration }) as unknown as WechatCustomsService
+    const buildService = (customs?: WechatCustomsService): AdminOrderService =>
+      new AdminOrderService(orders, warehouse, payment, crypto, new AuditLogService(auditLogs), orderService as unknown as OrderService, refundService, customs)
+
+    it('已支付订单：回传申报状态与海关原始回执字段并写审计', async () => {
+      const order = await createPaidOrder()
+      await orders.saveOrder({ ...(await orders.findOneByOrderNo(order.orderNo))!, wechatTransactionId: 'tx-customs-1' })
+      const customs = buildCustoms(jest.fn().mockResolvedValue({ state: 'EXCEPT', certCheckResult: 'SAME', detail: { state: 'EXCEPT', explanation: '电商企业备案信息不存在' } }))
+
+      const result = await buildService(customs).queryCustomsDeclaration(order.orderNo, actor)
+
+      expect(result).toMatchObject({ orderNo: order.orderNo, transactionId: 'tx-customs-1', state: 'EXCEPT', certCheckResult: 'SAME' })
+      expect(result.detail).toMatchObject({ explanation: '电商企业备案信息不存在' })
+      expect(customs.queryDeclaration).toHaveBeenCalledWith(order.orderNo, 'tx-customs-1')
+      await expect(auditLogs.findByTarget('order', order.orderNo)).resolves.toMatchObject([{ action: 'query_customs' }])
+    })
+
+    it('无微信交易号（未支付/本地 mock 支付）：拒绝', async () => {
+      const order = await createOrder()
+      const customs = buildCustoms(jest.fn())
+
+      await expect(buildService(customs).queryCustomsDeclaration(order.orderNo, actor)).rejects.toMatchObject({ code: 40002 })
+      expect(customs.queryDeclaration).not.toHaveBeenCalled()
+    })
+
+    it('报关能力未启用（缺少密钥或本地环境）：拒绝并给出清晰提示', async () => {
+      const order = await createPaidOrder()
+      await orders.saveOrder({ ...(await orders.findOneByOrderNo(order.orderNo))!, wechatTransactionId: 'tx-customs-2' })
+      const disabled = buildCustoms(jest.fn(), false)
+
+      await expect(buildService(disabled).queryCustomsDeclaration(order.orderNo, actor)).rejects.toMatchObject({ code: 40002, message: expect.stringContaining('报关能力未启用') })
+      await expect(buildService(undefined).queryCustomsDeclaration(order.orderNo, actor)).rejects.toMatchObject({ code: 40002 })
+      expect(disabled.queryDeclaration).not.toHaveBeenCalled()
+    })
+
+    it('微信侧业务错误（如签名错误）：透传错误文案而不是 500', async () => {
+      const order = await createPaidOrder()
+      await orders.saveOrder({ ...(await orders.findOneByOrderNo(order.orderNo))!, wechatTransactionId: 'tx-customs-3' })
+      const failing = buildCustoms(jest.fn().mockRejectedValue(new Error('报关失败：SIGNERROR 签名错误')))
+
+      await expect(buildService(failing).queryCustomsDeclaration(order.orderNo, actor)).rejects.toMatchObject({ code: 40002, message: expect.stringContaining('SIGNERROR') })
     })
   })
 })

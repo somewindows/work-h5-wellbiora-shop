@@ -1,4 +1,4 @@
-import type { AdminOrderDetail, AdminOrderListItem, PageResult } from '@/types'
+import type { AdminOrderDetail, AdminCustomsDeclarationResult, AdminOrderListItem, PageResult } from '@/types'
 
 import { request } from './request'
 
@@ -27,6 +27,11 @@ export function syncOrder(orderNo: string): Promise<AdminOrderDetail> {
 /** 主动向微信查单补状态：支付回调漏单时兜底 */
 export function syncOrderPayment(orderNo: string): Promise<AdminOrderDetail> {
   return request.post(`/admin/orders/${orderNo}/sync-payment`)
+}
+
+/** 报关状态查询：只读拉取海关申报回执（含原始字段），排查申报异常原因 */
+export function queryCustomsDeclaration(orderNo: string): Promise<AdminCustomsDeclarationResult> {
+  return request.get(`/admin/orders/${orderNo}/customs-declaration`)
 }
 
 /** 取消订单：confirm:true 只能由二次确认对话框触发，服务端缺省会 40003 拒绝 */
