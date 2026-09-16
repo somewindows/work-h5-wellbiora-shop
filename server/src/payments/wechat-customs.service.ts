@@ -61,13 +61,25 @@ export class WechatCustomsService {
     return { state: response.state ?? '', certCheckResult: response.cert_check_result ?? 'UNCHECKED' }
   }
 
-  /** 报关结果查询。detail 为海关应答全部原始字段（剔除签名），供后台排查异常原因。 */
+  /**
+   * 报关结果查询。detail 为海关应答全部原始字段（剔除签名），供后台排查异常原因。
+   * 注意：查询接口 customs 为必填（漏传会报 customs invalid）；应答的记录字段带序号后缀
+   * （state_0 / cert_check_result_0 / explanation_0 …），第 0 条即该单最新申报记录。
+   */
   async queryDeclaration(orderNo: string, transactionId: string): Promise<CustomsDeclarationQueryResult> {
     this.assertEnabled()
-    const response = await this.postCustomsXml(QUERY_URL, { out_trade_no: orderNo, transaction_id: transactionId })
+    const response = await this.postCustomsXml(QUERY_URL, {
+      out_trade_no: orderNo,
+      transaction_id: transactionId,
+      customs: this.config.customsCode as string,
+    })
     const detail = { ...response }
     delete detail.sign
-    return { state: response.state ?? '', certCheckResult: response.cert_check_result ?? 'UNCHECKED', detail }
+    return {
+      state: response.state_0 ?? response.state ?? '',
+      certCheckResult: response.cert_check_result_0 ?? response.cert_check_result ?? 'UNCHECKED',
+      detail,
+    }
   }
 
   private assertEnabled(): void {

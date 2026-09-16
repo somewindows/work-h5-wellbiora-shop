@@ -76,28 +76,32 @@ describe('WechatCustomsService（自助清关报关）', () => {
     await expect(service.submitDeclaration(input)).rejects.toThrow(/AUTHORITY_NOT_FOUND/)
   })
 
-  it('报关查询命中查询接口并解析状态', async () => {
-    const fetchImpl: typeof fetch = (async (url: string | URL) => {
+  it('报关查询命中查询接口并解析状态（请求必传 customs，应答字段带序号后缀）', async () => {
+    let capturedBody = ''
+    const fetchImpl: typeof fetch = (async (url: string | URL, init?: RequestInit) => {
       expect(String(url)).toBe('https://api.mch.weixin.qq.com/cgi-bin/mch/customs/customdeclarequery')
-      return xmlResponse({ return_code: 'SUCCESS', result_code: 'SUCCESS', state: 'SUCCESS', cert_check_result: 'SAME' })
+      capturedBody = String(init?.body ?? '')
+      return xmlResponse({ return_code: 'SUCCESS', result_code: 'SUCCESS', count: '1', state_0: 'SUCCESS', cert_check_result_0: 'SAME' })
     }) as typeof fetch
     const service = createService(fetchImpl)
 
     await expect(service.queryDeclaration(input.orderNo, input.transactionId)).resolves.toMatchObject({ state: 'SUCCESS', certCheckResult: 'SAME' })
+    // customs 为查询接口必填参数，漏传微信侧报 customs invalid（2026-09-16 真实踩坑）
+    expect(capturedBody).toContain('<customs>ZONGSHU</customs>')
   })
 
   it('报关查询回执保留全部原始字段（含海关异常说明），并剔除签名', async () => {
     const fetchImpl: typeof fetch = (async () =>
       xmlResponse({
-        return_code: 'SUCCESS', result_code: 'SUCCESS', state: 'EXCEPT', cert_check_result: 'SAME',
-        explanation: '电商企业备案信息不存在', modify_time: '20260916172000', sign: 'SHOULD_BE_STRIPPED',
+        return_code: 'SUCCESS', result_code: 'SUCCESS', count: '1', state_0: 'EXCEPT', cert_check_result_0: 'SAME',
+        explanation_0: '电商企业备案信息不存在', modify_time_0: '20260916172000', sign: 'SHOULD_BE_STRIPPED',
       })) as typeof fetch
     const service = createService(fetchImpl)
 
     const result = await service.queryDeclaration(input.orderNo, input.transactionId)
 
     expect(result.state).toBe('EXCEPT')
-    expect(result.detail).toMatchObject({ explanation: '电商企业备案信息不存在', modify_time: '20260916172000' })
+    expect(result.detail).toMatchObject({ explanation_0: '电商企业备案信息不存在', modify_time_0: '20260916172000' })
     expect(result.detail).not.toHaveProperty('sign')
   })
 
