@@ -130,14 +130,14 @@ onMounted(fetchList)
       @current-change="onPageChange"
     />
 
-    <el-dialog v-model="detailVisible" title="变更数据（改前 → 改后）" width="760px">
+    <el-drawer v-model="detailVisible" title="变更数据（改前 → 改后）" size="640px">
       <template v-if="detailRecord">
         <h4 class="json-title">改前</h4>
         <pre class="json-view">{{ formatJson(detailRecord.beforeData) }}</pre>
         <h4 class="json-title">改后</h4>
         <pre class="json-view">{{ formatJson(detailRecord.afterData) }}</pre>
       </template>
-    </el-dialog>
+    </el-drawer>
   </div>
 </template>
 

@@ -295,8 +295,8 @@ onMounted(load)
         </template>
       </el-dialog>
 
-      <!-- 报关状态查询结果对话框（文本渲染，不用 v-html） -->
-      <el-dialog v-model="customsVisible" title="海关申报回执" width="560px">
+      <!-- 报关状态查询结果抽屉（只读长内容走抽屉规范；文本渲染，不用 v-html） -->
+      <el-drawer v-model="customsVisible" title="海关申报回执" size="640px">
         <template v-if="customsResult">
           <el-descriptions :column="2" border class="info-block">
             <el-descriptions-item label="申报状态">
@@ -323,7 +323,7 @@ onMounted(load)
           <el-button @click="customsVisible = false">关闭</el-button>
           <el-button type="primary" :loading="customsLoading" @click="onQueryCustoms">重新查询</el-button>
         </template>
-      </el-dialog>
+      </el-drawer>
     </template>
   </div>
 </template>
