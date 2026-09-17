@@ -171,6 +171,26 @@ export interface AuditLogRecord {
   createdAt: string
 }
 
+/** 管理员角色：super=超级管理员（可管理其他管理员），admin=普通管理员 */
+export type AdminRole = 'super' | 'admin'
+
+/** 管理员账号（AdminAccountView，绝不含密码哈希） */
+export interface AdminAccount {
+  id: string
+  username: string
+  role: AdminRole
+  disabled: boolean
+  /** 首登/重置后强制改密标记 */
+  mustChangePassword: boolean
+  createdAt: string
+}
+
+/** 新建/重置密码响应：一次性临时密码仅本次响应可见 */
+export interface AdminAccountWithTempPassword {
+  account: AdminAccount
+  tempPassword: string
+}
+
 /** 分页响应壳内的 data 形状 */
 export interface PageResult<T> {
   total: number

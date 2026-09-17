@@ -15,7 +15,7 @@ import { RefundService } from './refund.service'
 import type { WechatCustomsService } from '../payments/wechat-customs.service'
 
 describe('AdminOrderService', () => {
-  const actor = { id: 'admin-1', username: 'operator' }
+  const actor = { id: 'admin-1', username: 'operator', role: 'super' as const, mustChangePassword: false }
   const crypto = new PersonalDataCryptoService(Buffer.alloc(32, 5).toString('base64'))
   let orders: InMemoryOrderRepository
   let warehouse: LocalWarehouseAdapter

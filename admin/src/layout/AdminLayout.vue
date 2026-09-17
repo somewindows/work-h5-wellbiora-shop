@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// 主布局：侧边菜单 + 顶栏（当前管理员、退出登录）
-import { Document, Goods, Tickets, User } from '@element-plus/icons-vue'
+// 主布局：侧边菜单 + 顶栏（当前管理员下拉：修改密码/退出登录）
+import { ArrowDown, Avatar, Document, Goods, Tickets, User } from '@element-plus/icons-vue'
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -20,7 +20,12 @@ const activeMenu = computed(() => {
 
 const pageTitle = computed(() => (route.meta.title as string) ?? '')
 
-function onLogout(): void {
+// 顶栏管理员下拉菜单
+function onAdminCommand(command: 'change-password' | 'logout'): void {
+  if (command === 'change-password') {
+    void router.push('/change-password')
+    return
+  }
   auth.logout()
   void router.push('/login')
 }
@@ -50,14 +55,28 @@ function onLogout(): void {
           <el-icon><Document /></el-icon>
           <span>操作日志</span>
         </el-menu-item>
+        <!-- 账号管理仅超级管理员可见（服务端仍逐接口回查角色） -->
+        <el-menu-item v-if="auth.isSuper" index="/accounts">
+          <el-icon><Avatar /></el-icon>
+          <span>管理员</span>
+        </el-menu-item>
       </el-menu>
     </el-aside>
     <el-container>
       <el-header class="header">
         <div class="page-title">{{ pageTitle }}</div>
         <div class="header-right">
-          <span class="admin-name">{{ auth.username }}</span>
-          <el-button size="small" @click="onLogout">退出登录</el-button>
+          <el-dropdown trigger="click" @command="onAdminCommand">
+            <span class="admin-name">
+              {{ auth.username }}<el-icon class="admin-name-arrow"><ArrowDown /></el-icon>
+            </span>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="change-password">修改密码</el-dropdown-item>
+                <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
         </div>
       </el-header>
       <el-main class="main">
@@ -117,8 +136,17 @@ function onLogout(): void {
 }
 
 .admin-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 14px;
   color: #606266;
+  cursor: pointer;
+  outline: none;
+}
+
+.admin-name-arrow {
+  font-size: 12px;
 }
 
 .main {

@@ -4,20 +4,15 @@ import { JwtService } from '@nestjs/jwt'
 import { BusinessException } from '../common/business.exception'
 
 import { AdminPasswordService } from './password.service'
-import { ADMIN_ACCOUNTS_REPOSITORY } from './admin-accounts.repository'
+import { ADMIN_ACCOUNTS_REPOSITORY, type AdminAccountRecord, type AdminAccountsRepository, type AdminRole } from './admin-accounts.repository'
 import { ADMIN_LOGIN_RATE_LIMIT_STORE, type AdminLoginRateLimitStore } from './admin-login-rate-limit.store'
 
-export interface AdminAccountRecord {
-  id: string
-  username: string
-  passwordHash: string
-  createdAt: Date
-  updatedAt: Date
-}
+export { type AdminAccountRecord, type AdminAccountsRepository } from './admin-accounts.repository'
 
-export interface AdminAccountsRepository {
-  findByUsername(username: string): Promise<AdminAccountRecord | null>
-  create(input: Pick<AdminAccountRecord, 'username' | 'passwordHash'>): Promise<AdminAccountRecord>
+/** 登录成功的管理员公开信息（绝不含密码哈希） */
+export interface AdminLoginResult {
+  token: string
+  admin: { id: string; username: string; role: AdminRole; mustChangePassword: boolean }
 }
 
 @Injectable()
@@ -29,15 +24,17 @@ export class AdminAuthService {
     @Inject(ADMIN_LOGIN_RATE_LIMIT_STORE) private readonly rateLimit: AdminLoginRateLimitStore,
   ) {}
 
+  /** 播种初始管理员：始终是超级管理员（否则无人能管理其他管理员账号） */
   async ensureInitialAdmin(username: string, password: string): Promise<{ id: string; username: string }> {
     const existing = await this.repository.findByUsername(username)
-    if (existing) return this.toPublicAdmin(existing)
+    if (existing) return { id: existing.id, username: existing.username }
 
     const passwordHash = await this.passwordService.hash(password)
-    return this.toPublicAdmin(await this.repository.create({ username, passwordHash }))
+    const created = await this.repository.create({ username, passwordHash, role: 'super' })
+    return { id: created.id, username: created.username }
   }
 
-  async login(username: string, password: string, ip: string): Promise<{ token: string; admin: { id: string; username: string } }> {
+  async login(username: string, password: string, ip: string): Promise<AdminLoginResult> {
     const rateLimitKeys = [`account:${username}`, `ip:${ip || 'unknown'}`]
     for (const key of rateLimitKeys) await this.rateLimit.assertAllowed(key)
 
@@ -46,15 +43,19 @@ export class AdminAuthService {
       for (const key of rateLimitKeys) await this.rateLimit.recordFailure(key)
       throw new BusinessException(40101, '管理员账号或密码错误', HttpStatus.UNAUTHORIZED)
     }
+    if (admin.disabled) {
+      throw new BusinessException(40301, '账号已被禁用，请联系超级管理员', HttpStatus.FORBIDDEN)
+    }
 
     for (const key of rateLimitKeys) await this.rateLimit.reset(key)
     return {
+      // JWT 载荷只作身份标识，角色/状态以守卫回查库为准（禁用立即生效）
       token: await this.jwtService.signAsync({ sub: admin.id, username: admin.username, role: 'admin' }),
       admin: this.toPublicAdmin(admin),
     }
   }
 
-  private toPublicAdmin(admin: AdminAccountRecord): { id: string; username: string } {
-    return { id: admin.id, username: admin.username }
+  private toPublicAdmin(admin: AdminAccountRecord): AdminLoginResult['admin'] {
+    return { id: admin.id, username: admin.username, role: admin.role, mustChangePassword: admin.mustChangePassword }
   }
 }

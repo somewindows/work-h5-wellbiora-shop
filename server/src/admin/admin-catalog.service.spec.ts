@@ -11,7 +11,7 @@ import { CreateAdminProductDto } from './dto/create-admin-product.dto'
 import { UpdateAdminProductDto } from './dto/update-admin-product.dto'
 
 describe('AdminCatalogService', () => {
-  const actor = { id: 'admin-1', username: 'operator' }
+  const actor = { id: 'admin-1', username: 'operator', role: 'super' as const, mustChangePassword: false }
   const product: ProductDetail = {
     id: 'WB10001', name: '测试商品', en: 'Test product', priceFen: 100,
     theme: '#000000', themeLight: '#FFFFFF', cardImg: '/assets/test.jpg', tags: [],
@@ -168,7 +168,7 @@ describe('AdminCatalogService', () => {
     // 并发双方会先分配到相同的最小空号，insert-only 撞唯一键后落败方重新分配
     const [first, second] = await Promise.all([
       service.createProduct(dto, actor),
-      service.createProduct(dto, { id: 'admin-2', username: 'operator-2' }),
+      service.createProduct(dto, { id: 'admin-2', username: 'operator-2', role: 'admin', mustChangePassword: false }),
     ])
 
     expect(first.id).not.toBe(second.id)
@@ -240,7 +240,7 @@ describe('AdminCatalogService', () => {
     await service.saveDraftBlocks('WB10001', [{ type: 'gallery', images: ['/assets/next.jpg'] }])
     await service.publishDraft('WB10001', actor) // v1 → v2
 
-    const results = await Promise.allSettled([service.rollback('WB10001', actor), service.rollback('WB10001', { id: 'admin-2', username: 'operator-2' })])
+    const results = await Promise.allSettled([service.rollback('WB10001', actor), service.rollback('WB10001', { id: 'admin-2', username: 'operator-2', role: 'admin', mustChangePassword: false })])
 
     const fulfilled = results.filter((result) => result.status === 'fulfilled')
     const rejected = results.filter((result) => result.status === 'rejected')

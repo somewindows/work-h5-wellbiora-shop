@@ -16,6 +16,8 @@ import { CONTENT_VERSION_REPOSITORY, InMemoryContentVersionRepository, TypeOrmCo
 import { ADMIN_ACCOUNTS_REPOSITORY, InMemoryAdminAccountsRepository, TypeOrmAdminAccountsRepository } from './admin-accounts.repository'
 import { ADMIN_LOGIN_RATE_LIMIT_STORE, InMemoryAdminLoginRateLimitStore, MySqlAdminLoginRateLimitStore } from './admin-login-rate-limit.store'
 import { AdminAuditLogController } from './admin-audit-log.controller'
+import { AdminAccountsController } from './admin-accounts.controller'
+import { AdminAccountsService } from './admin-accounts.service'
 import { AdminAuthController } from './admin-auth.controller'
 import { AdminCatalogController } from './admin-catalog.controller'
 import { AdminCatalogService } from './admin-catalog.service'
@@ -33,10 +35,11 @@ export class AdminModule {
       global: true,
       module: AdminModule,
       imports: isTest ? [AuthModule] : [AuthModule, TypeOrmModule.forFeature([AdminAccountEntity, AuditLogEntity, ContentVersionEntity, AdminLoginRateLimitEntity])],
-      controllers: [AdminAuthController, AdminCatalogController, AdminAuditLogController],
+      controllers: [AdminAuthController, AdminAccountsController, AdminCatalogController, AdminAuditLogController],
       providers: [
         AdminPasswordService,
         AdminAuthService,
+        AdminAccountsService,
         AdminCatalogService,
         AuditLogService,
         AdminJwtAuthGuard,
@@ -56,8 +59,8 @@ export class AdminModule {
           },
         },
       ],
-      // 全局导出给订单等模块复用（管理员鉴权守卫 + 审计日志）
-      exports: [AuditLogService, AdminJwtAuthGuard, AUDIT_LOG_REPOSITORY],
+      // 全局导出给订单/用户等模块复用（管理员鉴权守卫 + 审计日志 + 守卫回查库所需的账号仓储）
+      exports: [AuditLogService, AdminJwtAuthGuard, AUDIT_LOG_REPOSITORY, ADMIN_ACCOUNTS_REPOSITORY],
     }
   }
 }

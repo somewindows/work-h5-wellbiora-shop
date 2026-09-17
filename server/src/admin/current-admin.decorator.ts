@@ -5,5 +5,5 @@ import type { AdminActor } from './audit-log.service'
 
 export const CurrentAdmin = createParamDecorator((_data: unknown, context: ExecutionContext): AdminActor => {
   const request = context.switchToHttp().getRequest<AuthenticatedAdminRequest>()
-  return request.admin ?? { id: '', username: '' }
+  return request.admin ?? { id: '', username: '', role: 'admin', mustChangePassword: false }
 })

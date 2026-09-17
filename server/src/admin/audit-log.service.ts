@@ -1,8 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common'
 
 import { AUDIT_LOG_REPOSITORY, type AuditLogPageQuery, type AuditLogRecord, type AuditLogRepository } from './audit-log.repository'
+import type { AdminRole } from './admin-accounts.repository'
 
-export interface AdminActor { id: string; username: string }
+export interface AdminActor { id: string; username: string; role: AdminRole; mustChangePassword: boolean }
 
 @Injectable()
 export class AuditLogService {

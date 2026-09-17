@@ -8,7 +8,7 @@ import { AdminUsersService } from './admin-users.service'
 import type { UserEntity } from './user.entity'
 import { InMemoryUsersRepository } from './users.repository'
 
-const actor: AdminActor = { id: 'admin-1', username: 'operator' }
+const actor: AdminActor = { id: 'admin-1', username: 'operator', role: 'super', mustChangePassword: false }
 
 describe('AdminUsersService', () => {
   let users: InMemoryUsersRepository
