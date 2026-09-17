@@ -16,6 +16,8 @@ import { loadWechatPayConfig, WECHAT_PAY_CONFIG, type WechatPayConfig } from '..
 
 import { AdminOrderController } from './admin-order.controller'
 import { AdminOrderService } from './admin-order.service'
+import { AdminStatsController } from './admin-stats.controller'
+import { AdminStatsService } from './admin-stats.service'
 import { LocalPaymentAdapter, PAYMENT_ADAPTER } from './local-payment.adapter'
 import { LocalWarehouseAdapter } from './local-warehouse.adapter'
 import { OrderExpiryJob } from './order-expiry.job'
@@ -53,8 +55,8 @@ export class OrdersModule {
         ? [AuthModule, CartModule.register(), ProfileModule.register(), SecurityModule, UsersModule.register(), PaymentsModule.register()]
         : [AuthModule, CartModule.register(), ProfileModule.register(), SecurityModule, UsersModule.register(), PaymentsModule.register(), TypeOrmModule.forFeature([OrderEntity, OrderItemEntity, OrderStatusEventEntity, RefundEntity])],
       controllers: wechatPayConfigured
-        ? [OrderController, AdminOrderController, PaymentNotifyController]
-        : [OrderController, AdminOrderController],
+        ? [OrderController, AdminOrderController, AdminStatsController, PaymentNotifyController]
+        : [OrderController, AdminOrderController, AdminStatsController],
       providers: [
         TaskSchedulerService,
         OrderExpiryJob,
@@ -63,6 +65,7 @@ export class OrdersModule {
         RefundSettleJob,
         OrderService,
         AdminOrderService,
+        AdminStatsService,
         RefundService,
         { provide: ORDER_REPOSITORY, useClass: isTest ? InMemoryOrderRepository : TypeOrmOrderRepository },
         { provide: REFUND_REPOSITORY, useClass: isTest ? InMemoryRefundRepository : TypeOrmRefundRepository },

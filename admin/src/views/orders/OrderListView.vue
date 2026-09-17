@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // 订单列表页：状态 Tab、关键字（订单号/手机号）、日期范围、分页；海关退单醒目标记
 import { onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
 import { listOrders, exportOrdersCsv } from '@/api/orders'
@@ -11,12 +11,18 @@ import { formatDateTime, formatMoney } from '@/utils/format'
 import { ORDER_STATUS_TABS, orderStatusMeta, paymentStatusMeta } from '@/utils/status'
 
 const router = useRouter()
+const route = useRoute()
+
+// 支持外部带状态筛选进入（如数据概览「待发货」卡片跳 /orders?status=ship），非法值按「全部」处理
+const initialStatus = typeof route.query.status === 'string' && ORDER_STATUS_TABS.some((tab) => tab.key === route.query.status)
+  ? route.query.status
+  : ''
 
 const loading = ref(false)
 const exporting = ref(false)
 const list = ref<AdminOrderListItem[]>([])
 const total = ref(0)
-const query = reactive({ status: '', keyword: '', range: null as [string, string] | null, page: 1, pageSize: 20 })
+const query = reactive({ status: initialStatus, keyword: '', range: null as [string, string] | null, page: 1, pageSize: 20 })
 
 async function fetchList(): Promise<void> {
   loading.value = true

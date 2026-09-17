@@ -208,4 +208,30 @@ describe('后台订单管理（e2e）', () => {
     const logs = await request(app.getHttpServer()).get('/api/v1/admin/audit-logs?action=export_orders').set(admin()).expect(200)
     expect(logs.body.data.list.some((log: { afterData: { count: number } }) => log.afterData?.count === 1)).toBe(true)
   })
+
+  it('未登录访问数据概览返回 401', async () => {
+    const response = await request(app.getHttpServer()).get('/api/v1/admin/stats/overview').expect(401)
+    expect(response.body).toMatchObject({ code: 40101 })
+  })
+
+  it('数据概览：结构完整，今日计数覆盖本用例新建/新支付订单', async () => {
+    await createPaidOrder()
+    await createOrder()
+
+    const overview = await request(app.getHttpServer()).get('/api/v1/admin/stats/overview').set(admin()).expect(200)
+    const data = overview.body.data
+    expect(data.today.orderCount).toBeGreaterThanOrEqual(2)
+    expect(data.today.paidCount).toBeGreaterThanOrEqual(1)
+    expect(data.today.paidTotalFen).toBeGreaterThanOrEqual(28900)
+    expect(data.pendingShipment).toBeGreaterThanOrEqual(1)
+    expect(typeof data.refundingCount).toBe('number')
+    // 趋势固定 7 天、升序、最后一天是今天（本地时区）且含本用例订单
+    expect(data.trend).toHaveLength(7)
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const now = new Date()
+    const todayKey = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+    expect(data.trend[6].date).toBe(todayKey)
+    expect(data.trend[6].orderCount).toBeGreaterThanOrEqual(2)
+    expect(data.trend[0].date < data.trend[6].date).toBe(true)
+  })
 })

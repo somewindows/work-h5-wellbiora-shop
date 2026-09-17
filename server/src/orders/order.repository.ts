@@ -60,6 +60,26 @@ export interface OrderRepository {
   findAdminPage(query: AdminOrderPageQuery): Promise<{ total: number; list: OrderRecord[] }>
   /** 后台订单导出（R08）：与 findAdminPage 同筛选条件但不分页，按创建时间倒序，limit 封顶截断 */
   findAdminExport(query: AdminOrderExportQuery, limit: number): Promise<OrderRecord[]>
+  /** 后台数据概览：按创建时间统计区间订单数（含两端，日界由调用方按服务器本地时区计算） */
+  countCreatedBetween(from: Date, to: Date): Promise<number>
+  /**
+   * 后台数据概览：区间内支付的订单数与实付合计（分）。
+   * 口径：paid_at 落在区间（含两端）且 paymentStatus IN ('paid','refunding','refunded')
+   * ——待支付/未付款取消不计；退款中/已退款仍计入支付事实（退款金额不在此冲抵）。
+   * 金额取 COALESCE(payer_total_fen, total_fen)：实付优先，历史订单缺实付时回落订单总额。
+   */
+  sumPaidBetween(from: Date, to: Date): Promise<{ count: number; totalFen: number }>
+  /** 后台数据概览：按订单状态计数（待发货 = ship） */
+  countByStatus(status: string): Promise<number>
+  /** 后台数据概览：按支付状态计数（退款中 = refunding） */
+  countByPaymentStatus(paymentStatus: string): Promise<number>
+  /**
+   * 后台数据概览：近 N 天订单趋势——[from, to) 内按天统计创建订单数。
+   * 分桶口径 = 服务器本地日期（TypeORM 用 DATE_FORMAT(created_at) 分桶，依赖 MySQL 会话时区
+   * 与 Node 本地时区一致——生产同机部署在国内，满足此假设）；内存实现按本地日期字符串分桶。
+   * 只返回有单日期，调用方负责补零。
+   */
+  countCreatedPerDay(from: Date, to: Date): Promise<{ date: string; count: number }[]>
   /**
    * 后台用户列表/详情聚合：按用户统计 订单数（全部订单 COUNT）与累计消费
    * （paymentStatus IN ('paid','refunding','refunded') 的 total_fen 合计——已支付口径，含退款中/已退款）。
@@ -228,6 +248,36 @@ export class TypeOrmOrderRepository implements OrderRepository {
     if (query.to) builder.andWhere('order.created_at <= :to', { to: query.to })
     return builder.take(limit).getMany()
   }
+  countCreatedBetween(from: Date, to: Date): Promise<number> {
+    return this.orders.count({ where: { createdAt: Between(from, to) } })
+  }
+  async sumPaidBetween(from: Date, to: Date): Promise<{ count: number; totalFen: number }> {
+    const row = await this.orders.createQueryBuilder('order')
+      .select('COUNT(*)', 'count')
+      // 实付口径：payer_total_fen 优先，历史订单缺实付回落订单总额
+      .addSelect('COALESCE(SUM(COALESCE(order.payer_total_fen, order.total_fen)), 0)', 'totalFen')
+      .where("order.payment_status IN ('paid','refunding','refunded')")
+      .andWhere({ paidAt: Between(from, to) })
+      .getRawOne<{ count: string; totalFen: string }>()
+    return { count: Number(row?.count ?? 0), totalFen: Number(row?.totalFen ?? 0) }
+  }
+  countByStatus(status: string): Promise<number> {
+    return this.orders.count({ where: { status } })
+  }
+  countByPaymentStatus(paymentStatus: string): Promise<number> {
+    return this.orders.count({ where: { paymentStatus } })
+  }
+  async countCreatedPerDay(from: Date, to: Date): Promise<{ date: string; count: number }[]> {
+    const rows = await this.orders.createQueryBuilder('order')
+      // DATE_FORMAT 返回字符串，避免 mysql2 把 DATE() 结果转成 JS Date 造成时区偏移
+      .select("DATE_FORMAT(order.created_at, '%Y-%m-%d')", 'date')
+      .addSelect('COUNT(*)', 'count')
+      .where('order.created_at >= :from AND order.created_at < :to', { from, to })
+      .groupBy("DATE_FORMAT(order.created_at, '%Y-%m-%d')")
+      .orderBy('date', 'ASC')
+      .getRawMany<{ date: string; count: string }>()
+    return rows.map((row) => ({ date: row.date, count: Number(row.count) }))
+  }
   async markWarehousePushed(orderId: string, warehouseStatus: string): Promise<boolean> {
     const result = await this.orders.update(
       { id: orderId, status: 'ship', paymentStatus: 'paid', warehouseStatus: IsNull() },
@@ -329,6 +379,38 @@ export class InMemoryOrderRepository implements OrderRepository {
       .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())
       .slice(0, limit)
       .map((order) => ({ ...order }))
+  }
+  async countCreatedBetween(from: Date, to: Date): Promise<number> {
+    return [...this.orders.values()].filter((order) => order.createdAt >= from && order.createdAt <= to).length
+  }
+  async sumPaidBetween(from: Date, to: Date): Promise<{ count: number; totalFen: number }> {
+    let count = 0
+    let totalFen = 0
+    for (const order of this.orders.values()) {
+      // 与 TypeORM 同口径：paid_at 落在区间 + 已支付三状态；金额实付优先
+      if (!order.paidAt || order.paidAt < from || order.paidAt > to) continue
+      if (order.paymentStatus !== 'paid' && order.paymentStatus !== 'refunding' && order.paymentStatus !== 'refunded') continue
+      count += 1
+      totalFen += order.payerTotalFen ?? order.totalFen
+    }
+    return { count, totalFen }
+  }
+  async countByStatus(status: string): Promise<number> {
+    return [...this.orders.values()].filter((order) => order.status === status).length
+  }
+  async countByPaymentStatus(paymentStatus: string): Promise<number> {
+    return [...this.orders.values()].filter((order) => order.paymentStatus === paymentStatus).length
+  }
+  async countCreatedPerDay(from: Date, to: Date): Promise<{ date: string; count: number }[]> {
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const buckets = new Map<string, number>()
+    for (const order of this.orders.values()) {
+      if (order.createdAt < from || order.createdAt >= to) continue
+      // 本地日期字符串分桶，与 MySQL DATE_FORMAT('%Y-%m-%d') 口径一致
+      const key = `${order.createdAt.getFullYear()}-${pad(order.createdAt.getMonth() + 1)}-${pad(order.createdAt.getDate())}`
+      buckets.set(key, (buckets.get(key) ?? 0) + 1)
+    }
+    return [...buckets.entries()].map(([date, count]) => ({ date, count })).sort((left, right) => left.date.localeCompare(right.date))
   }
   async summarizeByUsers(userIds: string[]): Promise<Record<string, { orderCount: number; paidTotalFen: number }>> {
     const result: Record<string, { orderCount: number; paidTotalFen: number }> = {}

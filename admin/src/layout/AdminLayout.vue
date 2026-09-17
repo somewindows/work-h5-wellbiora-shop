@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // 主布局：侧边菜单 + 顶栏（当前管理员下拉：修改密码/退出登录）
-import { ArrowDown, Avatar, Document, Goods, Tickets, User } from '@element-plus/icons-vue'
+import { ArrowDown, Avatar, Document, Goods, Odometer, Tickets, User } from '@element-plus/icons-vue'
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -39,6 +39,10 @@ function onAdminCommand(command: 'change-password' | 'logout'): void {
         <div class="logo-sub">运营后台</div>
       </div>
       <el-menu :default-active="activeMenu" router background-color="#033b3c" text-color="#b9d4d0" active-text-color="#ffffff">
+        <el-menu-item index="/overview">
+          <el-icon><Odometer /></el-icon>
+          <span>数据概览</span>
+        </el-menu-item>
         <el-menu-item index="/products">
           <el-icon><Goods /></el-icon>
           <span>商品管理</span>

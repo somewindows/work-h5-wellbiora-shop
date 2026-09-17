@@ -17,8 +17,9 @@ export const router = createRouter({
     {
       path: '/',
       component: AdminLayout,
-      redirect: '/products',
+      redirect: '/overview',
       children: [
+        { path: 'overview', name: 'overview', component: () => import('@/views/OverviewView.vue'), meta: { title: '数据概览' } },
         { path: 'products', name: 'products', component: () => import('@/views/products/ProductListView.vue'), meta: { title: '商品管理' } },
         { path: 'products/:id', name: 'product-edit', component: () => import('@/views/products/ProductEditView.vue'), meta: { title: '商品编辑' } },
         { path: 'orders', name: 'orders', component: () => import('@/views/orders/OrderListView.vue'), meta: { title: '订单管理' } },
@@ -30,15 +31,15 @@ export const router = createRouter({
         { path: 'change-password', name: 'change-password', component: () => import('@/views/ChangePasswordView.vue'), meta: { title: '修改密码' } },
       ],
     },
-    { path: '/:pathMatch(.*)*', redirect: '/products' },
+    { path: '/:pathMatch(.*)*', redirect: '/overview' },
   ],
 })
 
-// 路由守卫：未登录一律跳 /login；已登录访问 /login 跳首页；
+// 路由守卫：未登录一律跳 /login；已登录访问 /login 跳首页（数据概览）；
 // 强制改密期间只能访问修改密码页；账号管理页仅超级管理员
 router.beforeEach((to) => {
   if (to.meta.public) {
-    return isLoggedIn() ? { path: '/products' } : true
+    return isLoggedIn() ? { path: '/overview' } : true
   }
   if (!isLoggedIn()) {
     return { path: '/login', query: { redirect: to.fullPath } }
@@ -47,7 +48,7 @@ router.beforeEach((to) => {
     return { path: '/change-password' }
   }
   if (to.path.startsWith('/accounts') && getAdminRole() !== 'super') {
-    return { path: '/products' }
+    return { path: '/overview' }
   }
   return true
 })

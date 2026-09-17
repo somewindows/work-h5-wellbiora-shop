@@ -201,6 +201,24 @@ export interface PageResult<T> {
   list: T[]
 }
 
+/** 数据概览单日统计（AdminStatsDay）：订单数按创建时间，支付数/金额按 paid_at */
+export interface StatsOverviewDay {
+  orderCount: number
+  paidCount: number
+  paidTotalFen: number
+}
+
+/** 数据概览（AdminStatsOverview）：今日/昨日 + 待发货 + 退款中 + 近 7 天趋势（含今天，日期升序，零单已补零） */
+export interface StatsOverview {
+  today: StatsOverviewDay
+  yesterday: StatsOverviewDay
+  /** 待发货订单数（status = ship） */
+  pendingShipment: number
+  /** 退款中笔数（paymentStatus = refunding） */
+  refundingCount: number
+  trend: { date: string; orderCount: number }[]
+}
+
 /** 统一响应壳（api-response.interceptor / http-exception.filter） */
 export interface ApiResponse<T> {
   code: number
