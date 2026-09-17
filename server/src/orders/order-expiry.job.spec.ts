@@ -16,6 +16,7 @@ describe('OrderExpiryJob', () => {
       warehouseStatus: null, totalFen: 32900, realnameName: '张三', idcardEncrypted: 'x', idcardFingerprint: 'fp',
       receiverName: '张三', receiverPhone: '13800000000', receiverRegion: 'r', receiverDetail: 'd',
       paidAt: null, cancelledAt: null, systemRemark: null, refundFen: null, refundedAt: null, wechatTransactionId: null,
+      customsDeclareStatus: null, customsDeclaredAt: null,
     }))
     return orders.saveOrder({ ...order, ...overrides })
   }

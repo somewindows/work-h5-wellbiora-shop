@@ -34,6 +34,11 @@ export function queryCustomsDeclaration(orderNo: string): Promise<AdminCustomsDe
   return request.get(`/admin/orders/${orderNo}/customs-declaration`)
 }
 
+/** 人工重推履约：推仓/申报/申报状态收敛，各步幂等（R10 人工恢复入口） */
+export function retryFulfillment(orderNo: string): Promise<AdminOrderDetail> {
+  return request.post(`/admin/orders/${orderNo}/retry-fulfillment`)
+}
+
 /** 取消订单：confirm:true 只能由二次确认对话框触发，服务端缺省会 40003 拒绝 */
 export function cancelOrder(orderNo: string): Promise<AdminOrderDetail> {
   return request.post(`/admin/orders/${orderNo}/cancel`, { confirm: true })

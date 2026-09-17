@@ -4,6 +4,8 @@ interface ScheduledTask {
   name: string
   intervalMs: number
   run: () => Promise<void>
+  /** 单任务重叠保护：上一轮未结束时跳过本轮，避免同一任务并发执行（R10 评审建议） */
+  running?: boolean
 }
 
 /**
@@ -40,10 +42,14 @@ export class TaskSchedulerService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async runSafely(task: ScheduledTask): Promise<void> {
+    if (task.running) return
+    task.running = true
     try {
       await task.run()
     } catch (error) {
       this.logger.error(`后台任务 ${task.name} 执行失败（下轮重试）`, error instanceof Error ? error.stack : String(error))
+    } finally {
+      task.running = false
     }
   }
 }

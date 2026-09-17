@@ -34,6 +34,7 @@ describe('RefundSettleJob', () => {
       warehouseStatus: 'local-accepted', totalFen: 32900, realnameName: '张三', idcardEncrypted: 'x', idcardFingerprint: 'fp',
       receiverName: '张三', receiverPhone: '13800000000', receiverRegion: 'r', receiverDetail: 'd',
       paidAt: new Date(), cancelledAt: null, systemRemark: null, refundFen: null, refundedAt: null, wechatTransactionId: 'tx-1',
+      customsDeclareStatus: null, customsDeclaredAt: null,
     }))
   })
 

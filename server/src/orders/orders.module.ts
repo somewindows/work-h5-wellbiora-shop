@@ -19,6 +19,8 @@ import { AdminOrderService } from './admin-order.service'
 import { LocalPaymentAdapter, PAYMENT_ADAPTER } from './local-payment.adapter'
 import { LocalWarehouseAdapter } from './local-warehouse.adapter'
 import { OrderExpiryJob } from './order-expiry.job'
+import { OrderFulfillmentJob } from './order-fulfillment.job'
+import { OrderFulfillmentService } from './order-fulfillment.service'
 import { OrderController } from './order.controller'
 import { OrderEntity } from './order.entity'
 import { OrderItemEntity } from './order-item.entity'
@@ -48,6 +50,8 @@ export class OrdersModule {
       providers: [
         TaskSchedulerService,
         OrderExpiryJob,
+        OrderFulfillmentJob,
+        OrderFulfillmentService,
         RefundSettleJob,
         OrderService,
         AdminOrderService,

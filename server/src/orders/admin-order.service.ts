@@ -6,6 +6,7 @@ import { WechatCustomsService } from '../payments/wechat-customs.service'
 import { PersonalDataCryptoService } from '../security/personal-data-crypto.service'
 
 import type { AdminOrderQueryDto, AdminOrderConfirmDto, AdminOrderRefundDto } from './admin-order.dto'
+import { OrderFulfillmentService } from './order-fulfillment.service'
 import { PAYMENT_ADAPTER, type PaymentAdapter } from './local-payment.adapter'
 import { ORDER_REPOSITORY, type OrderRecord, type OrderRepository, type OrderStatusEventRecord } from './order.repository'
 import { OrderService } from './order.service'
@@ -63,6 +64,9 @@ export interface AdminOrderDetail extends AdminOrderListItem {
   refundableFen: number
   refunds: { refundNo: string; amountFen: number; status: string; channel: string; reason: string | null; succeededAt: string | null; createdAt: string }[]
   cancelledAt: string | null
+  /** 复审 R10：海关申报回执状态（null = 未申报，待履约收敛/人工重推） */
+  customsDeclareStatus: string | null
+  customsDeclaredAt: string | null
   statusEvents: { fromStatus: string | null; toStatus: string; source: string; remark: string | null; createdAt: string }[]
 }
 
@@ -89,6 +93,7 @@ export class AdminOrderService {
     private readonly audit: AuditLogService,
     private readonly orderService: OrderService,
     private readonly refundService: RefundService,
+    private readonly fulfillment: OrderFulfillmentService,
     @Optional() private readonly customs?: WechatCustomsService,
   ) {}
 
@@ -127,6 +132,8 @@ export class AdminOrderService {
         reason: refund.reason, succeededAt: refund.succeededAt?.toISOString() ?? null, createdAt: refund.createdAt.toISOString(),
       })),
       cancelledAt: order.cancelledAt?.toISOString() ?? null,
+      customsDeclareStatus: order.customsDeclareStatus,
+      customsDeclaredAt: order.customsDeclaredAt?.toISOString() ?? null,
       statusEvents: events.map((event) => this.toEventResponse(event)),
     }
   }
@@ -195,6 +202,37 @@ export class AdminOrderService {
     return { orderNo, transactionId: order.wechatTransactionId, ...result }
   }
 
+  /**
+   * 人工重推履约（复审 R10 人工恢复入口）：对已支付待发货订单重跑推仓/申报/申报状态收敛。
+   * 推仓与在途收敛幂等；申报终态（EXCEPT/FAIL，业务问题已人工处理后）先重置为未申报再重推——
+   * 重置是条件更新，并发重推只有一个生效，微信侧重复申报本身幂等。
+   */
+  async retryFulfillment(orderNo: string, actor: AdminActor): Promise<AdminOrderDetail> {
+    const order = await this.requireOrder(orderNo)
+    if (order.paymentStatus !== 'paid' || order.status !== 'ship') {
+      throw new BusinessException(40002, '仅已支付待发货的订单支持重推履约')
+    }
+    await this.fulfillment.pushWarehouseIfNeeded(orderNo)
+    if (order.customsDeclareStatus === 'EXCEPT' || order.customsDeclareStatus === 'FAIL') {
+      // 报关能力未启用时拒绝重置：否则终态被清回未申报却无法重推，订单卡在中间态
+      if (!this.fulfillment.customsEnabled()) {
+        throw new BusinessException(40002, '报关能力未启用（缺少 APIv2 密钥等配置），无法重推申报')
+      }
+      const reset = await this.orderRepository.resetCustomsDeclarationIfTerminal(order.id)
+      if (reset) {
+        await this.orderRepository.recordStatusEvent({
+          orderId: order.id, fromStatus: order.status, toStatus: order.status, source: 'admin',
+          remark: `管理员重置报关终态（${order.customsDeclareStatus}）并重新发起申报`,
+        })
+      }
+    }
+    await this.fulfillment.declareCustomsIfNeeded(orderNo)
+    await this.fulfillment.convergeDeclaration(orderNo)
+    const saved = await this.requireOrder(orderNo)
+    await this.audit.record(actor, 'retry_fulfillment', 'order', orderNo, this.toAuditOrder(order), this.toAuditOrder(saved))
+    return this.detail(orderNo)
+  }
+
   async cancel(orderNo: string, dto: AdminOrderConfirmDto, actor: AdminActor): Promise<AdminOrderDetail> {    this.requireConfirm(dto)
     const order = await this.requireOrder(orderNo)
     if (order.status === 'cancelled') throw new BusinessException(40002, '订单已取消')
@@ -239,11 +277,18 @@ export class AdminOrderService {
       } else if (summary.processing) {
         refundRemark = `在途退款单 ${summary.processing.refundNo}（${summary.processing.amountFen} 分）处理中`
       }
-      await this.warehouse.cancelOrder(orderNo)
-      // 退款状态机可能已重写 paymentStatus（refunded/refunding）：重读订单避免旧对象覆盖
+      // 复审 R10：推仓已解耦为可重试后续步骤——尚未推仓（null）时无仓可撤；
+      // 履约收敛只推 ship+paid 的订单，本单随后落 cancelled 即自动排除。
+      // 撤仓决策必须用退款后重读的 fresh：退款网络往返期间履约 job 可能已完成推仓（评审 B4）
       const fresh = await this.requireOrder(orderNo)
+      let warehouseRemark = '已通知保税仓撤单'
+      if (fresh.warehouseStatus === null) {
+        warehouseRemark = '订单尚未推仓，无需撤单'
+      } else {
+        await this.warehouse.cancelOrder(orderNo)
+      }
       saved = await this.orderRepository.saveOrder({ ...fresh, status: 'cancelled', cancelledAt: now })
-      await this.orderRepository.recordStatusEvent({ orderId: target.id, fromStatus: target.status, toStatus: 'cancelled', source: 'admin', remark: `管理员取消，${refundRemark}` })
+      await this.orderRepository.recordStatusEvent({ orderId: target.id, fromStatus: target.status, toStatus: 'cancelled', source: 'admin', remark: `管理员取消，${refundRemark}；${warehouseRemark}` })
     } else {
       throw new BusinessException(40002, '当前订单状态不支持取消')
     }

@@ -23,6 +23,7 @@
 - **支付成功以微信回调为准**，不以前端页面跳转为准；回调要验签、幂等（同一回调可能重复推）。
 - 支付超时（建议 30 分钟）未付 → 本地订单关闭，不占用任何下游资源。
 - 支付成功但推君梦失败 → 进人工/自动重试队列，**绝不静默**；多次失败则触发退款流程并告警。
+  - 已落地（2026-09-17，R10）：支付回调先条件更新登记支付事实，推仓/报关解耦为可重试后续步骤——回调内 best-effort 一次 + `OrderFulfillmentJob` 扫库收敛（`FULFILLMENT_CHECK_INTERVAL_MS`/`FULFILLMENT_RETRY_WINDOW_HOURS`，默认 5 分钟/24h）+ 后台「重推推仓/报关」人工入口（`POST /admin/orders/:orderNo/retry-fulfillment`）。持久化依据：orders.warehouse_status（NULL=未推仓）、orders.customs_declare_status（NULL=未申报；EXCEPT/FAIL 终态不自动重试，人工处理后重推）。
 - 防重复提交：提交订单接口幂等（客户端带唯一请求号，或服务端按「用户+商品+时间窗」去重）。
 
 ## 二、订单状态机

@@ -89,6 +89,7 @@ H5-shop/
 ├── server/                        # NestJS 服务端（T8 首期已建）
 │   ├── src/auth/                  # 短信验证码/JWT 登录（MySQL 验证码、用户与限频）+ 微信网页授权 openid（wechat-oauth.*）
 │   ├── src/payments/              # 微信支付（T12）：V3 签名/验签/回调解密（node:crypto 手写零新依赖）、JSAPI 下单、退款、回调控制器、自助清关报关封装；.env 配齐 WXPAY_* 才启用，否则回落本地 mock；证书放 server/certs/（已 gitignore）
+│   ├── src/orders/                # 订单链路 + 履约解耦（R10：order-fulfillment.service/job —— 支付先落库，推仓/报关 best-effort + 扫库收敛 + 后台人工重推）
 │   ├── src/home/ + src/products/  # 首页内容块、商品列表/详情只读接口
 │   ├── src/admin/ + src/catalog/  # 后台管理：管理员登录/限频、商品目录持久化、内容块发布/回滚、审计日志（订单管理在 src/orders/admin-order.*）
 │   ├── src/database/              # TypeORM 数据源与 users 初始化迁移

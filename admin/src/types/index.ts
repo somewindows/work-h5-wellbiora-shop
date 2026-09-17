@@ -113,6 +113,9 @@ export interface AdminOrderDetail extends AdminOrderListItem {
   refundableFen: number
   refunds: AdminRefundItem[]
   cancelledAt: string | null
+  /** 海关申报回执状态（null = 未申报，待履约收敛/人工重推） */
+  customsDeclareStatus: string | null
+  customsDeclaredAt: string | null
   statusEvents: { fromStatus: string | null; toStatus: string; source: string; remark: string | null; createdAt: string }[]
 }
 

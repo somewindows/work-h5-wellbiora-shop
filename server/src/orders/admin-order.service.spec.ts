@@ -7,6 +7,7 @@ import { InMemoryAuditLogRepository } from '../admin/audit-log.repository'
 import { AdminOrderService } from './admin-order.service'
 import { LocalPaymentAdapter, type PaymentAdapter } from './local-payment.adapter'
 import { LocalWarehouseAdapter } from './local-warehouse.adapter'
+import { OrderFulfillmentService } from './order-fulfillment.service'
 import { InMemoryOrderRepository, type OrderRecord } from './order.repository'
 import type { OrderService, WechatPaidInput } from './order.service'
 import { InMemoryRefundRepository } from './refund.repository'
@@ -22,6 +23,7 @@ describe('AdminOrderService', () => {
   let auditLogs: InMemoryAuditLogRepository
   let refundService: RefundService
   let orderService: { handleWechatPaid: jest.Mock }
+  let fulfillment: OrderFulfillmentService
   let service: AdminOrderService
   let seq = 0
 
@@ -33,13 +35,14 @@ describe('AdminOrderService', () => {
       realnameName: '张三', idcardEncrypted: crypto.encrypt('110101199001011234'), idcardFingerprint: 'fp',
       receiverName: '张三', receiverPhone: '13800000000', receiverRegion: '浙江省 金华市 义乌市', receiverDetail: '稠城街道 1 号',
       paidAt: null, cancelledAt: null, systemRemark: null, refundFen: null, refundedAt: null, wechatTransactionId: null,
+      customsDeclareStatus: null, customsDeclaredAt: null,
       ...overrides,
     })
     return orders.saveOrder(order)
   }
   const createPaidOrder = async (warehouseStatus: string | null = 'local-accepted'): Promise<OrderRecord> => {
     const order = await createOrder({ status: 'ship', paymentStatus: 'paid', warehouseStatus, paidAt: new Date() })
-    await warehouse.pushOrder(order.orderNo)
+    if (warehouseStatus) await warehouse.pushOrder(order.orderNo)
     return order
   }
 
@@ -58,7 +61,8 @@ describe('AdminOrderService', () => {
       }),
     }
     refundService = new RefundService(new InMemoryRefundRepository(), orders, payment)
-    service = new AdminOrderService(orders, warehouse, payment, crypto, new AuditLogService(auditLogs), orderService as unknown as OrderService, refundService)
+    fulfillment = new OrderFulfillmentService(orders, warehouse, crypto)
+    service = new AdminOrderService(orders, warehouse, payment, crypto, new AuditLogService(auditLogs), orderService as unknown as OrderService, refundService, fulfillment)
   })
 
   it('取消待支付订单：仅关单，无资金动作', async () => {
@@ -174,7 +178,7 @@ describe('AdminOrderService', () => {
         Promise.resolve({ refundNo: outRefundNo, refundId: '5030000001', status: 'PROCESSING' })),
     } as unknown as PaymentAdapter
     const refunds = new RefundService(new InMemoryRefundRepository(), orders, processingAdapter)
-    const svc = new AdminOrderService(orders, warehouse, processingAdapter, crypto, new AuditLogService(auditLogs), orderService as unknown as OrderService, refunds)
+    const svc = new AdminOrderService(orders, warehouse, processingAdapter, crypto, new AuditLogService(auditLogs), orderService as unknown as OrderService, refunds, fulfillment)
     const order = await createPaidOrder()
 
     const detail = await svc.refund(order.orderNo, { confirm: true }, actor)
@@ -207,7 +211,7 @@ describe('AdminOrderService', () => {
       refund: jest.fn((_no: string, _amount: number, _total: number, outRefundNo: string) =>
         Promise.resolve({ refundNo: outRefundNo, status: 'PROCESSING' })),
     } as unknown as PaymentAdapter
-    const svc = new AdminOrderService(orders, warehouse, processingAdapter, crypto, new AuditLogService(auditLogs), orderService as unknown as OrderService, new RefundService(new InMemoryRefundRepository(), orders, processingAdapter))
+    const svc = new AdminOrderService(orders, warehouse, processingAdapter, crypto, new AuditLogService(auditLogs), orderService as unknown as OrderService, new RefundService(new InMemoryRefundRepository(), orders, processingAdapter), fulfillment)
     const order = await createPaidOrder()
 
     await svc.refund(order.orderNo, { confirm: true }, actor)
@@ -235,7 +239,7 @@ describe('AdminOrderService', () => {
       refund: jest.fn((_no: string, _amount: number, _total: number, outRefundNo: string) =>
         Promise.resolve({ refundNo: outRefundNo, status: 'PROCESSING' })),
     } as unknown as PaymentAdapter
-    const svc = new AdminOrderService(orders, warehouse, processingAdapter, crypto, new AuditLogService(auditLogs), orderService as unknown as OrderService, new RefundService(new InMemoryRefundRepository(), orders, processingAdapter))
+    const svc = new AdminOrderService(orders, warehouse, processingAdapter, crypto, new AuditLogService(auditLogs), orderService as unknown as OrderService, new RefundService(new InMemoryRefundRepository(), orders, processingAdapter), fulfillment)
     const order = await createPaidOrder()
     await svc.refund(order.orderNo, { confirm: true, amountFen: 10000 }, actor)
 
@@ -283,7 +287,7 @@ describe('AdminOrderService', () => {
   describe('syncPayment（主动查单补状态）', () => {
     const buildService = (queryPayment: jest.Mock): AdminOrderService => {
       const adapter = { createPayParams: jest.fn(), refund: jest.fn(), queryPayment } as unknown as PaymentAdapter
-      return new AdminOrderService(orders, warehouse, adapter, crypto, new AuditLogService(auditLogs), orderService as unknown as OrderService, new RefundService(new InMemoryRefundRepository(), orders, adapter))
+      return new AdminOrderService(orders, warehouse, adapter, crypto, new AuditLogService(auditLogs), orderService as unknown as OrderService, new RefundService(new InMemoryRefundRepository(), orders, adapter), fulfillment)
     }
 
     it('微信侧已支付：补登记支付结果、订单转已支付并写审计', async () => {
@@ -329,7 +333,7 @@ describe('AdminOrderService', () => {
     const buildCustoms = (queryDeclaration: jest.Mock, enabled = true) =>
       ({ isEnabled: () => enabled, queryDeclaration }) as unknown as WechatCustomsService
     const buildService = (customs?: WechatCustomsService): AdminOrderService =>
-      new AdminOrderService(orders, warehouse, payment, crypto, new AuditLogService(auditLogs), orderService as unknown as OrderService, refundService, customs)
+      new AdminOrderService(orders, warehouse, payment, crypto, new AuditLogService(auditLogs), orderService as unknown as OrderService, refundService, fulfillment, customs)
 
     it('已支付订单：回传申报状态与海关原始回执字段并写审计', async () => {
       const order = await createPaidOrder()
@@ -368,6 +372,74 @@ describe('AdminOrderService', () => {
       const failing = buildCustoms(jest.fn().mockRejectedValue(new Error('报关失败：SIGNERROR 签名错误')))
 
       await expect(buildService(failing).queryCustomsDeclaration(order.orderNo, actor)).rejects.toMatchObject({ code: 40002, message: expect.stringContaining('SIGNERROR') })
+    })
+  })
+
+  describe('R10 推仓解耦适配', () => {
+    it('取消已支付但未推仓的订单：跳过撤仓、备注注明，履约收敛不会再推（复审 R10）', async () => {
+      const order = await createPaidOrder(null) // 已支付、warehouseStatus=null（回调已登记、推仓尚未发生/失败待重试）
+      const cancelSpy = jest.spyOn(warehouse, 'cancelOrder')
+
+      const detail = await service.cancel(order.orderNo, { confirm: true }, actor)
+
+      expect(detail.status).toBe('cancelled')
+      expect(cancelSpy).not.toHaveBeenCalled()
+      const events = await orders.findStatusEvents(order.id)
+      expect(events.some((event) => event.remark?.includes('订单尚未推仓，无需撤单'))).toBe(true)
+    })
+
+    it('retryFulfillment：已支付待发货订单重跑推仓并写审计（人工恢复入口）', async () => {
+      const order = await createOrder({ status: 'ship', paymentStatus: 'paid', paidAt: new Date(), wechatTransactionId: 'tx-retry-1' })
+
+      const detail = await service.retryFulfillment(order.orderNo, actor)
+
+      expect(detail.warehouseStatus).toBe('local-accepted')
+      await expect(auditLogs.findByTarget('order', order.orderNo)).resolves.toMatchObject([{ action: 'retry_fulfillment' }])
+    })
+
+    it('retryFulfillment：待支付/已取消订单拒绝', async () => {
+      const pending = await createOrder()
+      const cancelled = await createOrder({ status: 'cancelled', cancelledAt: new Date() })
+
+      await expect(service.retryFulfillment(pending.orderNo, actor)).rejects.toMatchObject({ code: 40002 })
+      await expect(service.retryFulfillment(cancelled.orderNo, actor)).rejects.toMatchObject({ code: 40002 })
+    })
+
+    it('retryFulfillment：申报终态（EXCEPT）先条件重置再真实重申报（评审 B3）', async () => {
+      const order = await createOrder({
+        status: 'ship', paymentStatus: 'paid', paidAt: new Date(), warehouseStatus: 'local-accepted',
+        wechatTransactionId: 'tx-retry-2', customsDeclareStatus: 'EXCEPT', customsDeclaredAt: new Date(),
+      })
+      const customs = {
+        isEnabled: () => true,
+        submitDeclaration: jest.fn().mockResolvedValue({ state: 'SUBMITTED', certCheckResult: 'SAME' }),
+        queryDeclaration: jest.fn().mockResolvedValue({ state: 'SUBMITTED', certCheckResult: 'SAME', detail: {} }),
+      } as unknown as WechatCustomsService
+      const svc = new AdminOrderService(
+        orders, warehouse, payment, crypto, new AuditLogService(auditLogs), orderService as unknown as OrderService, refundService,
+        new OrderFulfillmentService(orders, warehouse, crypto, customs),
+      )
+
+      const detail = await svc.retryFulfillment(order.orderNo, actor)
+
+      expect(customs.submitDeclaration).toHaveBeenCalledTimes(1)
+      expect(detail.customsDeclareStatus).toBe('SUBMITTED')
+      const events = await orders.findStatusEvents(order.id)
+      expect(events.some((event) => event.remark?.includes('重置报关终态（EXCEPT）'))).toBe(true)
+      // 重复点击：申报已在途（SUBMITTED），不再重置也不再重复申报
+      await svc.retryFulfillment(order.orderNo, actor)
+      expect(customs.submitDeclaration).toHaveBeenCalledTimes(1)
+    })
+
+    it('retryFulfillment：申报终态但报关能力未启用时拒绝重置（防订单卡在中间态）', async () => {
+      const order = await createOrder({
+        status: 'ship', paymentStatus: 'paid', paidAt: new Date(), warehouseStatus: 'local-accepted',
+        wechatTransactionId: 'tx-retry-3', customsDeclareStatus: 'EXCEPT', customsDeclaredAt: new Date(),
+      })
+
+      await expect(service.retryFulfillment(order.orderNo, actor)).rejects.toMatchObject({ code: 40002, message: expect.stringContaining('报关能力未启用') })
+      // 终态未被重置
+      expect(await orders.findOneByOrderNo(order.orderNo)).toMatchObject({ customsDeclareStatus: 'EXCEPT' })
     })
   })
 })

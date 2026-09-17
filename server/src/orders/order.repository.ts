@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { randomUUID } from 'node:crypto'
-import { Between, Brackets, LessThan, type EntityManager, Repository } from 'typeorm'
+import { Between, Brackets, In, IsNull, LessThan, MoreThanOrEqual, Not, type EntityManager, Repository } from 'typeorm'
 
 import { BusinessException } from '../common/business.exception'
 
@@ -11,12 +11,18 @@ import { OrderStatusEventEntity } from './order-event.entity'
 
 export const ORDER_REPOSITORY = Symbol('ORDER_REPOSITORY')
 
+/** 海关申报在途状态（非终态）：job 定期按 customdeclarequery 收敛；EXCEPT/FAIL/SUCCESS 为终态不自动重试 */
+export const CUSTOMS_CONVERGING_STATES = ['UNDECLARED', 'SUBMITTED', 'PROCESSING']
+
 export interface OrderRecord {
   id: string; orderNo: string; userId: string; requestId: string; status: string; paymentStatus: string
   warehouseStatus: string | null; totalFen: number; realnameName: string; idcardEncrypted: string; idcardFingerprint: string
   receiverName: string; receiverPhone: string; receiverRegion: string; receiverDetail: string
   paidAt: Date | null; cancelledAt: Date | null; systemRemark: string | null; refundFen: number | null; refundedAt: Date | null
   wechatTransactionId: string | null
+  /** 复审 R10：海关申报回执状态；NULL = 未申报（待履约收敛） */
+  customsDeclareStatus: string | null
+  customsDeclaredAt: Date | null
   createdAt: Date; updatedAt: Date
 }
 export interface OrderItemRecord {
@@ -70,8 +76,30 @@ export interface OrderRepository {
    * 复审 R09：支付回调登记支付用——仅当订单仍是 待支付（pay+pending）时才置 已支付+待发货，
    * 返回是否写入成功。纯条件更新消除「读旧对象整体覆盖写」窗口：与取消并发落败时受影响 0 行，
    * 让位不覆盖，由调用方重读按最新状态分支处理。
+   * 复审 R10：不再顺带写 warehouseStatus——推仓解耦为可重试的后续步骤，推仓成功才由 markWarehousePushed 写入。
    */
-  markPaidIfPending(orderId: string, fields: { paidAt: Date; wechatTransactionId: string | null; warehouseStatus: string }): Promise<boolean>
+  markPaidIfPending(orderId: string, fields: { paidAt: Date; wechatTransactionId: string | null }): Promise<boolean>
+  /**
+   * 复审 R10：推仓成功回写——仅当订单 已支付待发货且尚未推仓 时才写 warehouseStatus，返回是否写入成功。
+   * 落败 = 并发取消已赢（订单不再 ship/paid 或已被推过），调用方负责撤掉本次孤儿推仓。
+   */
+  markWarehousePushed(orderId: string, warehouseStatus: string): Promise<boolean>
+  /**
+   * 复审 R10：海关申报回执落库——仅在 未申报/在途（UNDECLARED/SUBMITTED/PROCESSING）时写入，
+   * 不覆盖 SUCCESS/FAIL/EXCEPT 终态；返回是否写入成功。
+   */
+  updateCustomsDeclaration(orderId: string, fields: { status: string; declaredAt: Date }): Promise<boolean>
+  /**
+   * 人工重推报关前置：仅当当前为终态 EXCEPT/FAIL 时重置为未申报（NULL），返回是否重置成功。
+   * 并发两个人工重推只有一个能重置，避免重复申报（微信侧重复申报本身幂等，此处收敛事件噪音）。
+   */
+  resetCustomsDeclarationIfTerminal(orderId: string): Promise<boolean>
+  /** 履约收敛 job：查 已支付待发货但未推仓 的订单（paid_at >= since，按支付时间升序，限量） */
+  findPendingWarehousePush(since: Date, limit: number): Promise<OrderRecord[]>
+  /** 履约收敛 job：查 已支付待发货、有微信交易号但未申报 的订单（paid_at >= since，按支付时间升序，限量） */
+  findPendingCustomsDeclare(since: Date, limit: number): Promise<OrderRecord[]>
+  /** 履约收敛 job：查 待发货订单中 申报在途（UNDECLARED/SUBMITTED/PROCESSING）需查询收敛的订单 */
+  findConvergingCustomsDeclare(since: Date, limit: number): Promise<OrderRecord[]>
   /**
    * 复审 R09：取消后收到的迟到扣款补登支付事实——仅当订单仍是 已取消且未登记支付（cancelled+pending）
    * 时才写入，返回是否写入成功；并发重复回调落败时返回 false，由调用方重读幂等收敛。
@@ -148,12 +176,53 @@ export class TypeOrmOrderRepository implements OrderRepository {
     const result = await this.orders.update({ id: orderId, status: 'pay', paymentStatus: 'pending' }, { status: 'cancelled', cancelledAt })
     return (result.affected ?? 0) > 0
   }
-  async markPaidIfPending(orderId: string, fields: { paidAt: Date; wechatTransactionId: string | null; warehouseStatus: string }): Promise<boolean> {
+  async markPaidIfPending(orderId: string, fields: { paidAt: Date; wechatTransactionId: string | null }): Promise<boolean> {
     const result = await this.orders.update(
       { id: orderId, status: 'pay', paymentStatus: 'pending' },
       { status: 'ship', paymentStatus: 'paid', ...fields },
     )
     return (result.affected ?? 0) > 0
+  }
+  async markWarehousePushed(orderId: string, warehouseStatus: string): Promise<boolean> {
+    const result = await this.orders.update(
+      { id: orderId, status: 'ship', paymentStatus: 'paid', warehouseStatus: IsNull() },
+      { warehouseStatus },
+    )
+    return (result.affected ?? 0) > 0
+  }
+  async updateCustomsDeclaration(orderId: string, fields: { status: string; declaredAt: Date }): Promise<boolean> {
+    const result = await this.orders.createQueryBuilder().update()
+      .set({ customsDeclareStatus: fields.status, customsDeclaredAt: fields.declaredAt })
+      .where('id = :orderId', { orderId })
+      .andWhere('(customs_declare_status IS NULL OR customs_declare_status IN (:...states))', { states: CUSTOMS_CONVERGING_STATES })
+      .execute()
+    return (result.affected ?? 0) > 0
+  }
+  async resetCustomsDeclarationIfTerminal(orderId: string): Promise<boolean> {
+    const result = await this.orders.update(
+      { id: orderId, customsDeclareStatus: In(['EXCEPT', 'FAIL']) },
+      { customsDeclareStatus: null, customsDeclaredAt: null },
+    )
+    return (result.affected ?? 0) > 0
+  }
+  findPendingWarehousePush(since: Date, limit: number): Promise<OrderEntity[]> {
+    return this.orders.find({
+      where: { status: 'ship', paymentStatus: 'paid', warehouseStatus: IsNull(), paidAt: MoreThanOrEqual(since) },
+      order: { paidAt: 'ASC' }, take: limit,
+    })
+  }
+  findPendingCustomsDeclare(since: Date, limit: number): Promise<OrderEntity[]> {
+    // status='ship' 守卫：取消后补登记支付（迟到扣款转人工退款）的订单不自动报关
+    return this.orders.find({
+      where: { status: 'ship', paymentStatus: 'paid', wechatTransactionId: Not(IsNull()), customsDeclareStatus: IsNull(), paidAt: MoreThanOrEqual(since) },
+      order: { paidAt: 'ASC' }, take: limit,
+    })
+  }
+  findConvergingCustomsDeclare(since: Date, limit: number): Promise<OrderEntity[]> {
+    return this.orders.find({
+      where: { status: 'ship', paymentStatus: 'paid', customsDeclareStatus: In(CUSTOMS_CONVERGING_STATES), paidAt: MoreThanOrEqual(since) },
+      order: { paidAt: 'ASC' }, take: limit,
+    })
   }
   async registerLatePaymentIfCancelled(orderId: string, fields: { paidAt: Date; wechatTransactionId: string; systemRemark: string }): Promise<boolean> {
     const result = await this.orders.update(
@@ -239,11 +308,49 @@ export class InMemoryOrderRepository implements OrderRepository {
     this.orders.set(orderId, { ...order, status: 'cancelled', cancelledAt, updatedAt: new Date() })
     return true
   }
-  async markPaidIfPending(orderId: string, fields: { paidAt: Date; wechatTransactionId: string | null; warehouseStatus: string }): Promise<boolean> {
+  async markPaidIfPending(orderId: string, fields: { paidAt: Date; wechatTransactionId: string | null }): Promise<boolean> {
     const order = this.orders.get(orderId)
     if (!order || order.status !== 'pay' || order.paymentStatus !== 'pending') return false
     this.orders.set(orderId, { ...order, status: 'ship', paymentStatus: 'paid', ...fields, updatedAt: new Date() })
     return true
+  }
+  async markWarehousePushed(orderId: string, warehouseStatus: string): Promise<boolean> {
+    const order = this.orders.get(orderId)
+    if (!order || order.status !== 'ship' || order.paymentStatus !== 'paid' || order.warehouseStatus !== null) return false
+    this.orders.set(orderId, { ...order, warehouseStatus, updatedAt: new Date() })
+    return true
+  }
+  async updateCustomsDeclaration(orderId: string, fields: { status: string; declaredAt: Date }): Promise<boolean> {
+    const order = this.orders.get(orderId)
+    if (!order) return false
+    if (order.customsDeclareStatus !== null && !CUSTOMS_CONVERGING_STATES.includes(order.customsDeclareStatus)) return false
+    this.orders.set(orderId, { ...order, customsDeclareStatus: fields.status, customsDeclaredAt: fields.declaredAt, updatedAt: new Date() })
+    return true
+  }
+  async resetCustomsDeclarationIfTerminal(orderId: string): Promise<boolean> {
+    const order = this.orders.get(orderId)
+    if (!order || (order.customsDeclareStatus !== 'EXCEPT' && order.customsDeclareStatus !== 'FAIL')) return false
+    this.orders.set(orderId, { ...order, customsDeclareStatus: null, customsDeclaredAt: null, updatedAt: new Date() })
+    return true
+  }
+  async findPendingWarehousePush(since: Date, limit: number): Promise<OrderRecord[]> {
+    return [...this.orders.values()]
+      .filter((order) => order.status === 'ship' && order.paymentStatus === 'paid' && order.warehouseStatus === null && order.paidAt !== null && order.paidAt >= since)
+      .sort((left, right) => left.paidAt!.getTime() - right.paidAt!.getTime())
+      .slice(0, limit)
+  }
+  async findPendingCustomsDeclare(since: Date, limit: number): Promise<OrderRecord[]> {
+    // status='ship' 守卫：取消后补登记支付（迟到扣款转人工退款）的订单不自动报关
+    return [...this.orders.values()]
+      .filter((order) => order.status === 'ship' && order.paymentStatus === 'paid' && order.wechatTransactionId !== null && order.customsDeclareStatus === null && order.paidAt !== null && order.paidAt >= since)
+      .sort((left, right) => left.paidAt!.getTime() - right.paidAt!.getTime())
+      .slice(0, limit)
+  }
+  async findConvergingCustomsDeclare(since: Date, limit: number): Promise<OrderRecord[]> {
+    return [...this.orders.values()]
+      .filter((order) => order.status === 'ship' && order.paymentStatus === 'paid' && order.customsDeclareStatus !== null && CUSTOMS_CONVERGING_STATES.includes(order.customsDeclareStatus) && order.paidAt !== null && order.paidAt >= since)
+      .sort((left, right) => left.paidAt!.getTime() - right.paidAt!.getTime())
+      .slice(0, limit)
   }
   async registerLatePaymentIfCancelled(orderId: string, fields: { paidAt: Date; wechatTransactionId: string; systemRemark: string }): Promise<boolean> {
     const order = this.orders.get(orderId)

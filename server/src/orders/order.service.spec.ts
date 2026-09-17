@@ -7,6 +7,7 @@ import { InMemoryAddressRepository, InMemoryRealnameProfileRepository } from '..
 import { InMemoryUsersRepository } from '../users/users.repository'
 
 import { InMemoryOrderRepository, type OrderRecord } from './order.repository'
+import { OrderFulfillmentService } from './order-fulfillment.service'
 import { OrderService } from './order.service'
 import { LocalWarehouseAdapter } from './local-warehouse.adapter'
 import { LocalPaymentAdapter, type PaymentAdapter, type PaymentRefundResult, type PayContext } from './local-payment.adapter'
@@ -24,11 +25,14 @@ describe('OrderService', () => {
   let service: OrderService
   let users: InMemoryUsersRepository
 
-  const buildService = (ordersRepo: InMemoryOrderRepository, paymentAdapter: PaymentAdapter): OrderService =>
-    new OrderService(
-      cart, profile, ordersRepo, new LocalWarehouseAdapter(catalog), crypto, paymentAdapter, catalog, users,
+  const buildService = (ordersRepo: InMemoryOrderRepository, paymentAdapter: PaymentAdapter, warehouse?: LocalWarehouseAdapter): OrderService => {
+    const wh = warehouse ?? new LocalWarehouseAdapter(catalog)
+    return new OrderService(
+      cart, profile, ordersRepo, wh, crypto, paymentAdapter, catalog, users,
       new RefundService(new InMemoryRefundRepository(), ordersRepo, paymentAdapter),
+      new OrderFulfillmentService(ordersRepo, wh, crypto),
     )
+  }
 
   beforeEach(async () => {
     cart = new InMemoryCartRepository()
@@ -41,7 +45,7 @@ describe('OrderService', () => {
     orders = new InMemoryOrderRepository()
     payment = new LocalPaymentAdapter()
     refundService = new RefundService(new InMemoryRefundRepository(), orders, payment)
-    service = new OrderService(cart, profile, orders, new LocalWarehouseAdapter(catalog), crypto, payment, catalog, users, refundService)
+    service = new OrderService(cart, profile, orders, new LocalWarehouseAdapter(catalog), crypto, payment, catalog, users, refundService, new OrderFulfillmentService(orders, new LocalWarehouseAdapter(catalog), crypto))
     await cart.save(cart.create({ userId: 'user-1', productId: 'WB10001', quantity: 1, checked: true }))
     await profile.createAddress('user-1', { name: '张三', phone: '13800000000', region: '浙江省 金华市 义乌市', detail: '稠城街道 1 号' })
     await profile.saveRealname('user-1', { name: '张三', idcard: '110101199001011234' })
@@ -77,6 +81,7 @@ describe('OrderService', () => {
       warehouseStatus: null, totalFen: 32900, realnameName: '张三', idcardEncrypted: 'x', idcardFingerprint: 'fp',
       receiverName: '张三', receiverPhone: '13800000000', receiverRegion: 'r', receiverDetail: 'd',
       paidAt: null, cancelledAt: null, systemRemark: null, refundFen: null, refundedAt: null, wechatTransactionId: null,
+      customsDeclareStatus: null, customsDeclaredAt: null,
     }))
     jest.spyOn(ordersRepo, 'findByUserAndRequest').mockResolvedValueOnce(null).mockResolvedValueOnce(null)
     jest.spyOn(ordersRepo, 'runInTransaction').mockRejectedValueOnce(Object.assign(new Error('Duplicate entry'), { code: 'ER_DUP_ENTRY' }))
@@ -173,6 +178,7 @@ describe('OrderService', () => {
       const svc = new OrderService(
         cart, profile, ordersRepo, warehouse, crypto, paymentAdapter, catalog, users,
         new RefundService(new InMemoryRefundRepository(), ordersRepo, paymentAdapter),
+        new OrderFulfillmentService(ordersRepo, warehouse, crypto),
       )
       const { orderNo } = await svc.create('user-1', { requestId: 'request-pay-4' })
       await svc.cancel('user-1', orderNo)
@@ -216,20 +222,20 @@ describe('OrderService', () => {
       expect(order.status).toBe('ship')
     })
 
-    it('回调推仓后取消获胜：撤销孤儿推仓、登记支付事实、不复活订单（复审 R09）', async () => {
+    it('取消在回调标记支付前获胜：条件更新落败后登记支付事实、未推仓不复活订单（复审 R09/R10）', async () => {
       const ordersRepo = new InMemoryOrderRepository()
       const warehouse = new LocalWarehouseAdapter(catalog)
       const paymentAdapter = new LocalPaymentAdapter()
       const svc = new OrderService(
         cart, profile, ordersRepo, warehouse, crypto, paymentAdapter, catalog, users,
         new RefundService(new InMemoryRefundRepository(), ordersRepo, paymentAdapter),
+        new OrderFulfillmentService(ordersRepo, warehouse, crypto),
       )
       const { orderNo } = await svc.create('user-1', { requestId: 'request-race-cb' })
-      // 模拟竞态：取消在回调 pushOrder 之后、条件写库之前获胜
-      const pushOrder = warehouse.pushOrder.bind(warehouse)
-      jest.spyOn(warehouse, 'pushOrder').mockImplementation(async (no: string) => {
-        await pushOrder(no)
+      // 模拟竞态：取消在回调条件写库前获胜，markPaidIfPending 落败（R10 后推仓在标记之后，不再有孤儿推仓窗口）
+      jest.spyOn(ordersRepo, 'markPaidIfPending').mockImplementationOnce(async () => {
         await svc.cancel('user-1', orderNo)
+        return false
       })
 
       await svc.handleWechatPaid(paidInput(orderNo))
@@ -241,18 +247,49 @@ describe('OrderService', () => {
         wechatTransactionId: '4200000123456789012345678901',
         systemRemark: '订单取消后收到微信扣款，需人工退款处理',
       })
-      // 孤儿推仓已撤销（君梦码 50 = 订单取消）
-      await expect(warehouse.getOrderStatus(orderNo)).resolves.toMatchObject({ status: '50' })
+      // 推仓在支付登记之后，落败分支不再发生推仓
+      expect(await warehouse.getOrderStatus(orderNo)).toBeNull()
       const events = await ordersRepo.findStatusEvents(record!.id)
       expect(events.some((event) => event.remark?.includes('待人工退款'))).toBe(true)
+    })
+
+    it('推仓故障不阻塞支付登记：订单正常转待发货，warehouseStatus 留空待履约收敛（复审 R10）', async () => {
+      const ordersRepo = new InMemoryOrderRepository()
+      const warehouse = new LocalWarehouseAdapter(catalog)
+      const paymentAdapter = new LocalPaymentAdapter()
+      const fulfillment = new OrderFulfillmentService(ordersRepo, warehouse, crypto)
+      const svc = new OrderService(
+        cart, profile, ordersRepo, warehouse, crypto, paymentAdapter, catalog, users,
+        new RefundService(new InMemoryRefundRepository(), ordersRepo, paymentAdapter),
+        fulfillment,
+      )
+      const { orderNo } = await svc.create('user-1', { requestId: 'request-push-fail' })
+      const pushOrder = jest.spyOn(warehouse, 'pushOrder').mockRejectedValueOnce(new Error('仓储接口超时'))
+
+      await svc.handleWechatPaid(paidInput(orderNo))
+
+      // 支付事实已登记，推仓失败只留空待重试
+      const record = await ordersRepo.findOneByOrderNo(orderNo)
+      expect(record).toMatchObject({ status: 'ship', paymentStatus: 'paid', warehouseStatus: null })
+      const events = await ordersRepo.findStatusEvents(record!.id)
+      expect(events.some((event) => event.remark?.includes('推仓失败'))).toBe(true)
+      // 仓储恢复后重试收敛：warehouseStatus 落库且失败事件不重复
+      await fulfillment.pushWarehouseIfNeeded(orderNo)
+      expect(await ordersRepo.findOneByOrderNo(orderNo)).toMatchObject({ warehouseStatus: 'local-accepted' })
+      const eventsAfter = await ordersRepo.findStatusEvents(record!.id)
+      expect(eventsAfter.filter((event) => event.remark?.includes('推仓失败'))).toHaveLength(1)
+      expect(eventsAfter.some((event) => event.remark === '订单已推送保税仓')).toBe(true)
+      expect(pushOrder).toHaveBeenCalledTimes(2)
     })
 
     it('迟到扣款登记竞态落败：并发回调已登记则幂等返回，不重复记事件（复审 R09）', async () => {
       const ordersRepo = new InMemoryOrderRepository()
       const paymentAdapter = new LocalPaymentAdapter()
+      const warehouse = new LocalWarehouseAdapter(catalog)
       const svc = new OrderService(
-        cart, profile, ordersRepo, new LocalWarehouseAdapter(catalog), crypto, paymentAdapter, catalog, users,
+        cart, profile, ordersRepo, warehouse, crypto, paymentAdapter, catalog, users,
         new RefundService(new InMemoryRefundRepository(), ordersRepo, paymentAdapter),
+        new OrderFulfillmentService(ordersRepo, warehouse, crypto),
       )
       const { orderNo } = await svc.create('user-1', { requestId: 'request-race-late' })
       await svc.cancel('user-1', orderNo)
@@ -288,7 +325,7 @@ describe('OrderService', () => {
       const refundRepo = new InMemoryRefundRepository()
       const adapter = processingAdapter()
       const refunds = new RefundService(refundRepo, orders, adapter)
-      const svc = new OrderService(cart, profile, orders, new LocalWarehouseAdapter(catalog), crypto, adapter, catalog, users, refunds)
+      const svc = new OrderService(cart, profile, orders, new LocalWarehouseAdapter(catalog), crypto, adapter, catalog, users, refunds, new OrderFulfillmentService(orders, new LocalWarehouseAdapter(catalog), crypto))
       const { orderNo } = await svc.create('user-1', { requestId })
       await svc.handleWechatPaid({ orderNo, transactionId: '4200000123456789012345678901', paidTotalFen: 32900, paidAt: new Date() })
       const order = (await orders.findOneByOrderNo(orderNo))!
@@ -418,6 +455,7 @@ describe('OrderService', () => {
         realnameName: '张三', idcardEncrypted: 'x', idcardFingerprint: fingerprint,
         receiverName: '张三', receiverPhone: '13800000000', receiverRegion: 'r', receiverDetail: 'd',
         paidAt: null, cancelledAt: null, systemRemark: null, refundFen: null, refundedAt: null, wechatTransactionId: null,
+        customsDeclareStatus: null, customsDeclaredAt: null,
       }))
       return orders.saveOrder({ ...order, ...overrides })
     }

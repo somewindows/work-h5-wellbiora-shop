@@ -41,6 +41,13 @@ export class AdminOrderController {
     return this.adminOrderService.queryCustomsDeclaration(orderNo, admin)
   }
 
+  /** 人工重推履约（复审 R10）：推仓/申报/申报状态收敛，各步幂等，不需二次确认 */
+  @Post(':orderNo/retry-fulfillment')
+  @HttpCode(200)
+  retryFulfillment(@Param('orderNo') orderNo: string, @CurrentAdmin() admin: AdminActor): Promise<AdminOrderDetail> {
+    return this.adminOrderService.retryFulfillment(orderNo, admin)
+  }
+
   @Post(':orderNo/cancel')
   @HttpCode(200)
   cancel(@Param('orderNo') orderNo: string, @Body() dto: AdminOrderConfirmDto, @CurrentAdmin() admin: AdminActor): Promise<AdminOrderDetail> {

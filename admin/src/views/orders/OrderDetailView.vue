@@ -5,7 +5,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
-import { cancelOrder, getOrder, queryCustomsDeclaration, refundOrder, syncOrder, syncOrderPayment } from '@/api/orders'
+import { cancelOrder, getOrder, queryCustomsDeclaration, refundOrder, retryFulfillment, syncOrder, syncOrderPayment } from '@/api/orders'
 import { getErrorMessage } from '@/api/request'
 import type { AdminCustomsDeclarationResult, AdminOrderDetail } from '@/types'
 import { fenToYuan, formatDateTime, formatMoney, yuanToFen } from '@/utils/format'
@@ -145,6 +145,27 @@ async function onQueryCustoms(): Promise<void> {
   }
 }
 
+// ---------- 人工重推履约（R10：推仓/申报失败或终态异常时的恢复入口，幂等） ----------
+const retrying = ref(false)
+
+const canRetryFulfillment = computed(() => {
+  if (!order.value || order.value.paymentStatus !== 'paid' || order.value.status !== 'ship') return false
+  const declare = order.value.customsDeclareStatus
+  return order.value.warehouseStatus === null || declare === null || declare === 'EXCEPT' || declare === 'FAIL'
+})
+
+async function onRetryFulfillment(): Promise<void> {
+  retrying.value = true
+  try {
+    order.value = await retryFulfillment(orderNo)
+    ElMessage.success('已重推履约（推仓/申报），结果见状态卡与事件流')
+  } catch (error) {
+    ElMessage.error(getErrorMessage(error))
+  } finally {
+    retrying.value = false
+  }
+}
+
 const canOperate = computed(() => order.value && order.value.status !== 'cancelled')
 
 onMounted(load)
@@ -174,6 +195,14 @@ onMounted(load)
           :loading="customsLoading"
           @click="onQueryCustoms"
         >查询报关状态</el-button>
+        <el-button
+          v-if="canRetryFulfillment"
+          size="small"
+          type="primary"
+          plain
+          :loading="retrying"
+          @click="onRetryFulfillment"
+        >重推推仓/报关</el-button>
         <el-button size="small" type="danger" plain :disabled="!canOperate" @click="cancelVisible = true">取消订单</el-button>
         <el-button
           size="small"
@@ -203,6 +232,17 @@ onMounted(load)
         <div class="status-card">
           <div class="status-card-title">仓储原始状态</div>
           <el-tag type="info" size="large">{{ order.warehouseStatus ?? '未推送' }}</el-tag>
+        </div>
+        <div class="status-card">
+          <div class="status-card-title">海关申报</div>
+          <el-tag
+            v-if="order.customsDeclareStatus"
+            :type="customsStateMeta(order.customsDeclareStatus).tagType"
+            size="large"
+          >{{ customsStateMeta(order.customsDeclareStatus).label }}</el-tag>
+          <el-tag v-else-if="order.paymentStatus === 'paid'" type="warning" size="large">未申报</el-tag>
+          <el-tag v-else type="info" size="large">—</el-tag>
+          <div v-if="order.customsDeclaredAt" class="status-extra">回执 {{ formatDateTime(order.customsDeclaredAt) }}</div>
         </div>
       </div>
 

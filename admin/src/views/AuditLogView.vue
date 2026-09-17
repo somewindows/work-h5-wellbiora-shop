@@ -16,6 +16,7 @@ const ACTION_OPTIONS = [
   { value: 'sync_order', label: '同步订单' },
   { value: 'sync_payment', label: '查单补状态' },
   { value: 'query_customs', label: '查询报关状态' },
+  { value: 'retry_fulfillment', label: '重推履约' },
   { value: 'cancel_order', label: '取消订单' },
   { value: 'refund_order', label: '订单退款' },
 ]

@@ -27,6 +27,10 @@ export class OrderEntity {
   @Column({ name: 'refunded_at', type: 'datetime', nullable: true }) refundedAt!: Date | null
   /** 微信支付订单号（回调幂等 + 报关用） */
   @Column({ name: 'wechat_transaction_id', type: 'varchar', length: 64, nullable: true, unique: true }) wechatTransactionId!: string | null
+  /** 复审 R10：支付单海关申报状态（微信回执：UNDECLARED/SUBMITTED/PROCESSING/SUCCESS/FAIL/EXCEPT）；NULL = 未申报（待履约收敛） */
+  @Column({ name: 'customs_declare_status', type: 'varchar', length: 32, nullable: true }) customsDeclareStatus!: string | null
+  /** 最近一次申报回执落库时间 */
+  @Column({ name: 'customs_declared_at', type: 'datetime', nullable: true }) customsDeclaredAt!: Date | null
   @CreateDateColumn({ name: 'created_at', type: 'datetime' }) createdAt!: Date
   @UpdateDateColumn({ name: 'updated_at', type: 'datetime' }) updatedAt!: Date
 }

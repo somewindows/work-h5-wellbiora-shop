@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, Optional } from '@nestjs/common'
+import { Inject, Injectable, Logger } from '@nestjs/common'
 import { randomUUID } from 'node:crypto'
 
 import { CATALOG_REPOSITORY, type CatalogProductRecord, type SellableProductSource } from '../catalog/catalog.repository'
@@ -7,10 +7,10 @@ import { CART_REPOSITORY, type CartItemRecord, type CartRepository } from '../ca
 import { ProfileService } from '../profile/profile.service'
 import { PersonalDataCryptoService } from '../security/personal-data-crypto.service'
 import { USERS_REPOSITORY, type UsersRepository } from '../users/users.repository'
-import { WechatCustomsService } from '../payments/wechat-customs.service'
 
 import type { CreateOrderDto } from './order.dto'
 import { PAYMENT_ADAPTER, type PayContext, type PaymentAdapter } from './local-payment.adapter'
+import { OrderFulfillmentService } from './order-fulfillment.service'
 import { ORDER_REPOSITORY, type OrderRecord, type OrderRepository } from './order.repository'
 import { RefundService } from './refund.service'
 import { WAREHOUSE_ADAPTER, type WarehouseAdapter } from './warehouse.adapter'
@@ -66,7 +66,7 @@ export class OrderService {
     @Inject(CATALOG_REPOSITORY) private readonly products: SellableProductSource,
     @Inject(USERS_REPOSITORY) private readonly users: UsersRepository,
     private readonly refundService: RefundService,
-    @Optional() private readonly customs?: WechatCustomsService,
+    private readonly fulfillment: OrderFulfillmentService,
   ) {}
 
   async precheck(userId: string): Promise<OrderPrecheck> {
@@ -95,6 +95,7 @@ export class OrderService {
         idcardFingerprint: prepared.realname.idcardFingerprint, receiverName: prepared.address.name, receiverPhone: prepared.address.phone,
         receiverRegion: prepared.address.region, receiverDetail: prepared.address.detail, paidAt: null, cancelledAt: null,
         systemRemark: null, refundFen: null, refundedAt: null, wechatTransactionId: null,
+        customsDeclareStatus: null, customsDeclaredAt: null,
       })
       // 复审 R03：主单 + 明细 + 购物车删除 + 状态事件同一事务提交，任一步失败整体回滚，
       // 不再出现空明细订单/部分清空购物车；订单存在即完整，幂等重进无需再校验明细
@@ -200,20 +201,19 @@ export class OrderService {
       throw new BusinessException(40002, '订单状态已变化，无法登记支付结果')
     }
 
-    // 顺序不变：先推仓再写库，推仓失败抛出让微信按节奏重推回调
-    await this.warehouse.pushOrder(order.orderNo)
-    // 复审 R09：条件更新替代整体覆盖写——与取消并发落败时受影响 0 行，不覆盖取消结果
+    // 复审 R10：支付事实先落库（条件更新），推仓/报关解耦为可重试的后续步骤——
+    // 仓储/海关故障不再阻塞支付记账，失败由履约收敛 job 扫库重试、超窗转人工
     const marked = await this.orderRepository.markPaidIfPending(order.id, {
-      paidAt: input.paidAt, wechatTransactionId: input.transactionId, warehouseStatus: 'local-accepted',
+      paidAt: input.paidAt, wechatTransactionId: input.transactionId,
     })
     if (marked) {
       await this.orderRepository.recordStatusEvent({
         orderId: order.id, fromStatus: 'pay', toStatus: 'ship', source: 'payment', remark: '微信支付回调确认成功',
       })
-      await this.declareCustoms(
-        { ...order, status: 'ship', paymentStatus: 'paid', warehouseStatus: 'local-accepted', paidAt: input.paidAt, wechatTransactionId: input.transactionId },
-        input.transactionId,
-      )
+      // best-effort 立即履约一次（推仓/申报的网络调用内部已 catch；DB 异常仍会冒泡——
+      // 支付事实已登记，微信重推 + 履约 job 双兜底可收敛）；失败留给履约收敛 job
+      await this.fulfillment.pushWarehouseIfNeeded(order.orderNo)
+      await this.fulfillment.declareCustomsIfNeeded(order.orderNo)
       return
     }
     // 复审 R09：条件更新落败——重读订单按最新状态分支处理
@@ -221,12 +221,7 @@ export class OrderService {
     if (!fresh) throw new BusinessException(40404, '订单不存在', 404)
     if (fresh.paymentStatus === 'paid') return // 并发重复回调已获胜，幂等
     if (fresh.status === 'cancelled' && fresh.paymentStatus === 'pending') {
-      // 取消在推仓之后获胜，产生了孤儿推仓：best-effort 撤销（失败仅告警），再补登支付事实转人工退款
-      try {
-        await this.warehouse.cancelOrder(order.orderNo)
-      } catch (error) {
-        this.logger.warn(`订单 ${order.orderNo} 取消后撤销孤儿推仓失败，待人工核对仓储侧：${error instanceof Error ? error.message : String(error)}`)
-      }
+      // 取消先于支付登记获胜：推仓尚未发生（push 在标记之后），直接补登支付事实转人工退款
       const registered = await this.registerLatePayment(order, input)
       if (registered) return
       // 登记也落败：再重读，并发回调已登记则幂等
@@ -270,31 +265,6 @@ export class OrderService {
     return this.paymentAdapter.createPayParams(order.orderNo, ctx)
   }
 
-  /** 支付成功后向海关申报支付单（自助清关）；失败只记录不阻塞主流程，丢单可重推。 */
-  private async declareCustoms(order: OrderRecord, transactionId: string): Promise<void> {
-    if (!this.customs?.isEnabled()) return
-    try {
-      const result = await this.customs.submitDeclaration({
-        orderNo: order.orderNo,
-        transactionId,
-        realname: { name: order.realnameName, idcard: this.crypto.decrypt(order.idcardEncrypted) },
-      })
-      await this.orderRepository.recordStatusEvent({
-        orderId: order.id, fromStatus: order.status, toStatus: order.status,
-        source: 'payment', remark: `支付单海关申报已提交（状态 ${result.state}，身份校验 ${result.certCheckResult}）`,
-      })
-      if (result.certCheckResult === 'DIFFERENT') {
-        this.logger.warn(`订单 ${order.orderNo} 订购人与支付人身份不一致，需人工核对`)
-      }
-    } catch (error) {
-      this.logger.error(`订单 ${order.orderNo} 海关申报提交失败，待重推`, error)
-      await this.orderRepository.recordStatusEvent({
-        orderId: order.id, fromStatus: order.status, toStatus: order.status,
-        source: 'payment', remark: '支付单海关申报提交失败，待重推',
-      })
-    }
-  }
-
   async confirmMockPayment(userId: string, orderNo: string): Promise<OrderResponse> {
     if (process.env.NODE_ENV !== 'development' && process.env.NODE_ENV !== 'test') {
       throw new BusinessException(40404, '测试支付接口不可用', 404)
@@ -302,13 +272,13 @@ export class OrderService {
     const order = await this.requireOrder(userId, orderNo)
     // 前置检查保留用于快速失败提示；真正的并发安全由下方条件更新保证
     if (order.status !== 'pay') throw new BusinessException(40002, '当前订单不能确认支付')
-    await this.warehouse.pushOrder(order.orderNo)
-    // 复审 R09：与支付回调同一条件更新，避免与取消/回调并发时旧对象覆盖对方结果
+    // 复审 R10：与支付回调同一顺序——先条件更新登记支付，推仓交给履约服务（可重试）
     const paidAt = new Date()
-    const marked = await this.orderRepository.markPaidIfPending(order.id, { paidAt, wechatTransactionId: null, warehouseStatus: 'local-accepted' })
+    const marked = await this.orderRepository.markPaidIfPending(order.id, { paidAt, wechatTransactionId: null })
     if (!marked) throw new BusinessException(40002, '当前订单不能确认支付')
     await this.orderRepository.recordStatusEvent({ orderId: order.id, fromStatus: 'pay', toStatus: 'ship', source: 'system', remark: '本地 mock 支付成功' })
-    return this.toResponse({ ...order, status: 'ship', paymentStatus: 'paid', warehouseStatus: 'local-accepted', paidAt })
+    await this.fulfillment.pushWarehouseIfNeeded(order.orderNo)
+    return this.toResponse({ ...order, status: 'ship', paymentStatus: 'paid', paidAt })
   }
 
   private async prepare(userId: string): Promise<{ cartItems: CartItemRecord[]; items: OrderItemResponse[]; totalFen: number; address: { name: string; phone: string; region: string; detail: string }; realname: { name: string; idcardEncrypted: string; idcardFingerprint: string } }> {
