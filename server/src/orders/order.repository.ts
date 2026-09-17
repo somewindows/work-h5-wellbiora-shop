@@ -23,6 +23,10 @@ export interface OrderRecord {
   /** 复审 R10：海关申报回执状态；NULL = 未申报（待履约收敛） */
   customsDeclareStatus: string | null
   customsDeclaredAt: Date | null
+  /** R08 对账依据：用户实付（分）；null = 历史订单/未支付。优惠额 = totalFen - payerTotalFen，读取时派生 */
+  payerTotalFen: number | null
+  /** R08 对账依据：支付币种（微信 amount.currency，预期恒 CNY） */
+  payCurrency: string | null
   createdAt: Date; updatedAt: Date
 }
 export interface OrderItemRecord {
@@ -41,6 +45,8 @@ export interface AdminOrderPageQuery {
   page: number
   pageSize: number
 }
+/** 后台订单导出查询：与列表同筛选条件，不分页（服务端封顶行数，超出截断） */
+export type AdminOrderExportQuery = Omit<AdminOrderPageQuery, 'page' | 'pageSize'>
 type NewOrder = Omit<OrderRecord, 'id' | 'createdAt' | 'updatedAt'>
 type NewOrderItem = Omit<OrderItemRecord, 'id'>
 type NewStatusEvent = Omit<OrderStatusEventRecord, 'id' | 'createdAt'>
@@ -52,6 +58,8 @@ export interface OrderRepository {
   findOneByOrderNo(orderNo: string): Promise<OrderRecord | null>
   findByUser(userId: string, status?: string): Promise<OrderRecord[]>
   findAdminPage(query: AdminOrderPageQuery): Promise<{ total: number; list: OrderRecord[] }>
+  /** 后台订单导出（R08）：与 findAdminPage 同筛选条件但不分页，按创建时间倒序，limit 封顶截断 */
+  findAdminExport(query: AdminOrderExportQuery, limit: number): Promise<OrderRecord[]>
   /**
    * 后台用户列表/详情聚合：按用户统计 订单数（全部订单 COUNT）与累计消费
    * （paymentStatus IN ('paid','refunding','refunded') 的 total_fen 合计——已支付口径，含退款中/已退款）。
@@ -85,8 +93,9 @@ export interface OrderRepository {
    * 返回是否写入成功。纯条件更新消除「读旧对象整体覆盖写」窗口：与取消并发落败时受影响 0 行，
    * 让位不覆盖，由调用方重读按最新状态分支处理。
    * 复审 R10：不再顺带写 warehouseStatus——推仓解耦为可重试的后续步骤，推仓成功才由 markWarehousePushed 写入。
+   * R08：对账字段（payerTotalFen/payCurrency）在同一条件更新里写入，禁止标记后二次 update。
    */
-  markPaidIfPending(orderId: string, fields: { paidAt: Date; wechatTransactionId: string | null }): Promise<boolean>
+  markPaidIfPending(orderId: string, fields: { paidAt: Date; wechatTransactionId: string | null; payerTotalFen: number | null; payCurrency: string | null }): Promise<boolean>
   /**
    * 复审 R10：推仓成功回写——仅当订单 已支付待发货且尚未推仓 时才写 warehouseStatus，返回是否写入成功。
    * 落败 = 并发取消已赢（订单不再 ship/paid 或已被推过），调用方负责撤掉本次孤儿推仓。
@@ -111,8 +120,9 @@ export interface OrderRepository {
   /**
    * 复审 R09：取消后收到的迟到扣款补登支付事实——仅当订单仍是 已取消且未登记支付（cancelled+pending）
    * 时才写入，返回是否写入成功；并发重复回调落败时返回 false，由调用方重读幂等收敛。
+   * R08：对账字段（payerTotalFen/payCurrency）在同一条件更新里写入。
    */
-  registerLatePaymentIfCancelled(orderId: string, fields: { paidAt: Date; wechatTransactionId: string; systemRemark: string }): Promise<boolean>
+  registerLatePaymentIfCancelled(orderId: string, fields: { paidAt: Date; wechatTransactionId: string; systemRemark: string; payerTotalFen: number | null; payCurrency: string | null }): Promise<boolean>
   /** 复审 R09：退款结算定向更新 paymentStatus/refundFen/refundedAt 三列，不整体覆盖订单其他字段 */
   updateRefundSettlement(orderId: string, fields: { paymentStatus: string; refundFen: number | null; refundedAt: Date | null }): Promise<void>
   /** 复审 R03：把多个写操作放进同一数据库事务；内存实现直接执行（无事务语义） */
@@ -199,12 +209,24 @@ export class TypeOrmOrderRepository implements OrderRepository {
     const result = await this.orders.update({ id: orderId, status: 'pay', paymentStatus: 'pending' }, { status: 'cancelled', cancelledAt })
     return (result.affected ?? 0) > 0
   }
-  async markPaidIfPending(orderId: string, fields: { paidAt: Date; wechatTransactionId: string | null }): Promise<boolean> {
+  async markPaidIfPending(orderId: string, fields: { paidAt: Date; wechatTransactionId: string | null; payerTotalFen: number | null; payCurrency: string | null }): Promise<boolean> {
     const result = await this.orders.update(
       { id: orderId, status: 'pay', paymentStatus: 'pending' },
       { status: 'ship', paymentStatus: 'paid', ...fields },
     )
     return (result.affected ?? 0) > 0
+  }
+  async findAdminExport(query: AdminOrderExportQuery, limit: number): Promise<OrderEntity[]> {
+    const builder = this.orders.createQueryBuilder('order').orderBy('order.created_at', 'DESC')
+    if (query.status) builder.andWhere('order.status = :status', { status: query.status })
+    if (query.keyword) {
+      const keyword = `%${query.keyword.trim()}%`
+      builder.andWhere('(order.order_no LIKE :keyword OR order.receiver_phone LIKE :keyword)', { keyword })
+    }
+    if (query.userId) builder.andWhere('order.user_id = :userId', { userId: query.userId })
+    if (query.from) builder.andWhere('order.created_at >= :from', { from: query.from })
+    if (query.to) builder.andWhere('order.created_at <= :to', { to: query.to })
+    return builder.take(limit).getMany()
   }
   async markWarehousePushed(orderId: string, warehouseStatus: string): Promise<boolean> {
     const result = await this.orders.update(
@@ -247,7 +269,7 @@ export class TypeOrmOrderRepository implements OrderRepository {
       order: { paidAt: 'ASC' }, take: limit,
     })
   }
-  async registerLatePaymentIfCancelled(orderId: string, fields: { paidAt: Date; wechatTransactionId: string; systemRemark: string }): Promise<boolean> {
+  async registerLatePaymentIfCancelled(orderId: string, fields: { paidAt: Date; wechatTransactionId: string; systemRemark: string; payerTotalFen: number | null; payCurrency: string | null }): Promise<boolean> {
     const result = await this.orders.update(
       { id: orderId, status: 'cancelled', paymentStatus: 'pending' },
       { paymentStatus: 'paid', ...fields },
@@ -294,6 +316,19 @@ export class InMemoryOrderRepository implements OrderRepository {
       .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())
     const start = (query.page - 1) * query.pageSize
     return { total: filtered.length, list: filtered.slice(start, start + query.pageSize).map((order) => ({ ...order })) }
+  }
+  async findAdminExport(query: AdminOrderExportQuery, limit: number): Promise<OrderRecord[]> {
+    const keyword = query.keyword?.trim()
+    return [...this.orders.values()]
+      .filter((order) =>
+        (!query.status || order.status === query.status) &&
+        (!query.userId || order.userId === query.userId) &&
+        (!keyword || order.orderNo.includes(keyword) || order.receiverPhone.includes(keyword)) &&
+        (!query.from || order.createdAt >= query.from) &&
+        (!query.to || order.createdAt <= query.to))
+      .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())
+      .slice(0, limit)
+      .map((order) => ({ ...order }))
   }
   async summarizeByUsers(userIds: string[]): Promise<Record<string, { orderCount: number; paidTotalFen: number }>> {
     const result: Record<string, { orderCount: number; paidTotalFen: number }> = {}
@@ -346,7 +381,7 @@ export class InMemoryOrderRepository implements OrderRepository {
     this.orders.set(orderId, { ...order, status: 'cancelled', cancelledAt, updatedAt: new Date() })
     return true
   }
-  async markPaidIfPending(orderId: string, fields: { paidAt: Date; wechatTransactionId: string | null }): Promise<boolean> {
+  async markPaidIfPending(orderId: string, fields: { paidAt: Date; wechatTransactionId: string | null; payerTotalFen: number | null; payCurrency: string | null }): Promise<boolean> {
     const order = this.orders.get(orderId)
     if (!order || order.status !== 'pay' || order.paymentStatus !== 'pending') return false
     this.orders.set(orderId, { ...order, status: 'ship', paymentStatus: 'paid', ...fields, updatedAt: new Date() })
@@ -390,7 +425,7 @@ export class InMemoryOrderRepository implements OrderRepository {
       .sort((left, right) => left.paidAt!.getTime() - right.paidAt!.getTime())
       .slice(0, limit)
   }
-  async registerLatePaymentIfCancelled(orderId: string, fields: { paidAt: Date; wechatTransactionId: string; systemRemark: string }): Promise<boolean> {
+  async registerLatePaymentIfCancelled(orderId: string, fields: { paidAt: Date; wechatTransactionId: string; systemRemark: string; payerTotalFen: number | null; payCurrency: string | null }): Promise<boolean> {
     const order = this.orders.get(orderId)
     if (!order || order.status !== 'cancelled' || order.paymentStatus !== 'pending') return false
     this.orders.set(orderId, { ...order, paymentStatus: 'paid', ...fields, updatedAt: new Date() })

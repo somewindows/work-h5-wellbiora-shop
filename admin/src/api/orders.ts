@@ -17,6 +17,11 @@ export function listOrders(params: OrderQueryParams): Promise<PageResult<AdminOr
   return request.get('/admin/orders', { params })
 }
 
+/** 订单导出 CSV（对账用）：复用列表筛选条件（忽略分页，服务端封顶截断）；返回原始 Blob 由页面触发下载 */
+export function exportOrdersCsv(params: OrderQueryParams): Promise<Blob> {
+  return request.get('/admin/orders/export', { params, responseType: 'blob' })
+}
+
 export function getOrder(orderNo: string): Promise<AdminOrderDetail> {
   return request.get(`/admin/orders/${orderNo}`)
 }

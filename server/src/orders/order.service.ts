@@ -25,8 +25,10 @@ export interface WechatPaidInput {
   transactionId: string
   /** 订单总额（微信 amount.total），与本地订单金额比对 */
   paidTotalFen: number
-  /** 用户实付（微信 amount.payer_total），优惠场景小于总额；仅记录日志供对账 */
+  /** 用户实付（微信 amount.payer_total），优惠场景小于总额；缺省时按总额落库 */
   payerTotalFen?: number
+  /** 支付币种（微信 amount.currency），预期恒 CNY；非 CNY 仅告警不拒绝 */
+  currency?: string
   paidAt: Date
 }
 
@@ -96,7 +98,7 @@ export class OrderService {
         idcardFingerprint: prepared.realname.idcardFingerprint, receiverName: prepared.address.name, receiverPhone: prepared.address.phone,
         receiverRegion: prepared.address.region, receiverDetail: prepared.address.detail, paidAt: null, cancelledAt: null,
         systemRemark: null, refundFen: null, refundedAt: null, wechatTransactionId: null,
-        customsDeclareStatus: null, customsDeclaredAt: null,
+        customsDeclareStatus: null, customsDeclaredAt: null, payerTotalFen: null, payCurrency: null,
       })
       // 复审 R03：主单 + 明细 + 购物车删除 + 状态事件同一事务提交，任一步失败整体回滚，
       // 不再出现空明细订单/部分清空购物车；订单存在即完整，幂等重进无需再校验明细
@@ -185,6 +187,15 @@ export class OrderService {
     if (input.payerTotalFen != null && input.payerTotalFen !== input.paidTotalFen) {
       this.logger.warn(`订单 ${order.orderNo} 用户实付 ${input.payerTotalFen} 与订单总额 ${input.paidTotalFen} 不一致（优惠/代金券等），财务对账留意`)
     }
+    // R08：币种预期恒 CNY，异常只告警不拒绝（照常被微信对账时人工核对）；实付大于总额同理
+    if (input.currency != null && input.currency !== 'CNY') {
+      this.logger.warn(`订单 ${order.orderNo} 支付币种异常：${input.currency}（预期 CNY），财务对账留意`)
+    }
+    if (input.payerTotalFen != null && input.payerTotalFen > input.paidTotalFen) {
+      this.logger.warn(`订单 ${order.orderNo} 用户实付 ${input.payerTotalFen} 大于订单总额 ${input.paidTotalFen}，财务对账留意`)
+    }
+    // R08 对账依据落库：微信缺省 payer_total 时按总额记（优惠额自然为 0）；币种缺省记 null
+    const reconcileFields = { payerTotalFen: input.payerTotalFen ?? input.paidTotalFen, payCurrency: input.currency ?? null }
 
     // 复审 R09：取消后收到的真实扣款必须登记支付事实——否则钱在微信侧、本地无痕，
     // 连后台人工退款入口都被「订单未支付」校验挡死。不推仓不报关，转人工退款。
@@ -205,7 +216,7 @@ export class OrderService {
     // 复审 R10：支付事实先落库（条件更新），推仓/报关解耦为可重试的后续步骤——
     // 仓储/海关故障不再阻塞支付记账，失败由履约收敛 job 扫库重试、超窗转人工
     const marked = await this.orderRepository.markPaidIfPending(order.id, {
-      paidAt: input.paidAt, wechatTransactionId: input.transactionId,
+      paidAt: input.paidAt, wechatTransactionId: input.transactionId, ...reconcileFields,
     })
     if (marked) {
       await this.orderRepository.recordStatusEvent({
@@ -237,6 +248,8 @@ export class OrderService {
     const registered = await this.orderRepository.registerLatePaymentIfCancelled(order.id, {
       paidAt: input.paidAt, wechatTransactionId: input.transactionId,
       systemRemark: '订单取消后收到微信扣款，需人工退款处理',
+      // R08：迟到扣款同样落对账依据（实付缺省按总额记）
+      payerTotalFen: input.payerTotalFen ?? input.paidTotalFen, payCurrency: input.currency ?? null,
     })
     if (!registered) return false
     await this.orderRepository.recordStatusEvent({
@@ -275,7 +288,8 @@ export class OrderService {
     if (order.status !== 'pay') throw new BusinessException(40002, '当前订单不能确认支付')
     // 复审 R10：与支付回调同一顺序——先条件更新登记支付，推仓交给履约服务（可重试）
     const paidAt = new Date()
-    const marked = await this.orderRepository.markPaidIfPending(order.id, { paidAt, wechatTransactionId: null })
+    // mock 无优惠：实付 = 订单总额，币种记 CNY（保证内存模式/e2e 下 R08 对账列有合理值）
+    const marked = await this.orderRepository.markPaidIfPending(order.id, { paidAt, wechatTransactionId: null, payerTotalFen: order.totalFen, payCurrency: 'CNY' })
     if (!marked) throw new BusinessException(40002, '当前订单不能确认支付')
     await this.orderRepository.recordStatusEvent({ orderId: order.id, fromStatus: 'pay', toStatus: 'ship', source: 'system', remark: '本地 mock 支付成功' })
     await this.fulfillment.pushWarehouseIfNeeded(order.orderNo)

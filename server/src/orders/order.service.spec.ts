@@ -1,3 +1,5 @@
+import { Logger } from '@nestjs/common'
+
 import { InMemoryCartRepository } from '../cart/cart.repository'
 import { InMemoryCatalogRepository } from '../catalog/catalog.repository'
 import { PRODUCT_DETAILS } from '../catalog/catalog.seed'
@@ -81,7 +83,7 @@ describe('OrderService', () => {
       warehouseStatus: null, totalFen: 32900, realnameName: '张三', idcardEncrypted: 'x', idcardFingerprint: 'fp',
       receiverName: '张三', receiverPhone: '13800000000', receiverRegion: 'r', receiverDetail: 'd',
       paidAt: null, cancelledAt: null, systemRemark: null, refundFen: null, refundedAt: null, wechatTransactionId: null,
-      customsDeclareStatus: null, customsDeclaredAt: null,
+      customsDeclareStatus: null, customsDeclaredAt: null, payerTotalFen: null, payCurrency: null,
     }))
     jest.spyOn(ordersRepo, 'findByUserAndRequest').mockResolvedValueOnce(null).mockResolvedValueOnce(null)
     jest.spyOn(ordersRepo, 'runInTransaction').mockRejectedValueOnce(Object.assign(new Error('Duplicate entry'), { code: 'ER_DUP_ENTRY' }))
@@ -183,7 +185,7 @@ describe('OrderService', () => {
       const { orderNo } = await svc.create('user-1', { requestId: 'request-pay-4' })
       await svc.cancel('user-1', orderNo)
 
-      await svc.handleWechatPaid(paidInput(orderNo))
+      await svc.handleWechatPaid({ ...paidInput(orderNo), currency: 'CNY' })
 
       const record = await ordersRepo.findOneByOrderNo(orderNo)
       expect(record).toMatchObject({
@@ -191,6 +193,9 @@ describe('OrderService', () => {
         paymentStatus: 'paid',
         wechatTransactionId: '4200000123456789012345678901',
         systemRemark: '订单取消后收到微信扣款，需人工退款处理',
+        // R08：迟到扣款同样落对账依据（实付缺省按总额记）
+        payerTotalFen: 32900,
+        payCurrency: 'CNY',
       })
       // 已取消订单不推仓
       expect(await warehouse.getOrderStatus(orderNo)).toBeNull()
@@ -213,13 +218,46 @@ describe('OrderService', () => {
       expect(payment.closedOrders).toContain(orderNo)
     })
 
-    it('优惠支付（实付小于订单总额）按订单总额正常登记（复审 R08）', async () => {
+    it('优惠支付（实付小于订单总额）按订单总额正常登记，实付与币种落库（复审 R08）', async () => {
       const { orderNo } = await service.create('user-1', { requestId: 'request-pay-coupon' })
 
-      await service.handleWechatPaid({ ...paidInput(orderNo), payerTotalFen: 32800 })
+      await service.handleWechatPaid({ ...paidInput(orderNo), payerTotalFen: 32800, currency: 'CNY' })
 
       const order = await service.get('user-1', orderNo)
       expect(order.status).toBe('ship')
+      // R08 对账依据落库：实付 32800 / 币种 CNY 随支付标记同一条件更新写入（优惠额 = 32900-32800 读取时派生）
+      const record = await orders.findOneByOrderNo(orderNo)
+      expect(record).toMatchObject({ payerTotalFen: 32800, payCurrency: 'CNY' })
+    })
+
+    it('微信缺省 payer_total 时按订单总额记实付（优惠额自然为 0，R08）', async () => {
+      const { orderNo } = await service.create('user-1', { requestId: 'request-pay-nopayer' })
+
+      await service.handleWechatPaid(paidInput(orderNo)) // 不传 payerTotalFen / currency
+
+      const record = await orders.findOneByOrderNo(orderNo)
+      expect(record).toMatchObject({ paymentStatus: 'paid', payerTotalFen: 32900, payCurrency: null })
+    })
+
+    it('非 CNY 币种仅告警不拒绝，原样落库（R08）', async () => {
+      const { orderNo } = await service.create('user-1', { requestId: 'request-pay-currency' })
+      const warn = jest.spyOn(Logger.prototype, 'warn')
+
+      await service.handleWechatPaid({ ...paidInput(orderNo), currency: 'USD' })
+
+      const record = await orders.findOneByOrderNo(orderNo)
+      expect(record).toMatchObject({ paymentStatus: 'paid', payerTotalFen: 32900, payCurrency: 'USD' })
+      expect(warn.mock.calls.some((args) => String(args[0]).includes('币种异常'))).toBe(true)
+      warn.mockRestore()
+    })
+
+    it('mock 支付确认落对账依据：实付=订单总额、币种 CNY（R08）', async () => {
+      const { orderNo } = await service.create('user-1', { requestId: 'request-mock-pay' })
+
+      await service.confirmMockPayment('user-1', orderNo)
+
+      const record = await orders.findOneByOrderNo(orderNo)
+      expect(record).toMatchObject({ paymentStatus: 'paid', payerTotalFen: 32900, payCurrency: 'CNY' })
     })
 
     it('取消在回调标记支付前获胜：条件更新落败后登记支付事实、未推仓不复活订单（复审 R09/R10）', async () => {
@@ -455,7 +493,7 @@ describe('OrderService', () => {
         realnameName: '张三', idcardEncrypted: 'x', idcardFingerprint: fingerprint,
         receiverName: '张三', receiverPhone: '13800000000', receiverRegion: 'r', receiverDetail: 'd',
         paidAt: null, cancelledAt: null, systemRemark: null, refundFen: null, refundedAt: null, wechatTransactionId: null,
-        customsDeclareStatus: null, customsDeclaredAt: null,
+        customsDeclareStatus: null, customsDeclaredAt: null, payerTotalFen: null, payCurrency: null,
       }))
       return orders.saveOrder({ ...order, ...overrides })
     }

@@ -180,4 +180,32 @@ describe('后台订单管理（e2e）', () => {
     const repeat = await request(app.getHttpServer()).post(`/api/v1/admin/orders/${paid}/refund`).set(admin()).send({ confirm: true }).expect(400)
     expect(repeat.body).toMatchObject({ code: 40002 })
   })
+
+  it('订单导出 CSV：text/csv 直出（不包 JSON 壳）+ BOM + 与列表同筛选 + 审计留痕（R08）', async () => {
+    const orderNo = await createPaidOrder() // mock 支付：实付=总额、币种 CNY
+
+    const response = await request(app.getHttpServer())
+      .get(`/api/v1/admin/orders/export?keyword=${orderNo}`)
+      .set(admin())
+      .expect(200)
+
+    expect(response.headers['content-type']).toContain('text/csv')
+    expect(response.headers['content-disposition']).toMatch(/attachment; filename="orders-\d{8}-\d{6}\.csv"/)
+    // BOM 头字节（EF BB BF）保证 Excel 打开中文不乱码
+    expect(response.text.charCodeAt(0)).toBe(0xfeff)
+    const lines = response.text.slice(1).trim().split('\r\n')
+    expect(lines).toHaveLength(2) // 表头 + 唯一命中行
+    expect(lines[0]).toContain('订单号')
+    expect(lines[1]).toContain(orderNo)
+    expect(lines[1]).toContain('CNY')
+    expect(lines[1]).toContain('134****0000')
+
+    // 详情透出 R08 对账字段（实付=总额 28900，币种 CNY）
+    const detail = await request(app.getHttpServer()).get(`/api/v1/admin/orders/${orderNo}`).set(admin()).expect(200)
+    expect(detail.body.data).toMatchObject({ payerTotalFen: 28900, payCurrency: 'CNY' })
+
+    // 导出含个人信息，审计留痕
+    const logs = await request(app.getHttpServer()).get('/api/v1/admin/audit-logs?action=export_orders').set(admin()).expect(200)
+    expect(logs.body.data.list.some((log: { afterData: { count: number } }) => log.afterData?.count === 1)).toBe(true)
+  })
 })

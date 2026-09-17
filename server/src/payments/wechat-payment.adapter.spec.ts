@@ -133,7 +133,7 @@ describe('WechatPaymentAdapter', () => {
           out_trade_no: 'WB20260910ABCDEF',
           transaction_id: '4200000001',
           trade_state: 'SUCCESS',
-          amount: { total: 32900, payer_total: 32900 },
+          amount: { total: 32900, payer_total: 32900, currency: 'CNY' },
           success_time: '2026-09-11T18:00:58+08:00',
         })
       })
@@ -142,7 +142,7 @@ describe('WechatPaymentAdapter', () => {
       const result = await adapter.queryPayment('WB20260910ABCDEF')
 
       expect(capturedPath).toBe('/v3/pay/transactions/out-trade-no/WB20260910ABCDEF?mchid=1117333649')
-      expect(result).toMatchObject({ tradeState: 'SUCCESS', transactionId: '4200000001', paidTotalFen: 32900 })
+      expect(result).toMatchObject({ tradeState: 'SUCCESS', transactionId: '4200000001', paidTotalFen: 32900, payerTotalFen: 32900, currency: 'CNY' })
       expect(result?.paidAt?.toISOString()).toBe('2026-09-11T10:00:58.000Z')
     })
 

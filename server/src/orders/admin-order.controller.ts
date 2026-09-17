@@ -1,4 +1,5 @@
-import { Body, Controller, Get, HttpCode, Param, Post, Query, UseGuards } from '@nestjs/common'
+import { Body, Controller, Get, HttpCode, Param, Post, Query, Res, UseGuards } from '@nestjs/common'
+import type { Response } from 'express'
 
 import { AdminJwtAuthGuard } from '../admin/admin-jwt-auth.guard'
 import { CurrentAdmin } from '../admin/current-admin.decorator'
@@ -15,6 +16,22 @@ export class AdminOrderController {
   @Get()
   list(@Query() query: AdminOrderQueryDto): Promise<{ total: number; list: AdminOrderListItem[] }> {
     return this.adminOrderService.list(query)
+  }
+
+  /**
+   * 订单导出 CSV（对账用）：复用列表筛选条件，不分页（服务端封顶截断）。
+   * 必须声明在 @Get(':orderNo') 之前，否则 'export' 被当成订单号吞掉；
+   * 必须 @Res() 直写响应，否则全局 ApiResponseInterceptor 会把 CSV 包进 JSON 壳。
+   */
+  @Get('export')
+  async export(@Query() query: AdminOrderQueryDto, @CurrentAdmin() admin: AdminActor, @Res() response: Response): Promise<void> {
+    const { csv } = await this.adminOrderService.exportCsv(query, admin)
+    const now = new Date()
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const stamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`
+    response.setHeader('Content-Type', 'text/csv; charset=utf-8')
+    response.setHeader('Content-Disposition', `attachment; filename="orders-${stamp}.csv"`)
+    response.send(csv)
   }
 
   @Get(':orderNo')

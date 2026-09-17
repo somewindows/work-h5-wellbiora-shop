@@ -116,6 +116,10 @@ export interface AdminOrderDetail extends AdminOrderListItem {
   /** 海关申报回执状态（null = 未申报，待履约收敛/人工重推） */
   customsDeclareStatus: string | null
   customsDeclaredAt: string | null
+  /** R08 对账依据：用户实付（分）；null = 历史订单/未支付 */
+  payerTotalFen: number | null
+  /** R08 对账依据：支付币种（预期恒 CNY） */
+  payCurrency: string | null
   statusEvents: { fromStatus: string | null; toStatus: string; source: string; remark: string | null; createdAt: string }[]
 }
 

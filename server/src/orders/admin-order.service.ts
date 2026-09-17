@@ -67,6 +67,10 @@ export interface AdminOrderDetail extends AdminOrderListItem {
   /** 复审 R10：海关申报回执状态（null = 未申报，待履约收敛/人工重推） */
   customsDeclareStatus: string | null
   customsDeclaredAt: string | null
+  /** R08 对账依据：用户实付（分）；null = 历史订单/未支付 */
+  payerTotalFen: number | null
+  /** R08 对账依据：支付币种（预期恒 CNY） */
+  payCurrency: string | null
   statusEvents: { fromStatus: string | null; toStatus: string; source: string; remark: string | null; createdAt: string }[]
 }
 
@@ -80,6 +84,9 @@ export interface AdminCustomsDeclarationResult {
   /** 海关应答全部原始字段（剔除签名），排查 EXCEPT 等异常原因用 */
   detail: Record<string, string>
 }
+
+/** 订单导出 CSV 单次封顶行数（超出静默截断，不在 CSV 末尾追加说明） */
+export const ORDER_EXPORT_ROW_LIMIT = 10000
 
 @Injectable()
 export class AdminOrderService {
@@ -110,6 +117,25 @@ export class AdminOrderService {
     return { total: page.total, list: page.list.map((order) => this.toListItem(order)) }
   }
 
+  /**
+   * 订单导出 CSV（对账用，R08）：与列表同筛选条件、不分页，封顶 ORDER_EXPORT_ROW_LIMIT 行静默截断。
+   * 收件人手机号脱敏导出；导出含个人信息，写审计留痕。
+   */
+  async exportCsv(query: AdminOrderQueryDto, actor: AdminActor): Promise<{ csv: string; count: number }> {
+    const orders = await this.orderRepository.findAdminExport(
+      { status: query.status, keyword: query.keyword, userId: query.userId, from: query.from, to: query.to },
+      ORDER_EXPORT_ROW_LIMIT,
+    )
+    const csv = buildOrdersCsv(orders)
+    // 行数达到封顶即视为可能截断（无法区分「恰好 limit 行」与「被截断」）：CSV 不追加说明，审计留痕 + 告警提示排查
+    const truncated = orders.length >= ORDER_EXPORT_ROW_LIMIT
+    if (truncated) this.logger.warn(`订单导出达到封顶 ${ORDER_EXPORT_ROW_LIMIT} 行，结果可能被截断（操作人 ${actor.username}）`)
+    await this.audit.record(actor, 'export_orders', 'order', 'batch', {
+      filters: { status: query.status ?? null, keyword: query.keyword ?? null, userId: query.userId ?? null, from: query.from ?? null, to: query.to ?? null },
+    }, { count: orders.length, truncated })
+    return { csv, count: orders.length }
+  }
+
   async detail(orderNo: string): Promise<AdminOrderDetail> {
     const order = await this.requireOrder(orderNo)
     const items = await this.orderRepository.findItems(order.id)
@@ -135,6 +161,8 @@ export class AdminOrderService {
       cancelledAt: order.cancelledAt?.toISOString() ?? null,
       customsDeclareStatus: order.customsDeclareStatus,
       customsDeclaredAt: order.customsDeclaredAt?.toISOString() ?? null,
+      payerTotalFen: order.payerTotalFen,
+      payCurrency: order.payCurrency,
       statusEvents: events.map((event) => this.toEventResponse(event)),
     }
   }
@@ -179,6 +207,7 @@ export class AdminOrderService {
       transactionId: remote.transactionId ?? '',
       paidTotalFen: remote.paidTotalFen ?? -1,
       payerTotalFen: remote.payerTotalFen,
+      currency: remote.currency,
       paidAt: remote.paidAt ?? new Date(),
     })
     const saved = await this.requireOrder(orderNo)
@@ -373,4 +402,53 @@ function maskPhone(phone: string): string { return phone.replace(/(\d{3})\d{4}(\
 function refundStatusText(status: string): string {
   const map: Record<string, string> = { processing: '已受理，退款处理中', success: '已到账', abnormal: '异常，需人工跟进', closed: '已关闭', failed: '通道未受理，可重新发起' }
   return map[status] ?? status
+}
+
+// 订单导出 CSV：状态列用中文标签（与 admin 前端 utils/status.ts 同一套文案），未知值原样输出
+const ORDER_STATUS_LABELS: Record<string, string> = { pay: '待支付', ship: '待发货', receive: '待收货', complete: '已完成', cancelled: '已取消' }
+const PAYMENT_STATUS_LABELS: Record<string, string> = { pending: '待支付', paid: '已支付', refunding: '退款中', refunded: '已退款' }
+
+/**
+ * CSV 单元格转义：含 逗号/双引号/换行/回车 时双引号包裹，内部双引号变两个。
+ * 公式注入防护：自由文本以 = + @ \t 开头时前缀单引号（Excel 会把这类前缀当公式执行）；
+ * `-` 仅当后面不是纯数字时才防（避免误伤负数金额），数字列天然不命中此规则。
+ */
+function csvCell(value: string): string {
+  const needsFormulaGuard = /^[=+@\t]/.test(value) || (/^-/.test(value) && !/^-\d+(\.\d+)?$/.test(value))
+  const guarded = needsFormulaGuard ? `'${value}` : value
+  return /[",\n\r]/.test(guarded) ? `"${guarded.replaceAll('"', '""')}"` : guarded
+}
+
+/** 分 → 元两位小数字符串（导出给财务直接看元） */
+function fenToYuanText(fen: number): string { return (fen / 100).toFixed(2) }
+
+/** Date → "YYYY-MM-DD HH:mm:ss" 本地时间（对账表可读性优先，不导 ISO） */
+function formatCsvDateTime(date: Date | null): string {
+  if (!date) return ''
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+}
+
+/**
+ * 订单导出 CSV 组装（R08）：BOM 前缀保证 Excel 中文不乱码；
+ * 优惠额 = 订单总额 - 用户实付，实付为空（历史单/未支付）则实付/优惠额留空。
+ */
+function buildOrdersCsv(orders: OrderRecord[]): string {
+  const header = '订单号,订单状态,支付状态,订单总额(元),用户实付(元),优惠额(元),币种,支付时间,微信交易号,收件人姓名,收件人手机号(脱敏),创建时间'
+  const rows = orders.map((order) => [
+    order.orderNo,
+    ORDER_STATUS_LABELS[order.status] ?? order.status,
+    PAYMENT_STATUS_LABELS[order.paymentStatus] ?? order.paymentStatus,
+    fenToYuanText(order.totalFen),
+    order.payerTotalFen === null ? '' : fenToYuanText(order.payerTotalFen),
+    order.payerTotalFen === null ? '' : fenToYuanText(order.totalFen - order.payerTotalFen),
+    order.payCurrency ?? '',
+    formatCsvDateTime(order.paidAt),
+    order.wechatTransactionId ?? '',
+    order.receiverName,
+    maskPhone(order.receiverPhone),
+    formatCsvDateTime(order.createdAt),
+  ].map(csvCell).join(','))
+  // \uFEFF BOM 前缀：Excel 直接打开 UTF-8 CSV 时中文不乱码
+  return '\uFEFF' + [header, ...rows].join('\r\n') + '\r\n'
 }

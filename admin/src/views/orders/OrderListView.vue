@@ -4,7 +4,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
-import { listOrders } from '@/api/orders'
+import { listOrders, exportOrdersCsv } from '@/api/orders'
 import { getErrorMessage } from '@/api/request'
 import type { AdminOrderListItem } from '@/types'
 import { formatDateTime, formatMoney } from '@/utils/format'
@@ -13,6 +13,7 @@ import { ORDER_STATUS_TABS, orderStatusMeta, paymentStatusMeta } from '@/utils/s
 const router = useRouter()
 
 const loading = ref(false)
+const exporting = ref(false)
 const list = ref<AdminOrderListItem[]>([])
 const total = ref(0)
 const query = reactive({ status: '', keyword: '', range: null as [string, string] | null, page: 1, pageSize: 20 })
@@ -35,6 +36,33 @@ async function fetchList(): Promise<void> {
     ElMessage.error(getErrorMessage(error))
   } finally {
     loading.value = false
+  }
+}
+
+/** 导出 CSV（对账用）：复用当前筛选条件（与列表同口径，忽略分页，服务端封顶 10000 行截断） */
+async function onExport(): Promise<void> {
+  exporting.value = true
+  try {
+    const blob = await exportOrdersCsv({
+      status: query.status || undefined,
+      keyword: query.keyword || undefined,
+      from: query.range?.[0],
+      to: query.range ? `${query.range[1]}T23:59:59` : undefined,
+    })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    const now = new Date()
+    const pad = (n: number) => String(n).padStart(2, '0')
+    link.href = url
+    link.download = `orders-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.csv`
+    link.click()
+    // 延迟回收：部分浏览器在 click 的同一帧 revoke 会打断下载
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+    ElMessage.success('订单 CSV 已开始下载')
+  } catch (error) {
+    ElMessage.error(getErrorMessage(error))
+  } finally {
+    exporting.value = false
   }
 }
 
@@ -68,6 +96,7 @@ onMounted(fetchList)
         @change="onSearch"
       />
       <el-button type="primary" @click="onSearch">查询</el-button>
+      <el-button :loading="exporting" @click="onExport">导出 CSV</el-button>
     </div>
 
     <el-table v-loading="loading" :data="list" border>

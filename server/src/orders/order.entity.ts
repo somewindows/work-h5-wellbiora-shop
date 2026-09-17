@@ -31,6 +31,10 @@ export class OrderEntity {
   @Column({ name: 'customs_declare_status', type: 'varchar', length: 32, nullable: true }) customsDeclareStatus!: string | null
   /** 最近一次申报回执落库时间 */
   @Column({ name: 'customs_declared_at', type: 'datetime', nullable: true }) customsDeclaredAt!: Date | null
+  /** R08 对账依据：用户实付（微信 amount.payer_total，分）；NULL = 历史订单/未支付。优惠额 = total_fen - payer_total_fen，读取时派生 */
+  @Column({ name: 'payer_total_fen', type: 'int', nullable: true }) payerTotalFen!: number | null
+  /** R08 对账依据：支付币种（微信 amount.currency = 订单币种，预期恒 CNY；国内直连场景与 payer_currency 恒一致，故只落这一列；非 CNY 仅告警不拒绝） */
+  @Column({ name: 'pay_currency', type: 'varchar', length: 8, nullable: true }) payCurrency!: string | null
   @CreateDateColumn({ name: 'created_at', type: 'datetime' }) createdAt!: Date
   @UpdateDateColumn({ name: 'updated_at', type: 'datetime' }) updatedAt!: Date
 }

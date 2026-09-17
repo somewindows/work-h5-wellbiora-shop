@@ -246,6 +246,11 @@ describe('微信支付回调（e2e）', () => {
       .set({ Authorization: `Bearer ${token}` })
       .expect(200)
     expect(detail.body.data.status).toBe('ship')
+
+    // R08 对账依据落库：实付 25000 / 币种 CNY（优惠额 25900-25000 读取时派生）
+    const { ORDER_REPOSITORY } = await import('../src/orders/order.repository')
+    const repo = app.get(ORDER_REPOSITORY) as { findOneByOrderNo(orderNo: string): Promise<{ payerTotalFen: number | null; payCurrency: string | null } | null> }
+    await expect(repo.findOneByOrderNo(orderNo)).resolves.toMatchObject({ payerTotalFen: 25000, payCurrency: 'CNY' })
   })
 
   // 复审 R09：取消后收到的真实扣款必须受理并登记支付事实（回 SUCCESS 止重推），订单保持已取消待人工退款

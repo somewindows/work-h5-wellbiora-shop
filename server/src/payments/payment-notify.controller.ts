@@ -11,7 +11,7 @@ interface WechatPaidResource {
   out_trade_no: string
   transaction_id: string
   trade_state: string
-  amount?: { total?: number; payer_total?: number }
+  amount?: { total?: number; payer_total?: number; currency?: string }
   success_time?: string
 }
 
@@ -73,6 +73,7 @@ export class PaymentNotifyController {
         // 复审 R08：金额比对口径是订单总额 amount.total；payer_total 是用户实付，优惠场景会更小
         paidTotalFen: resource.amount?.total ?? -1,
         payerTotalFen: resource.amount?.payer_total,
+        currency: resource.amount?.currency,
         paidAt: resource.success_time ? new Date(resource.success_time) : new Date(),
       })
       response.json({ code: 'SUCCESS', message: '成功' })

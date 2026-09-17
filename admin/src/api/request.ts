@@ -39,6 +39,8 @@ export function getErrorMessage(error: unknown): string {
 
 request.interceptors.response.use(
   (res) => {
+    // 文件下载（responseType=blob，如订单导出 CSV）直通原始 Blob，不走统一响应壳解包
+    if (res.config.responseType === 'blob') return res.data as never
     const body = res.data as ApiResponse<unknown>
     if (body.code !== 0) {
       if (body.code === 40101) handleUnauthorized()
@@ -46,8 +48,18 @@ request.interceptors.response.use(
     }
     return body.data as never
   },
-  (err: unknown) => {
-    if (axios.isAxiosError(err) && err.response?.status === 401) handleUnauthorized()
+  async (err: unknown) => {
+    if (axios.isAxiosError(err)) {
+      if (err.response?.status === 401) handleUnauthorized()
+      // blob 请求失败时错误体也是 Blob（服务端返回的 JSON 错误壳），读出 message 再抛，保证 401 等提示不丢失
+      const data = err.response?.data
+      if (data instanceof Blob) {
+        try {
+          const body = JSON.parse(await data.text()) as Partial<ApiResponse<unknown>>
+          if (typeof body?.message === 'string' && body.message) return Promise.reject(new Error(body.message))
+        } catch { /* 非 JSON 错误体则走通用提取 */ }
+      }
+    }
     return Promise.reject(new Error(getErrorMessage(err)))
   },
 )

@@ -29,8 +29,10 @@ export interface PaymentQueryResult {
   transactionId?: string
   /** 订单总金额（amount.total）：与本地订单金额比对的口径（复审 R08：不能用 payer_total，优惠场景实付小于总额） */
   paidTotalFen?: number
-  /** 用户实付（amount.payer_total）：优惠信息，仅供对账参考 */
+  /** 用户实付（amount.payer_total）：优惠信息，落库供对账（R08） */
   payerTotalFen?: number
+  /** 支付币种（amount.currency），预期恒 CNY */
+  currency?: string
   paidAt?: Date
 }
 

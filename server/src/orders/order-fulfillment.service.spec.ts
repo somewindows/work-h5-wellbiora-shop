@@ -21,7 +21,7 @@ describe('OrderFulfillmentService（复审 R10：推仓/报关解耦）', () => 
       realnameName: '张三', idcardEncrypted: crypto.encrypt('110101199001011234'), idcardFingerprint: 'fp',
       receiverName: '张三', receiverPhone: '13800000000', receiverRegion: 'r', receiverDetail: 'd',
       paidAt: new Date(), cancelledAt: null, systemRemark: null, refundFen: null, refundedAt: null,
-      wechatTransactionId: '4200000123456789012345678901', customsDeclareStatus: null, customsDeclaredAt: null,
+      wechatTransactionId: '4200000123456789012345678901', customsDeclareStatus: null, customsDeclaredAt: null, payerTotalFen: null, payCurrency: null,
       ...overrides,
     })
     return orders.saveOrder(order)

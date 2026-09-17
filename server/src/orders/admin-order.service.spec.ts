@@ -1,10 +1,12 @@
+import { Logger } from '@nestjs/common'
+
 import { InMemoryCatalogRepository } from '../catalog/catalog.repository'
 import { PRODUCT_DETAILS } from '../catalog/catalog.seed'
 import { PersonalDataCryptoService } from '../security/personal-data-crypto.service'
 import { AuditLogService } from '../admin/audit-log.service'
 import { InMemoryAuditLogRepository } from '../admin/audit-log.repository'
 
-import { AdminOrderService } from './admin-order.service'
+import { AdminOrderService, ORDER_EXPORT_ROW_LIMIT } from './admin-order.service'
 import { LocalPaymentAdapter, type PaymentAdapter } from './local-payment.adapter'
 import { LocalWarehouseAdapter } from './local-warehouse.adapter'
 import { OrderFulfillmentService } from './order-fulfillment.service'
@@ -35,7 +37,7 @@ describe('AdminOrderService', () => {
       realnameName: '张三', idcardEncrypted: crypto.encrypt('110101199001011234'), idcardFingerprint: 'fp',
       receiverName: '张三', receiverPhone: '13800000000', receiverRegion: '浙江省 金华市 义乌市', receiverDetail: '稠城街道 1 号',
       paidAt: null, cancelledAt: null, systemRemark: null, refundFen: null, refundedAt: null, wechatTransactionId: null,
-      customsDeclareStatus: null, customsDeclaredAt: null,
+      customsDeclareStatus: null, customsDeclaredAt: null, payerTotalFen: null, payCurrency: null,
       ...overrides,
     })
     return orders.saveOrder(order)
@@ -282,6 +284,98 @@ describe('AdminOrderService', () => {
     const detail = await service.detail(paid.orderNo)
     expect(detail.idcard).toBe('110***********1234')
     expect(JSON.stringify(detail)).not.toContain('110101199001011234')
+  })
+
+  describe('exportCsv（订单导出，R08 对账）', () => {
+    it('导出与列表同筛选口径：BOM + 中文表头 + 中文状态 + 金额元化 + 手机号脱敏 + 审计留痕', async () => {
+      const paid = await createPaidOrder()
+      await createOrder() // 待支付，不应出现在 ship 导出里
+
+      const { csv, count } = await service.exportCsv({ status: 'ship' } as never, actor)
+
+      expect(count).toBe(1)
+      // 与列表筛选结果一致
+      const page = await service.list({ page: 1, pageSize: 20, status: 'ship' } as never)
+      expect(page.list.map((order) => order.orderNo)).toEqual([paid.orderNo])
+      // BOM 前缀 + 中文表头 + 唯一数据行
+      expect(csv.charCodeAt(0)).toBe(0xfeff)
+      const lines = csv.slice(1).trim().split('\r\n')
+      expect(lines).toHaveLength(2)
+      expect(lines[0]).toBe('订单号,订单状态,支付状态,订单总额(元),用户实付(元),优惠额(元),币种,支付时间,微信交易号,收件人姓名,收件人手机号(脱敏),创建时间')
+      expect(lines[1]).toContain(paid.orderNo)
+      expect(lines[1]).toContain('待发货')
+      expect(lines[1]).toContain('已支付')
+      expect(lines[1]).toContain('329.00')
+      expect(lines[1]).toContain('138****0000')
+      expect(lines[1]).not.toContain('13800000000')
+      // 导出含脱敏个人信息，审计留痕（actor + 筛选条件 + 行数）
+      await expect(auditLogs.findByTarget('order', 'batch')).resolves.toMatchObject([
+        { action: 'export_orders', adminUsername: 'operator', beforeData: { filters: { status: 'ship' } }, afterData: { count: 1, truncated: false } },
+      ])
+    })
+
+    it('导出封顶截断：仓储只取最近 limit 条（按创建时间倒序），服务层固定传 ORDER_EXPORT_ROW_LIMIT', async () => {
+      const base = Date.now() - 3000
+      await createOrder({ createdAt: new Date(base) })
+      await createOrder({ createdAt: new Date(base + 1000) })
+      const newest = await createOrder({ createdAt: new Date(base + 2000) })
+
+      const rows = await orders.findAdminExport({}, 2)
+      expect(rows).toHaveLength(2)
+      expect(rows[0].orderNo).toBe(newest.orderNo)
+
+      const spy = jest.spyOn(orders, 'findAdminExport')
+      await service.exportCsv({} as never, actor)
+      expect(spy).toHaveBeenCalledWith(expect.anything(), ORDER_EXPORT_ROW_LIMIT)
+      expect(ORDER_EXPORT_ROW_LIMIT).toBe(10000)
+    })
+
+    it('CSV 转义：含逗号/引号/换行的字段双引号包裹且内部引号翻倍', async () => {
+      await createOrder({ receiverName: '张,"三\n四"' })
+
+      const { csv } = await service.exportCsv({} as never, actor)
+
+      expect(csv).toContain('"张,""三\n四"""')
+    })
+
+    it('公式注入防护：以 = + @ 开头的收件人姓名导出时前缀单引号（M1），- 后接纯数字不误伤', async () => {
+      await createOrder({ receiverName: '=cmd|/c calc' })
+      await createOrder({ receiverName: '+8613800000000' })
+      await createOrder({ receiverName: '-abc' }) // - 后非纯数字 → 防护
+      await createOrder({ receiverName: '-123' }) // - 后纯数字 → 不加前缀（与负数金额同一豁免）
+
+      const { csv } = await service.exportCsv({} as never, actor)
+
+      expect(csv).toContain("'=cmd|/c calc")
+      expect(csv).toContain("'+8613800000000")
+      expect(csv).toContain("'-abc")
+      expect(csv).toContain(',-123,')
+    })
+
+    it('导出达到封顶行数：审计标记 truncated 并告警（结果可能截断）', async () => {
+      const order = await createPaidOrder()
+      const spy = jest.spyOn(orders, 'findAdminExport').mockResolvedValue(Array.from({ length: ORDER_EXPORT_ROW_LIMIT }, () => ({ ...order })))
+      const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => {})
+
+      const { count } = await service.exportCsv({} as never, actor)
+
+      expect(count).toBe(ORDER_EXPORT_ROW_LIMIT)
+      await expect(auditLogs.findByTarget('order', 'batch')).resolves.toMatchObject([
+        { action: 'export_orders', afterData: { count: ORDER_EXPORT_ROW_LIMIT, truncated: true } },
+      ])
+      expect(warn.mock.calls.some((args) => String(args[0]).includes('截断'))).toBe(true)
+      spy.mockRestore()
+      warn.mockRestore()
+    })
+
+    it('未支付/历史订单实付为空时实付与优惠额留空、订单总额仍元化', async () => {
+      const pending = await createOrder()
+
+      const { csv } = await service.exportCsv({ keyword: pending.orderNo } as never, actor)
+
+      const line = csv.slice(1).trim().split('\r\n')[1]
+      expect(line).toContain(',329.00,,,,') // 总额 329.00，实付/优惠额/币种/支付时间留空
+    })
   })
 
   describe('syncPayment（主动查单补状态）', () => {

@@ -36,6 +36,7 @@ describe('AdminUsersService', () => {
       receiverName: '张三', receiverPhone: '13800000000', receiverRegion: '浙江省 金华市', receiverDetail: '北苑街道 1 号',
       paidAt: paymentStatus === 'pending' ? null : new Date(), cancelledAt: null, systemRemark: null,
       refundFen: null, refundedAt: null, wechatTransactionId: null, customsDeclareStatus: null, customsDeclaredAt: null,
+      payerTotalFen: null, payCurrency: null,
     })
     return orders.saveOrder(order)
   }

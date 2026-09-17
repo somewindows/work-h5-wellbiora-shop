@@ -267,6 +267,12 @@ onMounted(load)
         </el-table-column>
       </el-table>
       <div class="total-line">合计：<span class="total-amount">{{ formatMoney(order.totalFen) }}</span></div>
+      <!-- R08 对账依据：实付为空（历史单/未支付）显示「-」，优惠额 = 总额 - 实付 -->
+      <div class="total-line sub-line">
+        用户实付：{{ order.payerTotalFen === null ? '-' : formatMoney(order.payerTotalFen) }}
+        <template v-if="order.payCurrency">（{{ order.payCurrency }}）</template>
+        　优惠额：{{ order.payerTotalFen === null ? '-' : formatMoney(order.totalFen - order.payerTotalFen) }}
+      </div>
 
       <!-- 退款单账本（复审 R04/R05：受理≠到账，以 success 为终态；部分退款可多次） -->
       <template v-if="order.refunds.length > 0">
@@ -426,6 +432,12 @@ onMounted(load)
 .total-line {
   margin-top: 12px;
   text-align: right;
+}
+
+.sub-line {
+  margin-top: 4px;
+  font-size: 13px;
+  color: #606266;
 }
 
 .total-amount {
