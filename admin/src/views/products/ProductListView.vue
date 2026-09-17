@@ -6,6 +6,7 @@ import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 
 import { createProduct, listProducts } from '@/api/products'
 import { getErrorMessage } from '@/api/request'
+import ImageUrlInput from '@/components/ImageUrlInput.vue'
 import type { AdminProduct, CreateProductPayload } from '@/types'
 import { formatDateTime, formatMoney, yuanToFen } from '@/utils/format'
 
@@ -200,8 +201,8 @@ onMounted(fetchList)
           <el-color-picker v-model="createForm.themeLight" />
           <el-input v-model="createForm.themeLight" class="color-input" maxlength="9" />
         </el-form-item>
-        <el-form-item label="卡片图 URL" prop="cardImg">
-          <el-input v-model="createForm.cardImg" placeholder="/assets/xxx.jpg" maxlength="255" />
+        <el-form-item label="卡片图" prop="cardImg">
+          <ImageUrlInput v-model="createForm.cardImg" />
         </el-form-item>
         <el-form-item label="标签">
           <el-select v-model="createForm.tags" multiple filterable allow-create default-first-option placeholder="输入后回车创建标签" style="width: 100%" />

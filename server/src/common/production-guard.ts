@@ -5,7 +5,7 @@
 export function assertProductionConfig(env: NodeJS.ProcessEnv = process.env): void {
   if (env.NODE_ENV !== 'production') return
 
-  const required = ['JWT_SECRET', 'PERSONAL_DATA_KEY', 'MYSQL_HOST', 'MYSQL_USER', 'MYSQL_PASSWORD', 'MYSQL_DATABASE']
+  const required = ['JWT_SECRET', 'PERSONAL_DATA_KEY', 'MYSQL_HOST', 'MYSQL_USER', 'MYSQL_PASSWORD', 'MYSQL_DATABASE', 'UPLOAD_DIR']
   const missing = required.filter((key) => !env[key])
   if (missing.length > 0) throw new Error(`生产环境缺少配置：${missing.join(', ')}`)
 

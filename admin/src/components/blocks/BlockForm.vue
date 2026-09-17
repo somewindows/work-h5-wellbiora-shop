@@ -6,7 +6,8 @@ import { ElMessage } from 'element-plus'
 
 import type { ContentBlock } from '@/types'
 import { blockTypeLabel } from '@/utils/block'
-import { BLOCK_SCHEMAS, type BlockField } from './blockSchemas'
+import ImageUrlInput from '@/components/ImageUrlInput.vue'
+import { BLOCK_SCHEMAS, isImageArrayField, isImageStringField, type BlockField } from './blockSchemas'
 
 interface ProductOption {
   id: string
@@ -62,6 +63,15 @@ function addStringItem(key: string): void {
 
 function removeStringItem(key: string, index: number): void {
   getStringArray(key).splice(index, 1)
+}
+
+/** 上移/下移一行（offset 为 -1 或 +1），越界时不动 */
+function moveStringItem(key: string, index: number, offset: number): void {
+  const list = getStringArray(key)
+  const target = index + offset
+  if (target < 0 || target >= list.length) return
+  const [item] = list.splice(index, 1)
+  list.splice(target, 0, item)
 }
 
 interface StatsItem {
@@ -161,13 +171,19 @@ function applyRawJson(): void {
           {{ field.label }}
         </div>
 
-        <el-input v-if="field.kind === 'string'" :model-value="getString(field.key)" @update:model-value="setString(field.key, $event)" />
+        <template v-if="field.kind === 'string'">
+          <ImageUrlInput v-if="isImageStringField(field)" :model-value="getString(field.key)" @update:model-value="setString(field.key, $event)" />
+          <el-input v-else :model-value="getString(field.key)" @update:model-value="setString(field.key, $event)" />
+        </template>
 
         <el-input v-else-if="field.kind === 'textarea'" :model-value="getString(field.key)" type="textarea" :rows="3" @update:model-value="setString(field.key, $event)" />
 
         <div v-else-if="field.kind === 'stringArray'" class="row-list">
           <div v-for="(_item, index) in getStringArray(field.key)" :key="index" class="row-item">
-            <el-input v-model="getStringArray(field.key)[index]" />
+            <ImageUrlInput v-if="isImageArrayField(field)" v-model="getStringArray(field.key)[index]" />
+            <el-input v-else v-model="getStringArray(field.key)[index]" />
+            <el-button link :disabled="index === 0" @click="moveStringItem(field.key, index, -1)">上移</el-button>
+            <el-button link :disabled="index === getStringArray(field.key).length - 1" @click="moveStringItem(field.key, index, 1)">下移</el-button>
             <el-button link type="danger" @click="removeStringItem(field.key, index)">删除</el-button>
           </div>
           <el-button size="small" @click="addStringItem(field.key)">+ 添加一行</el-button>
@@ -306,6 +322,11 @@ function applyRawJson(): void {
 
 .row-item :deep(.el-input) {
   flex: 1;
+}
+
+.row-item :deep(.image-url-input) {
+  flex: 1;
+  min-width: 0;
 }
 
 .stats-row {

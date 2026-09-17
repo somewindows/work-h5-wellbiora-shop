@@ -21,6 +21,7 @@ import { AdminAccountsService } from './admin-accounts.service'
 import { AdminAuthController } from './admin-auth.controller'
 import { AdminCatalogController } from './admin-catalog.controller'
 import { AdminCatalogService } from './admin-catalog.service'
+import { AdminUploadsController } from './admin-uploads.controller'
 import { AdminJwtAuthGuard } from './admin-jwt-auth.guard'
 import { AdminAuthService } from './admin-auth.service'
 import { InitialAdminBootstrapService } from './initial-admin-bootstrap.service'
@@ -35,7 +36,7 @@ export class AdminModule {
       global: true,
       module: AdminModule,
       imports: isTest ? [AuthModule] : [AuthModule, TypeOrmModule.forFeature([AdminAccountEntity, AuditLogEntity, ContentVersionEntity, AdminLoginRateLimitEntity])],
-      controllers: [AdminAuthController, AdminAccountsController, AdminCatalogController, AdminAuditLogController],
+      controllers: [AdminAuthController, AdminAccountsController, AdminCatalogController, AdminAuditLogController, AdminUploadsController],
       providers: [
         AdminPasswordService,
         AdminAuthService,

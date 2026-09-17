@@ -21,6 +21,20 @@ export interface BlockField {
   compliance?: boolean
 }
 
+/** kind === 'string' 中属于图片地址的字段 key：渲染为上传组件（ImageUrlInput）而非纯文本输入 */
+const IMAGE_STRING_KEYS = new Set(['src', 'image'])
+
+/** kind === 'stringArray' 中属于图片地址数组的字段 key（gallery 的 images） */
+const IMAGE_ARRAY_KEYS = new Set(['images'])
+
+export function isImageStringField(field: BlockField): boolean {
+  return field.kind === 'string' && IMAGE_STRING_KEYS.has(field.key)
+}
+
+export function isImageArrayField(field: BlockField): boolean {
+  return field.kind === 'stringArray' && IMAGE_ARRAY_KEYS.has(field.key)
+}
+
 export const BLOCK_SCHEMAS: Record<string, BlockField[]> = {
   gallery: [{ key: 'images', label: '图片地址', kind: 'stringArray', required: true, hint: '至少一张，轮播展示' }],
   image: [

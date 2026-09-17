@@ -24,6 +24,11 @@ export default defineConfig({
         target: 'http://127.0.0.1:4000',
         changeOrigin: true,
       },
+      // 后台上传的图片（dev 环境由 Express 兜底托管，同 /api 代理到服务端）
+      '/assets/uploads': {
+        target: 'http://127.0.0.1:4000',
+        changeOrigin: true,
+      },
     },
   },
   test: {

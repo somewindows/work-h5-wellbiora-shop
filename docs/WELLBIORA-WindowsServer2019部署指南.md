@@ -98,7 +98,8 @@ mkdir D:\www\wellbiora\repo
 mkdir D:\www\wellbiora\site\h5
 mkdir D:\www\wellbiora\site\admin
 mkdir D:\www\wellbiora\logs
-mkdir D:\www\wellbiora\certs   # 后期接微信支付时放商户私钥/证书/平台公钥
+mkdir D:\www\wellbiora\certs    # 后期接微信支付时放商户私钥/证书/平台公钥
+mkdir D:\www\wellbiora\uploads  # 后台上传的商品图片（Nginx 托管，须独立于 site\，避免 robocopy /MIR 发布时被镜像删除）
 ```
 
 最终结构：
@@ -109,6 +110,7 @@ D:\www\wellbiora\
 ├── site\
 │   ├── h5\      # H5 商城构建产物（Nginx 托管）
 │   └── admin\   # 管理后台构建产物（Nginx 托管）
+├── uploads\     # 后台上传的商品图片（Nginx 经 /assets/uploads/ 托管）
 ├── certs\       # 微信支付密钥/证书（apiclient_key.pem / apiclient_cert.pem / pub_key.pem，手动放置，绝不进 git）
 └── logs\        # 后端与 Nginx 日志
 ```
@@ -379,6 +381,9 @@ MYSQL_DATABASE=wellbiora_shop
 # 管理后台登录限频：连续失败5次锁10分钟
 ADMIN_LOGIN_MAX_FAILURES=5
 ADMIN_LOGIN_LOCK_MINUTES=10
+
+# 商品图片上传目录（生产必填，独立于 site\ 避免发布时被 robocopy /MIR 镜像删除；对应 3.2 节创建的目录）
+UPLOAD_DIR=D:\www\wellbiora\uploads
 ```
 
 ⚠️ 三个「不要」：
@@ -543,7 +548,16 @@ notepad C:\nginx\conf\nginx.conf
             proxy_read_timeout 60s;
         }
 
-        # 上传体积限制（后台将来传图片用）
+        # ── 后台上传的商品图片（独立目录，不在 site\ 下） ──
+        # ⚠️ 必须用 ^~ 前缀匹配：防止被下方正则静态缓存块抢走后从 site\h5 找文件导致 404
+        location ^~ /assets/uploads/ {
+            alias D:/www/wellbiora/uploads/;
+            expires 30d;
+            add_header Cache-Control "public";
+            add_header X-Content-Type-Options nosniff;
+        }
+
+        # 上传体积限制（后台传图片用，服务端另有 5MB 白名单校验）
         client_max_body_size 10m;
 
         # 静态资源缓存（带 hash 的文件名可以长缓存）
@@ -755,6 +769,14 @@ mkdir C:\nginx\ssl
             proxy_read_timeout 60s;
         }
 
+        # 后台上传的商品图片（独立目录，^~ 防止被下方正则静态缓存块抢走）
+        location ^~ /assets/uploads/ {
+            alias D:/www/wellbiora/uploads/;
+            expires 30d;
+            add_header Cache-Control "public";
+            add_header X-Content-Type-Options nosniff;
+        }
+
         client_max_body_size 10m;
 
         location ~* \.(js|css|png|jpg|jpeg|gif|webp|svg|woff2?)$ {
@@ -881,6 +903,8 @@ Register-ScheduledTask -TaskName "WELLBIORA-MySQL每日备份" -Action $action -
 
 脚本行为：导出 `wellbiora_shop` 全库（`--single-transaction` 不锁表）→ 压缩成 zip → 自动清理 30 天前的备份 → 日志写在 `D:\www\wellbiora\backups\backup.log`。建议每周把最新 zip 下载一份到本地异地存放——**身份证号虽是密文存储，但备份文件同样要当敏感数据保管**。
 
+⚠️ 上传的图片不在数据库里：后台上传的商品图片落在 `D:\www\wellbiora\uploads\`（数据库只存路径），该目录也要纳入日常备份（可在备份脚本里一并打包，或至少每周手动压缩存档一次），否则误删/换机后图片 URL 全部失效。
+
 ### 17.4 服务状态速查
 
 ```powershell
@@ -903,4 +927,4 @@ netstat -ano | findstr ":80 :4000 :3306"     # 端口监听检查
 
 ---
 
-*文档版本：2026-09-07 v1.4 · 依据仓库当前 main 分支配置编写（server 端口 4000 / 接口前缀 /api/v1 / MySQL 8.4 / 10 个数据库迁移）。v1.1：填入真实域名 wellbiora.com.cn；ICP 备案标记已完成；11.1 节 admin 子路径改动已内置进仓库代码。v1.2：修正 MySQL 下载入口——统一安装器页只到 8.0，改为 MySQL Server 下载页（dev.mysql.com/downloads/mysql/）的 8.4.11 LTS x64 MSI（mysql-8.4.11-winx64.msi）。v1.3：Nginx 下载版本由过时示例 1.28.0 更新为当前稳定版 1.30.4（Stable 行，nginx-1.30.4.zip）；NSSM 由老稳定版 2.24 更新为 2.24-101-g897c7ad 预发布版（Win10/Server 2016+ 上老 2.24 有服务启动 bug，官网公告要求用预发布版）。v1.4（2026-09-07 实际部署踩坑修正）：Nginx 注册为 Windows 服务后桌面会话执行 `nginx -s reload` 会报 Access denied（命名事件跨会话打不开），13.4/16.4 改为 `nssm restart WellbioraNginx` 生效*
+*文档版本：2026-09-07 v1.4 · 依据仓库当前 main 分支配置编写（server 端口 4000 / 接口前缀 /api/v1 / MySQL 8.4 / 10 个数据库迁移）。v1.1：填入真实域名 wellbiora.com.cn；ICP 备案标记已完成；11.1 节 admin 子路径改动已内置进仓库代码。v1.2：修正 MySQL 下载入口——统一安装器页只到 8.0，改为 MySQL Server 下载页（dev.mysql.com/downloads/mysql/）的 8.4.11 LTS x64 MSI（mysql-8.4.11-winx64.msi）。v1.3：Nginx 下载版本由过时示例 1.28.0 更新为当前稳定版 1.30.4（Stable 行，nginx-1.30.4.zip）；NSSM 由老稳定版 2.24 更新为 2.24-101-g897c7ad 预发布版（Win10/Server 2016+ 上老 2.24 有服务启动 bug，官网公告要求用预发布版）。v1.4（2026-09-07 实际部署踩坑修正）：Nginx 注册为 Windows 服务后桌面会话执行 `nginx -s reload` 会报 Access denied（命名事件跨会话打不开），13.4/16.4 改为 `nssm restart WellbioraNginx` 生效。v1.5（2026-09-17 商品图片上传）：3.2 目录规划新增 `uploads\`；10.2 .env 清单新增 `UPLOAD_DIR`；80/443 两个 server 块新增 `location ^~ /assets/uploads/`；17.3 备份提醒纳入 uploads 目录*

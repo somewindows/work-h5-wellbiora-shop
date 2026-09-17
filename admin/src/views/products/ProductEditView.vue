@@ -8,6 +8,7 @@ import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { getProduct, updateProduct } from '@/api/products'
 import { getErrorMessage } from '@/api/request'
 import BlockEditor from '@/components/blocks/BlockEditor.vue'
+import ImageUrlInput from '@/components/ImageUrlInput.vue'
 import type { AdminProduct, UpdateProductPayload } from '@/types'
 import { fenToYuan, yuanToFen } from '@/utils/format'
 
@@ -151,8 +152,8 @@ onMounted(load)
             <el-color-picker v-model="form.themeLight" />
             <el-input v-model="form.themeLight" class="color-input" maxlength="9" />
           </el-form-item>
-          <el-form-item label="卡片图 URL" prop="cardImg">
-            <el-input v-model="form.cardImg" maxlength="255" />
+          <el-form-item label="卡片图" prop="cardImg">
+            <ImageUrlInput v-model="form.cardImg" />
           </el-form-item>
           <el-form-item label="标签">
             <el-select v-model="form.tags" multiple filterable allow-create default-first-option placeholder="输入后回车创建标签" style="width: 100%" />

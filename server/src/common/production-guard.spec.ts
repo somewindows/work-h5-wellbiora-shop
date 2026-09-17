@@ -8,6 +8,7 @@ const productionEnv: NodeJS.ProcessEnv = {
   MYSQL_USER: 'root',
   MYSQL_PASSWORD: 'pass',
   MYSQL_DATABASE: 'shop',
+  UPLOAD_DIR: 'D:\\www\\wellbiora\\uploads',
 }
 
 describe('assertProductionConfig', () => {
