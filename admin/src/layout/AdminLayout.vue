@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // 主布局：侧边菜单 + 顶栏（当前管理员、退出登录）
-import { Document, Goods, Tickets } from '@element-plus/icons-vue'
+import { Document, Goods, Tickets, User } from '@element-plus/icons-vue'
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -13,6 +13,7 @@ const auth = useAuthStore()
 const activeMenu = computed(() => {
   // 详情页高亮所属列表菜单
   if (route.path.startsWith('/orders')) return '/orders'
+  if (route.path.startsWith('/users')) return '/users'
   if (route.path.startsWith('/products')) return '/products'
   return route.path
 })
@@ -40,6 +41,10 @@ function onLogout(): void {
         <el-menu-item index="/orders">
           <el-icon><Tickets /></el-icon>
           <span>订单管理</span>
+        </el-menu-item>
+        <el-menu-item index="/users">
+          <el-icon><User /></el-icon>
+          <span>用户管理</span>
         </el-menu-item>
         <el-menu-item index="/audit-logs">
           <el-icon><Document /></el-icon>

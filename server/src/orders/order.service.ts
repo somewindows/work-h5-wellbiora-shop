@@ -16,7 +16,8 @@ import { RefundService } from './refund.service'
 import { WAREHOUSE_ADAPTER, type WarehouseAdapter } from './warehouse.adapter'
 
 const SINGLE_ORDER_LIMIT_FEN = 500000
-const YEARLY_LIMIT_FEN = 2600000
+/** 跨境电商零售进口个人年度交易限值（分）：26000 元；后台用户详情年度额度卡共用此常量 */
+export const YEARLY_LIMIT_FEN = 2600000
 
 /** 微信支付回调传入的已核验支付结果 */
 export interface WechatPaidInput {

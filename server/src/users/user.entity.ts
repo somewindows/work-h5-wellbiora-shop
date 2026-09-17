@@ -17,6 +17,10 @@ export class UserEntity {
   @Column({ name: 'union_id', type: 'varchar', length: 64, nullable: true, unique: true })
   unionId!: string | null
 
+  /** 后台禁用标记：禁用后拒绝发验证码/登录，已签发 token 由 JwtAuthGuard 拦截 */
+  @Column({ name: 'disabled', type: 'boolean', default: false })
+  disabled!: boolean
+
   @CreateDateColumn({ name: 'created_at', type: 'datetime' })
   createdAt!: Date
 

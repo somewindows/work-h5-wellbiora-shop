@@ -28,6 +28,9 @@ export class AuthService {
   ) {}
 
   async sendSmsCode(phone: string, ip: string): Promise<void> {
+    // 已禁用账号直接拒绝发码（新手机号不存在用户记录，不受影响）
+    const existing = await this.usersRepository.findByPhone(phone)
+    if (existing?.disabled) throw new BusinessException(40301, '账号已被禁用，请联系客服', HttpStatus.FORBIDDEN)
     const code = await this.smsCodeStore.issue(phone, ip)
     await this.smsProvider.send(phone, code)
   }
@@ -44,7 +47,10 @@ export class AuthService {
       }
       throw error
     }
-    const user = (await this.usersRepository.findByPhone(phone)) ?? (await this.usersRepository.create(phone))
+    // 双保险：禁用后旧验证码也不能换 token（发码环节已拦截，这里挡禁用前已发出的验证码）
+    const existing = await this.usersRepository.findByPhone(phone)
+    if (existing?.disabled) throw new BusinessException(40301, '账号已被禁用，请联系客服', HttpStatus.FORBIDDEN)
+    const user = existing ?? (await this.usersRepository.create(phone))
     for (const key of rateLimitKeys) await this.rateLimit.reset(key)
 
     return {

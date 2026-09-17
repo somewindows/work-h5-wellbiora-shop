@@ -20,9 +20,17 @@ import { ProfileService } from './profile.service'
 
 @Module({})
 export class ProfileModule {
+  /**
+   * 记忆化：OrdersModule 与 AdminUsersModule 都会引入档案模块，
+   * 返回同一个 DynamicModule 引用让 Nest 模块去重，避免控制器重复注册。
+   */
+  private static dynamicModule: DynamicModule | null = null
+
   static register(): DynamicModule {
+    if (this.dynamicModule) return this.dynamicModule
+
     const isTest = isInMemoryStorage()
-    return {
+    this.dynamicModule = {
       module: ProfileModule,
       imports: isTest
         ? [AuthModule, SecurityModule]
@@ -33,7 +41,9 @@ export class ProfileModule {
         { provide: ADDRESS_REPOSITORY, useClass: isTest ? InMemoryAddressRepository : TypeOrmAddressRepository },
         { provide: REALNAME_PROFILE_REPOSITORY, useClass: isTest ? InMemoryRealnameProfileRepository : TypeOrmRealnameProfileRepository },
       ],
-      exports: [ProfileService],
+      // 仓储导出给后台用户管理等模块复用（实名状态/地址数聚合）
+      exports: [ProfileService, ADDRESS_REPOSITORY, REALNAME_PROFILE_REPOSITORY],
     }
+    return this.dynamicModule
   }
 }

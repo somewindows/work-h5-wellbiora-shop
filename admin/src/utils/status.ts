@@ -81,6 +81,11 @@ export function paymentStatusMeta(status: string): StatusMeta {
   return PAYMENT_STATUS_MAP[status] ?? { label: status || '未知', tagType: 'info' }
 }
 
+/** 用户（会员）状态：启用 = success / 禁用 = danger */
+export function userStatusMeta(disabled: boolean): StatusMeta {
+  return disabled ? { label: '已禁用', tagType: 'danger' } : { label: '启用中', tagType: 'success' }
+}
+
 /** 状态事件来源文案 */
 export const EVENT_SOURCE_MAP: Record<string, string> = {
   user: '用户操作',

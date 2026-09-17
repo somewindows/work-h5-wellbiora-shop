@@ -128,6 +128,36 @@ export interface AdminCustomsDeclarationResult {
   detail: Record<string, string>
 }
 
+/** 后台用户列表项（AdminUserListItem）：手机号服务端已脱敏，无身份证号字段 */
+export interface AdminUserListItem {
+  id: string
+  phoneMasked: string
+  nickname: string
+  wechatBound: boolean
+  realnamed: boolean
+  disabled: boolean
+  orderCount: number
+  /** 累计消费（分）= 已支付口径（paid/refunding/refunded）订单总额 */
+  paidTotalFen: number
+  createdAt: string
+}
+
+/** 年度跨境额度卡（个人年度交易限值 26000 元） */
+export interface YearlyQuota {
+  year: number
+  occupiedFen: number
+  remainingFen: number
+  limitFen: number
+}
+
+/** 后台用户详情（AdminUserDetail） */
+export interface AdminUserDetail extends AdminUserListItem {
+  /** 实名姓名脱敏（姓氏 + *），未实名为 null */
+  realnameNameMasked: string | null
+  addressCount: number
+  yearlyQuota: YearlyQuota
+}
+
 /** 操作日志记录（AuditLogRecord，createdAt 经 JSON 序列化为字符串） */
 export interface AuditLogRecord {
   id: string

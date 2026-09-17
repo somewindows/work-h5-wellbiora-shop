@@ -5,6 +5,8 @@ export class AdminOrderQueryDto {
   @IsOptional() @IsIn(['pay', 'ship', 'receive', 'complete', 'cancelled']) status?: string
   /** 订单号或收货手机号模糊匹配 */
   @IsOptional() @IsString() keyword?: string
+  /** 后台用户详情页内嵌订单列表用：按下单用户过滤 */
+  @IsOptional() @IsString() userId?: string
   @IsOptional() @Transform(({ value }) => new Date(value as string)) @IsDate() from?: Date
   @IsOptional() @Transform(({ value }) => new Date(value as string)) @IsDate() to?: Date
   @IsOptional() @Transform(({ value }) => Number(value)) @Min(1) page = 1

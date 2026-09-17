@@ -12,6 +12,7 @@ import { HomeModule } from './home/home.module'
 import { ProductsModule } from './products/products.module'
 import { OrdersModule } from './orders/orders.module'
 import { SecurityModule } from './security/security.module'
+import { AdminUsersModule } from './users/admin-users.module'
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { SecurityModule } from './security/security.module'
     HomeModule,
     ProductsModule,
     OrdersModule.register(),
+    AdminUsersModule,
   ],
   providers: [
     { provide: APP_INTERCEPTOR, useClass: ApiResponseInterceptor },

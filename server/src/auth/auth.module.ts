@@ -68,6 +68,8 @@ import { PaymentsModule } from '../payments/payments.module'
       },
     },
   ],
-  exports: [SMS_PROVIDER, JwtModule],
+  // UsersModule 透传导出（含 USERS_REPOSITORY）：JwtAuthGuard 校验禁用状态依赖它，
+  // 而 ProfileModule/CartModule 等只 import AuthModule，需要经这里拿到用户仓储
+  exports: [SMS_PROVIDER, JwtModule, UsersModule.register()],
 })
 export class AuthModule {}

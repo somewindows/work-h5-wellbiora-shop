@@ -23,6 +23,8 @@ export const router = createRouter({
         { path: 'products/:id', name: 'product-edit', component: () => import('@/views/products/ProductEditView.vue'), meta: { title: '商品编辑' } },
         { path: 'orders', name: 'orders', component: () => import('@/views/orders/OrderListView.vue'), meta: { title: '订单管理' } },
         { path: 'orders/:orderNo', name: 'order-detail', component: () => import('@/views/orders/OrderDetailView.vue'), meta: { title: '订单详情' } },
+        { path: 'users', name: 'users', component: () => import('@/views/users/UserListView.vue'), meta: { title: '用户管理' } },
+        { path: 'users/:id', name: 'user-detail', component: () => import('@/views/users/UserDetailView.vue'), meta: { title: '用户详情' } },
         { path: 'audit-logs', name: 'audit-logs', component: () => import('@/views/AuditLogView.vue'), meta: { title: '操作日志' } },
       ],
     },

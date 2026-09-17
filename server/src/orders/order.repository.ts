@@ -34,6 +34,8 @@ export interface OrderStatusEventRecord {
 export interface AdminOrderPageQuery {
   status?: string
   keyword?: string
+  /** 后台用户详情页内嵌订单列表用：按下单用户过滤 */
+  userId?: string
   from?: Date
   to?: Date
   page: number
@@ -50,6 +52,12 @@ export interface OrderRepository {
   findOneByOrderNo(orderNo: string): Promise<OrderRecord | null>
   findByUser(userId: string, status?: string): Promise<OrderRecord[]>
   findAdminPage(query: AdminOrderPageQuery): Promise<{ total: number; list: OrderRecord[] }>
+  /**
+   * 后台用户列表/详情聚合：按用户统计 订单数（全部订单 COUNT）与累计消费
+   * （paymentStatus IN ('paid','refunding','refunded') 的 total_fen 合计——已支付口径，含退款中/已退款）。
+   * 空数组直接返回 {}，不发起 SQL。
+   */
+  summarizeByUsers(userIds: string[]): Promise<Record<string, { orderCount: number; paidTotalFen: number }>>
   /**
    * 复审 R06：年度额度预占查询——「占用中」订单在统计区间（创建年）内的总额（分）。
    * 占用 = (paymentStatus='pending' 且 status='pay') 或 paymentStatus IN ('paid','refunding')；
@@ -136,10 +144,25 @@ export class TypeOrmOrderRepository implements OrderRepository {
       const keyword = `%${query.keyword.trim()}%`
       builder.andWhere('(order.order_no LIKE :keyword OR order.receiver_phone LIKE :keyword)', { keyword })
     }
+    if (query.userId) builder.andWhere('order.user_id = :userId', { userId: query.userId })
     if (query.from) builder.andWhere('order.created_at >= :from', { from: query.from })
     if (query.to) builder.andWhere('order.created_at <= :to', { to: query.to })
     const [list, total] = await builder.skip((query.page - 1) * query.pageSize).take(query.pageSize).getManyAndCount()
     return { total, list }
+  }
+  async summarizeByUsers(userIds: string[]): Promise<Record<string, { orderCount: number; paidTotalFen: number }>> {
+    if (userIds.length === 0) return {}
+    const rows = await this.orders.createQueryBuilder('order')
+      .select('order.user_id', 'userId')
+      .addSelect('COUNT(*)', 'orderCount')
+      // 累计消费只计已支付口径（paid/refunding/refunded），待支付/未付款取消不计
+      .addSelect("COALESCE(SUM(CASE WHEN order.payment_status IN ('paid','refunding','refunded') THEN order.total_fen ELSE 0 END), 0)", 'paidTotalFen')
+      .where('order.user_id IN (:...userIds)', { userIds })
+      .groupBy('order.user_id')
+      .getRawMany<{ userId: string; orderCount: string; paidTotalFen: string }>()
+    const result: Record<string, { orderCount: number; paidTotalFen: number }> = {}
+    for (const row of rows) result[row.userId] = { orderCount: Number(row.orderCount), paidTotalFen: Number(row.paidTotalFen) }
+    return result
   }
   async sumOccupiedYearlyFen(idcardFingerprint: string, from: Date, to: Date): Promise<number> {
     const result = await this.orders.createQueryBuilder('order').select('COALESCE(SUM(order.total_fen), 0)', 'total')
@@ -264,12 +287,27 @@ export class InMemoryOrderRepository implements OrderRepository {
     const filtered = [...this.orders.values()]
       .filter((order) =>
         (!query.status || order.status === query.status) &&
+        (!query.userId || order.userId === query.userId) &&
         (!keyword || order.orderNo.includes(keyword) || order.receiverPhone.includes(keyword)) &&
         (!query.from || order.createdAt >= query.from) &&
         (!query.to || order.createdAt <= query.to))
       .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())
     const start = (query.page - 1) * query.pageSize
     return { total: filtered.length, list: filtered.slice(start, start + query.pageSize).map((order) => ({ ...order })) }
+  }
+  async summarizeByUsers(userIds: string[]): Promise<Record<string, { orderCount: number; paidTotalFen: number }>> {
+    const result: Record<string, { orderCount: number; paidTotalFen: number }> = {}
+    if (userIds.length === 0) return result
+    const included = new Set(userIds)
+    for (const order of this.orders.values()) {
+      if (!included.has(order.userId)) continue
+      const summary = (result[order.userId] ??= { orderCount: 0, paidTotalFen: 0 })
+      summary.orderCount += 1
+      if (order.paymentStatus === 'paid' || order.paymentStatus === 'refunding' || order.paymentStatus === 'refunded') {
+        summary.paidTotalFen += order.totalFen
+      }
+    }
+    return result
   }
   async sumOccupiedYearlyFen(idcardFingerprint: string, from: Date, to: Date): Promise<number> {
     return [...this.orders.values()]

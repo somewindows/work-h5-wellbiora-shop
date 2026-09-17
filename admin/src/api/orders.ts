@@ -5,6 +5,8 @@ import { request } from './request'
 export interface OrderQueryParams {
   status?: string
   keyword?: string
+  /** 用户详情页内嵌订单列表用：按下单用户过滤 */
+  userId?: string
   from?: string
   to?: string
   page?: number

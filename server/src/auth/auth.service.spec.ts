@@ -11,13 +11,15 @@ import { MemorySmsProvider, UnconfiguredSmsProvider } from './sms-provider'
 describe('AuthService', () => {
   let store: MemorySmsCodeStore
   let provider: MemorySmsProvider
+  let users: InMemoryUsersRepository
   let service: AuthService
 
   beforeEach(() => {
     store = new MemorySmsCodeStore()
     provider = new MemorySmsProvider()
+    users = new InMemoryUsersRepository()
     service = new AuthService(
-      new InMemoryUsersRepository(),
+      users,
       store,
       provider,
       new InMemoryAdminLoginRateLimitStore(),
@@ -75,6 +77,29 @@ describe('AuthService', () => {
     await expect(new UnconfiguredSmsProvider().send()).rejects.toMatchObject({
       code: 50001,
       message: '短信服务尚未配置',
+    } satisfies Partial<BusinessException>)
+  })
+
+  it('已禁用用户拒绝发送验证码（40301），新手机号不受影响', async () => {
+    const disabledUser = await users.create('13666666666')
+    await users.setDisabled(disabledUser.id, true)
+
+    await expect(service.sendSmsCode('13666666666', '127.0.0.1')).rejects.toMatchObject({
+      code: 40301,
+      message: '账号已被禁用，请联系客服',
+    } satisfies Partial<BusinessException>)
+    // 未注册的新手机号照常发码
+    await expect(service.sendSmsCode('13777777777', '127.0.0.1')).resolves.toBeUndefined()
+  })
+
+  it('已禁用用户持旧验证码登录被拒绝（双保险）', async () => {
+    await users.create('13666666666')
+    await service.sendSmsCode('13666666666', '127.0.0.1')
+    const user = await users.findByPhone('13666666666')
+    await users.setDisabled(user!.id, true)
+
+    await expect(service.login('13666666666', provider.lastCode)).rejects.toMatchObject({
+      code: 40301,
     } satisfies Partial<BusinessException>)
   })
 })

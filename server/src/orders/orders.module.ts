@@ -35,11 +35,19 @@ import { WAREHOUSE_ADAPTER } from './warehouse.adapter'
 
 @Module({})
 export class OrdersModule {
+  /**
+   * 记忆化：AppModule 与 AdminUsersModule 都会引入订单模块，
+   * 返回同一个 DynamicModule 引用让 Nest 模块去重，避免控制器/定时任务重复注册。
+   */
+  private static dynamicModule: DynamicModule | null = null
+
   static register(): DynamicModule {
+    if (this.dynamicModule) return this.dynamicModule
+
     const isTest = isInMemoryStorage()
     // 部分配置会在这里直接抛错（fail fast），完整配置与否决定是否挂载回调入口
     const wechatPayConfigured = loadWechatPayConfig() !== null
-    return {
+    this.dynamicModule = {
       module: OrdersModule,
       imports: isTest
         ? [AuthModule, CartModule.register(), ProfileModule.register(), SecurityModule, UsersModule.register(), PaymentsModule.register()]
@@ -66,6 +74,9 @@ export class OrdersModule {
             config && client ? new WechatPaymentAdapter(client, config) : new LocalPaymentAdapter(),
         },
       ],
+      // 导出给后台用户管理等模块复用（用户订单聚合统计）
+      exports: [ORDER_REPOSITORY],
     }
+    return this.dynamicModule
   }
 }

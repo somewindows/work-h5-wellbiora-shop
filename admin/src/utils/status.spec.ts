@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { eventSourceLabel, ORDER_STATUS_TABS, orderStatusMeta, paymentStatusMeta } from './status'
+import { eventSourceLabel, ORDER_STATUS_TABS, orderStatusMeta, paymentStatusMeta, userStatusMeta } from './status'
 
 describe('订单状态映射', () => {
   it('覆盖服务端全部五种本地主状态', () => {
@@ -30,5 +30,10 @@ describe('订单状态映射', () => {
     expect(eventSourceLabel('admin')).toBe('管理员操作')
     expect(eventSourceLabel('sync')).toBe('仓储同步')
     expect(eventSourceLabel('unknown-src')).toBe('unknown-src')
+  })
+
+  it('用户状态映射：启用 success / 禁用 danger', () => {
+    expect(userStatusMeta(false)).toEqual({ label: '启用中', tagType: 'success' })
+    expect(userStatusMeta(true)).toEqual({ label: '已禁用', tagType: 'danger' })
   })
 })

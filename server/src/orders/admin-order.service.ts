@@ -101,6 +101,7 @@ export class AdminOrderService {
     const page = await this.orderRepository.findAdminPage({
       status: query.status,
       keyword: query.keyword,
+      userId: query.userId,
       from: query.from,
       to: query.to,
       page: Math.max(1, query.page ?? 1),
