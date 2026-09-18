@@ -5,6 +5,7 @@ import { BusinessException } from '../common/business.exception'
 
 import { AdminPasswordService } from './password.service'
 import { ADMIN_ACCOUNTS_REPOSITORY, type AdminAccountRecord, type AdminAccountsRepository, type AdminRole } from './admin-accounts.repository'
+import { ADMIN_JWT_SERVICE } from './admin-jwt'
 import { ADMIN_LOGIN_RATE_LIMIT_STORE, type AdminLoginRateLimitStore } from './admin-login-rate-limit.store'
 
 export { type AdminAccountRecord, type AdminAccountsRepository } from './admin-accounts.repository'
@@ -20,7 +21,7 @@ export class AdminAuthService {
   constructor(
     @Inject(ADMIN_ACCOUNTS_REPOSITORY) private readonly repository: AdminAccountsRepository,
     private readonly passwordService: AdminPasswordService,
-    private readonly jwtService: JwtService,
+    @Inject(ADMIN_JWT_SERVICE) private readonly jwtService: JwtService,
     @Inject(ADMIN_LOGIN_RATE_LIMIT_STORE) private readonly rateLimit: AdminLoginRateLimitStore,
   ) {}
 

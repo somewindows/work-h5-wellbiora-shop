@@ -39,6 +39,12 @@ request.interceptors.request.use((config) => {
   return config
 })
 
+/** 401 自动登出的跳转目标；已在登录页时返回 null 避免循环（纯函数便于测试，node 环境无 window 时由调用方守卫） */
+export function loginRedirectHash(currentPath: string): string | null {
+  if (currentPath.startsWith('/login')) return null
+  return `/login?from=${encodeURIComponent(currentPath)}`
+}
+
 request.interceptors.response.use(
   (res) => {
     const body = res.data as ApiResponse<unknown>
@@ -48,5 +54,13 @@ request.interceptors.response.use(
     }
     return body.data as never
   },
-  (err: unknown) => Promise.reject(toRequestError(err)),
+  (err: unknown) => {
+    // 401 自动登出：token 过期/被禁用（如后台禁用会员）时清本地登录态并跳登录页，带上来源路径回跳
+    if (axios.isAxiosError(err) && err.response?.status === 401 && typeof window !== 'undefined') {
+      localStorage.removeItem('token')
+      const target = loginRedirectHash(window.location.hash.replace(/^#/, '') || '/')
+      if (target) window.location.hash = target
+    }
+    return Promise.reject(toRequestError(err))
+  },
 )

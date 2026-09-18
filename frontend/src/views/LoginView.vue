@@ -7,7 +7,7 @@
 import { onBeforeUnmount, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showToast } from 'vant'
-import { sendSmsCode } from '@/api'
+import { sendSmsCode, USE_MOCK_MODE } from '@/api'
 import { useUserStore } from '@/stores/user'
 
 const route = useRoute()
@@ -72,7 +72,7 @@ async function onSendCode() {
   }
   try {
     await sendSmsCode(phone.value.trim())
-    showToast('验证码已发送（mock 阶段任意 6 位可登录）')
+    showToast(USE_MOCK_MODE ? '验证码已发送（mock 阶段任意 6 位可登录）' : '验证码已发送')
   } catch {
     showToast('验证码发送失败，请重试')
     return

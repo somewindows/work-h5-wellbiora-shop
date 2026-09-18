@@ -27,7 +27,9 @@ try {
   if (-not (Test-Path $DefaultsFile)) { throw "认证文件不存在：$DefaultsFile（参照 backup-my.example.cnf 创建）" }
 
   # 导出（--single-transaction 不锁表；--routines 含存储过程/函数）
-  & $mysqldump --defaults-extra-file="$DefaultsFile" --single-transaction --routines wellbiora_shop > $sqlFile
+  # 注意必须用 mysqldump 自带的 --result-file 写文件，不能用 PowerShell 的 > 重定向：
+  # PowerShell 5.1 重定向会做文本编码转换（常写成 UTF-16/带 BOM），生成的 SQL 无法直接恢复
+  & $mysqldump --defaults-extra-file="$DefaultsFile" --single-transaction --routines --result-file="$sqlFile" wellbiora_shop
   if ($LASTEXITCODE -ne 0) { throw "mysqldump 退出码 $LASTEXITCODE" }
   if ((Get-Item $sqlFile).Length -lt 1KB) { throw "导出文件异常小，疑似失败：$sqlFile" }
 

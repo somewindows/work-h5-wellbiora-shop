@@ -4,6 +4,7 @@ import { JwtService } from '@nestjs/jwt'
 import { BusinessException } from '../common/business.exception'
 
 import { ADMIN_ACCOUNTS_REPOSITORY, type AdminAccountsRepository, type AdminRole } from './admin-accounts.repository'
+import { ADMIN_JWT_SERVICE } from './admin-jwt'
 
 export interface AuthenticatedAdminRequest {
   headers: { authorization?: string }
@@ -18,7 +19,7 @@ const CHANGE_PASSWORD_PATH = '/admin/auth/change-password'
 @Injectable()
 export class AdminJwtAuthGuard implements CanActivate {
   constructor(
-    private readonly jwtService: JwtService,
+    @Inject(ADMIN_JWT_SERVICE) private readonly jwtService: JwtService,
     @Inject(ADMIN_ACCOUNTS_REPOSITORY) private readonly accountsRepository: AdminAccountsRepository,
   ) {}
 

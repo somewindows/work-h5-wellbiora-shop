@@ -868,10 +868,10 @@ Get-Content C:\nginx\logs\wellbiora.access.log -Tail 100
 
 ### 17.3 数据库备份（每天，强烈建议）
 
-手动备份一次：
+手动备份一次（**必须用 `--result-file` 让 mysqldump 自己写文件**：PowerShell 的 `>` 重定向会做文本编码转换，常生成 UTF-16/带 BOM 的 SQL，无法直接恢复）：
 
 ```powershell
-mysqldump -u wellbiora -p --single-transaction wellbiora_shop > D:\www\wellbiora\logs\backup-$(Get-Date -Format "yyyyMMdd").sql
+mysqldump -u wellbiora -p --single-transaction --result-file="D:\www\wellbiora\logs\backup-$(Get-Date -Format "yyyyMMdd").sql" wellbiora_shop
 ```
 
 自动每天备份（2026-09-07 起用仓库内置脚本，密码不再出现在命令行参数里）：
@@ -927,4 +927,4 @@ netstat -ano | findstr ":80 :4000 :3306"     # 端口监听检查
 
 ---
 
-*文档版本：2026-09-07 v1.4 · 依据仓库当前 main 分支配置编写（server 端口 4000 / 接口前缀 /api/v1 / MySQL 8.4 / 10 个数据库迁移）。v1.1：填入真实域名 wellbiora.com.cn；ICP 备案标记已完成；11.1 节 admin 子路径改动已内置进仓库代码。v1.2：修正 MySQL 下载入口——统一安装器页只到 8.0，改为 MySQL Server 下载页（dev.mysql.com/downloads/mysql/）的 8.4.11 LTS x64 MSI（mysql-8.4.11-winx64.msi）。v1.3：Nginx 下载版本由过时示例 1.28.0 更新为当前稳定版 1.30.4（Stable 行，nginx-1.30.4.zip）；NSSM 由老稳定版 2.24 更新为 2.24-101-g897c7ad 预发布版（Win10/Server 2016+ 上老 2.24 有服务启动 bug，官网公告要求用预发布版）。v1.4（2026-09-07 实际部署踩坑修正）：Nginx 注册为 Windows 服务后桌面会话执行 `nginx -s reload` 会报 Access denied（命名事件跨会话打不开），13.4/16.4 改为 `nssm restart WellbioraNginx` 生效。v1.5（2026-09-17 商品图片上传）：3.2 目录规划新增 `uploads\`；10.2 .env 清单新增 `UPLOAD_DIR`；80/443 两个 server 块新增 `location ^~ /assets/uploads/`；17.3 备份提醒纳入 uploads 目录*
+*文档版本：2026-09-07 v1.4 · 依据仓库当前 main 分支配置编写（server 端口 4000 / 接口前缀 /api/v1 / MySQL 8.4 / 10 个数据库迁移）。v1.1：填入真实域名 wellbiora.com.cn；ICP 备案标记已完成；11.1 节 admin 子路径改动已内置进仓库代码。v1.2：修正 MySQL 下载入口——统一安装器页只到 8.0，改为 MySQL Server 下载页（dev.mysql.com/downloads/mysql/）的 8.4.11 LTS x64 MSI（mysql-8.4.11-winx64.msi）。v1.3：Nginx 下载版本由过时示例 1.28.0 更新为当前稳定版 1.30.4（Stable 行，nginx-1.30.4.zip）；NSSM 由老稳定版 2.24 更新为 2.24-101-g897c7ad 预发布版（Win10/Server 2016+ 上老 2.24 有服务启动 bug，官网公告要求用预发布版）。v1.4（2026-09-07 实际部署踩坑修正）：Nginx 注册为 Windows 服务后桌面会话执行 `nginx -s reload` 会报 Access denied（命名事件跨会话打不开），13.4/16.4 改为 `nssm restart WellbioraNginx` 生效。v1.5（2026-09-17 商品图片上传）：3.2 目录规划新增 `uploads\`；10.2 .env 清单新增 `UPLOAD_DIR`；80/443 两个 server 块新增 `location ^~ /assets/uploads/`；17.3 备份提醒纳入 uploads 目录。v1.6（2026-09-17 备份修复，评审 R17）：17.3 手动备份与 `server/scripts/backup.ps1` 的导出从 PowerShell `>` 重定向改为 mysqldump `--result-file`（重定向会做 UTF-16/BOM 编码转换导致 SQL 不可直接恢复）；已在便携 MySQL 8.4 上做「导出→恢复到空库→校验表数量/行数」演练通过*

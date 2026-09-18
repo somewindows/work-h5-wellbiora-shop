@@ -13,6 +13,9 @@
     "migration:run": "typeorm-ts-node-commonjs migration:run -d src/database/data-source.ts",
     "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/database/data-source.ts"
   },
+  "overrides": {
+    "multer": "^2.4.0"
+  },
   "dependencies": {
     "@nestjs/common": "^11.0.11",
     "@nestjs/config": "^4.0.2",

@@ -1,7 +1,18 @@
 import { AxiosError, type AxiosResponse } from 'axios'
 import { describe, expect, it } from 'vitest'
 
-import { getBusinessErrorMessage, toRequestError, UnauthorizedError } from './request'
+import { getBusinessErrorMessage, loginRedirectHash, toRequestError, UnauthorizedError } from './request'
+
+describe('loginRedirectHash', () => {
+  it('401 时跳登录页并带来源路径回跳', () => {
+    expect(loginRedirectHash('/orders')).toBe(`/login?from=${encodeURIComponent('/orders')}`)
+  })
+
+  it('已在登录页时返回 null，避免重复跳转', () => {
+    expect(loginRedirectHash('/login')).toBeNull()
+    expect(loginRedirectHash('/login?from=%2Forders')).toBeNull()
+  })
+})
 
 describe('getBusinessErrorMessage', () => {
   it('优先返回服务端统一响应壳中的业务错误信息', () => {

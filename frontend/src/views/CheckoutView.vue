@@ -10,6 +10,7 @@ import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import PriceText from '@/components/PriceText.vue'
 import { createOrder, getAddresses, getRealname, precheckOrder } from '@/api'
+import type { OrderPrecheck } from '@/api'
 import { useCartStore } from '@/stores/cart'
 import { fenToYuan } from '@/utils/format'
 import type { Address, RealnameInfo } from '@/types'
@@ -21,6 +22,8 @@ const address = ref<Address | null>(null)
 const realname = ref<RealnameInfo | null>(null)
 const agreed = ref(false)
 const paying = ref(false)
+/** 服务端预检快照：金额展示以服务端口径为准（复审第五节），失败回落购物车合计 */
+const precheck = ref<OrderPrecheck | null>(null)
 
 /* 底部弹层状态 */
 const sheetDoc = ref<'notice' | 'service' | null>(null)
@@ -38,11 +41,14 @@ onMounted(async () => {
   const [addrs, real] = await Promise.all([getAddresses(), getRealname()])
   address.value = addrs.find((a) => a.isDefault) ?? addrs[0] ?? null
   realname.value = real?.idcard ? real : null
+  precheckOrder()
+    .then((result) => (precheck.value = result))
+    .catch(() => {})
 })
 
 /** 商品件数与金额（分） */
 const totalCount = computed(() => cart.checkedItems.reduce((s, i) => s + i.quantity, 0))
-const totalFen = computed(() => cart.checkedTotalFen)
+const totalFen = computed(() => precheck.value?.payableFen ?? cart.checkedTotalFen)
 
 /** 手机号脱敏展示（与原型 138****8888 一致） */
 function maskPhone(phone: string) {

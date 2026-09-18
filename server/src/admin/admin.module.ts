@@ -22,6 +22,7 @@ import { AdminAuthController } from './admin-auth.controller'
 import { AdminCatalogController } from './admin-catalog.controller'
 import { AdminCatalogService } from './admin-catalog.service'
 import { AdminUploadsController } from './admin-uploads.controller'
+import { ADMIN_JWT_SERVICE, createAdminJwtService } from './admin-jwt'
 import { AdminJwtAuthGuard } from './admin-jwt-auth.guard'
 import { AdminAuthService } from './admin-auth.service'
 import { InitialAdminBootstrapService } from './initial-admin-bootstrap.service'
@@ -45,6 +46,7 @@ export class AdminModule {
         AuditLogService,
         AdminJwtAuthGuard,
         InitialAdminBootstrapService,
+        { provide: ADMIN_JWT_SERVICE, useFactory: createAdminJwtService },
         { provide: ADMIN_ACCOUNTS_REPOSITORY, useClass: isTest ? InMemoryAdminAccountsRepository : TypeOrmAdminAccountsRepository },
         { provide: AUDIT_LOG_REPOSITORY, useClass: isTest ? InMemoryAuditLogRepository : TypeOrmAuditLogRepository },
         { provide: CONTENT_VERSION_REPOSITORY, useClass: isTest ? InMemoryContentVersionRepository : TypeOrmContentVersionRepository },
@@ -60,8 +62,8 @@ export class AdminModule {
           },
         },
       ],
-      // 全局导出给订单/用户等模块复用（管理员鉴权守卫 + 审计日志 + 守卫回查库所需的账号仓储）
-      exports: [AuditLogService, AdminJwtAuthGuard, AUDIT_LOG_REPOSITORY, ADMIN_ACCOUNTS_REPOSITORY],
+      // 全局导出给订单/用户等模块复用（管理员鉴权守卫 + 审计日志 + 守卫回查库所需的账号仓储 + 后台专用 JWT）
+      exports: [AuditLogService, AdminJwtAuthGuard, AUDIT_LOG_REPOSITORY, ADMIN_ACCOUNTS_REPOSITORY, ADMIN_JWT_SERVICE],
     }
   }
 }

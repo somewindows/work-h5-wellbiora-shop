@@ -50,8 +50,10 @@ const totalFen = computed(() =>
 async function loadOrder(orderNo: string) {
   try {
     order.value = await getOrder(orderNo)
-  } catch {
-    notFound.value = true
+  } catch (e) {
+    // 只有查无此单才进空态；网络/鉴权等错误提示重试（401 已被全局拦截器接管跳登录）
+    if ((e as { code?: number }).code === 40404) notFound.value = true
+    else showToast(e instanceof Error ? e.message : '订单加载失败，请稍后重试')
   }
 }
 
