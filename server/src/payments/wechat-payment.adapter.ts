@@ -30,6 +30,8 @@ interface WechatRefundQuery {
 /** V3 查单（GET /v3/pay/transactions/out-trade-no）响应的关键字段 */
 interface WechatTransaction {
   out_trade_no: string
+  appid?: string
+  mchid?: string
   transaction_id?: string
   trade_state: string
   amount?: { total?: number; payer_total?: number; currency?: string }
@@ -97,6 +99,10 @@ export class WechatPaymentAdapter implements PaymentAdapter {
   async queryRefund(outRefundNo: string): Promise<PaymentRefundQueryResult | null> {
     try {
       const result = await this.client.get<WechatRefundQuery>(`/v3/refund/domestic/refunds/${outRefundNo}`)
+      // 复审 R12：核对应答关联字段（与 queryPayment 同口径的纵深防御）
+      if (result.out_refund_no !== outRefundNo) {
+        throw new BusinessException(40002, `微信查退款应答关联字段不符，拒绝采信：期望 out_refund_no=${outRefundNo}，实际 ${result.out_refund_no ?? '(缺失)'}`)
+      }
       return { status: result.status, refundId: result.refund_id }
     } catch (error) {
       if (error instanceof WechatPayError && error.httpStatus === 404) return null
@@ -114,6 +120,15 @@ export class WechatPaymentAdapter implements PaymentAdapter {
   async queryPayment(orderNo: string): Promise<PaymentQueryResult | null> {
     try {
       const result = await this.client.get<WechatTransaction>(`/v3/pay/transactions/out-trade-no/${orderNo}?mchid=${this.config.mchId}`)
+      // 复审 R12：核对应答关联字段，防止把别的单/别的商户号的应答当成补记资金状态的依据；
+      // 用 BusinessException 透出可读原因，管理员手动同步时不会只看到 500
+      if (result.out_trade_no !== orderNo || result.mchid !== this.config.mchId || (result.appid && result.appid !== this.config.appId)) {
+        throw new BusinessException(
+          40002,
+          `微信查单应答关联字段不符，拒绝采信：期望 out_trade_no=${orderNo}/mchid=${this.config.mchId}，` +
+            `实际 out_trade_no=${result.out_trade_no}/mchid=${result.mchid ?? '(缺失)'}/appid=${result.appid ?? '(缺失)'}`,
+        )
+      }
       return {
         tradeState: result.trade_state,
         transactionId: result.transaction_id,

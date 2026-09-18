@@ -34,6 +34,8 @@ export interface WechatPayConfig {
   publicKeyPem: string | null
   /** 微信支付公钥 ID（PUB_KEY_ID_ 开头），回调的 Wechatpay-Serial 会带这个值 */
   publicKeyId: string | null
+  /** V3 接口请求超时（毫秒），默认 15000；undici 默认约 300s 太长，主动查单/退款会长时间挂起 */
+  requestTimeoutMs?: number
 }
 
 export const WECHAT_PAY_CONFIG = Symbol('WECHAT_PAY_CONFIG')
@@ -81,7 +83,17 @@ export function loadWechatPayConfig(env: NodeJS.ProcessEnv = process.env): Wecha
     mchCustomsNo: env.WXPAY_MCH_CUSTOMS_NO || null,
     publicKeyPem: publicKeyPath ? readFileSync(publicKeyPath, 'utf8') : null,
     publicKeyId,
+    requestTimeoutMs: parseRequestTimeout(env.WXPAY_REQUEST_TIMEOUT_MS),
   }
+}
+
+function parseRequestTimeout(raw: string | undefined): number | undefined {
+  if (!raw) return undefined
+  const value = Number(raw)
+  if (!Number.isInteger(value) || value < 1000) {
+    throw new Error('WXPAY_REQUEST_TIMEOUT_MS 必须是 ≥1000 的整数（毫秒），不配置则默认 15000')
+  }
+  return value
 }
 
 /** 供动态模块在装配期判断：是否启用真实微信支付适配器。 */

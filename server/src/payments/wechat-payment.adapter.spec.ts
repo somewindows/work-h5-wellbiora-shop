@@ -122,6 +122,14 @@ describe('WechatPaymentAdapter', () => {
       const broken = new WechatPaymentAdapter(stubGetClient(() => Promise.reject(new WechatPayError('SYSTEM_ERROR', '系统错误', 500))), config)
       await expect(broken.queryRefund('RWB20260910ABCDEF01')).rejects.toThrow('系统错误')
     })
+
+    it('复审 R12：查退款应答 out_refund_no 不符拒绝采信', async () => {
+      const adapter = new WechatPaymentAdapter(
+        stubGetClient(() => Promise.resolve({ refund_id: '5030', out_refund_no: 'RWB_OTHER', status: 'SUCCESS' })),
+        config,
+      )
+      await expect(adapter.queryRefund('RWB20260910ABCDEF01')).rejects.toThrow(/关联字段不符/)
+    })
   })
 
   describe('queryPayment（主动查单）', () => {
@@ -131,6 +139,8 @@ describe('WechatPaymentAdapter', () => {
         capturedPath = path
         return Promise.resolve({
           out_trade_no: 'WB20260910ABCDEF',
+          appid: 'wx2591892b548a6565',
+          mchid: '1117333649',
           transaction_id: '4200000001',
           trade_state: 'SUCCESS',
           amount: { total: 32900, payer_total: 32900, currency: 'CNY' },
@@ -152,6 +162,27 @@ describe('WechatPaymentAdapter', () => {
 
       const broken = new WechatPaymentAdapter(stubGetClient(() => Promise.reject(new WechatPayError('SYSTEM_ERROR', '系统错误', 500))), config)
       await expect(broken.queryPayment('WB20260910ABCDEF')).rejects.toMatchObject({ wechatCode: 'SYSTEM_ERROR' })
+    })
+
+    it('复审 R12：应答关联字段（out_trade_no/mchid/appid）不符拒绝采信', async () => {
+      const base = {
+        out_trade_no: 'WB20260910ABCDEF',
+        appid: 'wx2591892b548a6565',
+        mchid: '1117333649',
+        trade_state: 'SUCCESS',
+        amount: { total: 32900, currency: 'CNY' },
+      }
+      const wrongOrder = new WechatPaymentAdapter(
+        stubGetClient(() => Promise.resolve({ ...base, out_trade_no: 'WB20260910OTHER' })),
+        config,
+      )
+      await expect(wrongOrder.queryPayment('WB20260910ABCDEF')).rejects.toThrow(/关联字段不符/)
+
+      const wrongMch = new WechatPaymentAdapter(stubGetClient(() => Promise.resolve({ ...base, mchid: '9999999999' })), config)
+      await expect(wrongMch.queryPayment('WB20260910ABCDEF')).rejects.toThrow(/关联字段不符/)
+
+      const wrongApp = new WechatPaymentAdapter(stubGetClient(() => Promise.resolve({ ...base, appid: 'wx-other' })), config)
+      await expect(wrongApp.queryPayment('WB20260910ABCDEF')).rejects.toThrow(/关联字段不符/)
     })
   })
 })

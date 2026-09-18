@@ -37,8 +37,23 @@ describe('微信支付回调（e2e）', () => {
   function mockFetch(): typeof fetch {
     return (async (input: string | URL | Request) => {
       const url = String(input)
-      const json = (payload: unknown, status = 200) =>
-        new Response(JSON.stringify(payload), { status, headers: { 'Content-Type': 'application/json' } })
+      // 复审 R12：微信 V3 成功应答必须验签，mock 统一用平台私钥签名
+      const json = (payload: unknown, status = 200) => {
+        const body = JSON.stringify(payload)
+        const timestamp = Math.floor(Date.now() / 1000).toString()
+        const nonce = 'e2erespnonce'
+        const signature = signV3(platformPrivateKeyPem, buildV3Message([timestamp, nonce, body]))
+        return new Response(body, {
+          status,
+          headers: {
+            'Content-Type': 'application/json',
+            'Wechatpay-Timestamp': timestamp,
+            'Wechatpay-Nonce': nonce,
+            'Wechatpay-Signature': signature,
+            'Wechatpay-Serial': platformSerial,
+          },
+        })
+      }
       if (url.includes('api.weixin.qq.com/sns/oauth2/access_token')) return json({ openid: 'openid-e2e-1' })
       if (url.includes('/v3/pay/transactions/jsapi')) return json({ prepay_id: 'prepay-e2e-1' })
       if (url.includes('/v3/certificates')) {

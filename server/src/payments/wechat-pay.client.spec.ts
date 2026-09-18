@@ -40,14 +40,37 @@ describe('微信支付 V3 客户端', () => {
     return new Response(JSON.stringify(payload), { status, headers: { 'Content-Type': 'application/json' } })
   }
 
+  /** 复审 R12：构造带合法 V3 应答签名头的响应（成功应答必须验签才采信） */
+  function signedJsonResponse(payload: unknown, signerPrivateKeyPem: string, serial: string, status = 200): Response {
+    const body = JSON.stringify(payload)
+    const timestamp = Math.floor(Date.now() / 1000).toString()
+    const nonce = 'respnonce'
+    const signature = signV3(signerPrivateKeyPem, buildV3Message([timestamp, nonce, body]))
+    return new Response(body, {
+      status,
+      headers: {
+        'Content-Type': 'application/json',
+        'Wechatpay-Timestamp': timestamp,
+        'Wechatpay-Nonce': nonce,
+        'Wechatpay-Signature': signature,
+        'Wechatpay-Serial': serial,
+      },
+    })
+  }
+
+  function seedPlatformCert(client: WechatPayClient): void {
+    ;(client as unknown as { platformCerts: Map<string, string> }).platformCerts.set(platformSerial, platformPublicKeyPem)
+  }
+
   it('请求带 WECHATPAY2-SHA256-RSA2048 签名头，且签名可被商户公钥验出', async () => {
     const captured: { url?: string; init?: RequestInit } = {}
     const fetchImpl: typeof fetch = (async (url: string | URL, init?: RequestInit) => {
       captured.url = String(url)
       captured.init = init ?? {}
-      return jsonResponse({ prepay_id: 'wx-prepay-123' })
+      return signedJsonResponse({ prepay_id: 'wx-prepay-123' }, platformPrivateKeyPem, platformSerial)
     }) as typeof fetch
     const client = new WechatPayClient(config, fetchImpl)
+    seedPlatformCert(client)
 
     await client.post('/v3/pay/transactions/jsapi', { appid: 'wx-test' })
 
@@ -197,12 +220,218 @@ describe('微信支付 V3 客户端', () => {
     const captured: { init?: RequestInit } = {}
     const fetchImpl: typeof fetch = (async (_url: string | URL, init?: RequestInit) => {
       captured.init = init ?? {}
-      return jsonResponse({})
+      return signedJsonResponse({}, platformPrivateKeyPem, publicKeyId)
     }) as typeof fetch
     const client = new WechatPayClient(publicKeyConfig, fetchImpl)
 
     await client.get('/v3/pay/transactions/out-trade-no/XXX?mchid=1117333649')
 
     expect((captured.init?.headers as Record<string, string>)['Wechatpay-Serial']).toBe(publicKeyId)
+  })
+
+  describe('复审 R12：应答验签', () => {
+    const publicKeyId = 'PUB_KEY_ID_0114000000000000000000000001'
+    const publicKeyConfig: WechatPayConfig = { ...config, publicKeyPem: platformPublicKeyPem, publicKeyId }
+
+    it('公钥模式：应答验签通过才采信', async () => {
+      const fetchImpl: typeof fetch = (async () =>
+        signedJsonResponse({ prepay_id: 'wx-prepay-ok' }, platformPrivateKeyPem, publicKeyId)) as typeof fetch
+      const client = new WechatPayClient(publicKeyConfig, fetchImpl)
+      await expect(client.post('/v3/pay/transactions/jsapi', {})).resolves.toEqual({ prepay_id: 'wx-prepay-ok' })
+    })
+
+    it('公钥模式：应答签名不符（用错密钥签）拒绝采信', async () => {
+      const fetchImpl: typeof fetch = (async () =>
+        signedJsonResponse({ prepay_id: 'wx-prepay-evil' }, merchantPrivateKeyPem, publicKeyId)) as typeof fetch
+      const client = new WechatPayClient(publicKeyConfig, fetchImpl)
+      await expect(client.post('/v3/pay/transactions/jsapi', {})).rejects.toMatchObject({
+        name: 'WechatPayResponseSignatureError',
+      })
+    })
+
+    it('公钥模式：应答缺少验签头拒绝采信', async () => {
+      const fetchImpl: typeof fetch = (async () => jsonResponse({ prepay_id: 'wx-prepay-unsigned' })) as typeof fetch
+      const client = new WechatPayClient(publicKeyConfig, fetchImpl)
+      await expect(client.post('/v3/pay/transactions/jsapi', {})).rejects.toMatchObject({
+        name: 'WechatPayResponseSignatureError',
+      })
+    })
+
+    it('公钥模式：应答 serial 不是配置的公钥 ID 拒绝采信', async () => {
+      const fetchImpl: typeof fetch = (async () =>
+        signedJsonResponse({ prepay_id: 'wx-prepay-x' }, platformPrivateKeyPem, 'PUB_KEY_ID_OTHER')) as typeof fetch
+      const client = new WechatPayClient(publicKeyConfig, fetchImpl)
+      await expect(client.post('/v3/pay/transactions/jsapi', {})).rejects.toMatchObject({
+        name: 'WechatPayResponseSignatureError',
+      })
+    })
+
+    it('空 body 应答（关单 204）按空串参与验签，验签通过且返回空对象', async () => {
+      const timestamp = Math.floor(Date.now() / 1000).toString()
+      const nonce = 'respnonce'
+      const signature = signV3(platformPrivateKeyPem, buildV3Message([timestamp, nonce, '']))
+      const fetchImpl: typeof fetch = (async () =>
+        new Response(null, {
+          status: 204,
+          headers: {
+            'Wechatpay-Timestamp': timestamp,
+            'Wechatpay-Nonce': nonce,
+            'Wechatpay-Signature': signature,
+            'Wechatpay-Serial': publicKeyId,
+          },
+        })) as typeof fetch
+      const client = new WechatPayClient(publicKeyConfig, fetchImpl)
+      await expect(client.post('/v3/pay/transactions/out-trade-no/XXX/close', { mchid: '1117333649' })).resolves.toEqual({})
+    })
+
+    it('证书模式：未知序列号的应答触发一次证书刷新后验签通过', async () => {
+      const fetchImpl: typeof fetch = (async (url: string | URL) => {
+        if (String(url).includes('/v3/certificates')) {
+          return jsonResponse({
+            data: [
+              {
+                serial_no: platformSerial,
+                effective_time: '2026-09-01T00:00:00+08:00',
+                expire_time: '2031-09-01T00:00:00+08:00',
+                encrypt_certificate: {
+                  algorithm: 'AEAD_AES_256_GCM',
+                  nonce: 'certnonce12',
+                  associated_data: 'certificate',
+                  ciphertext: encryptWithApiV3Key(platformPublicKeyPem, 'certnonce12', 'certificate'),
+                },
+              },
+            ],
+          })
+        }
+        return signedJsonResponse({ trade_state: 'SUCCESS' }, platformPrivateKeyPem, platformSerial)
+      }) as typeof fetch
+      const client = new WechatPayClient(config, fetchImpl)
+      await expect(client.get('/v3/pay/transactions/out-trade-no/XXX?mchid=1117333649')).resolves.toEqual({
+        trade_state: 'SUCCESS',
+      })
+    })
+
+    it('证书模式：应答验签失败且刷新也拿不到对应证书时拒绝采信', async () => {
+      const fetchImpl: typeof fetch = (async (url: string | URL) => {
+        if (String(url).includes('/v3/certificates')) return jsonResponse({ data: [] })
+        return signedJsonResponse({ trade_state: 'SUCCESS' }, platformPrivateKeyPem, 'UNKNOWN_SERIAL')
+      }) as typeof fetch
+      const client = new WechatPayClient(config, fetchImpl)
+      await expect(client.get('/v3/pay/transactions/out-trade-no/XXX?mchid=1117333649')).rejects.toMatchObject({
+        name: 'WechatPayResponseSignatureError',
+      })
+    })
+  })
+
+  describe('复审 R12：请求超时', () => {
+    it('fetch 超过配置超时被 AbortController 中止，抛超时错误', async () => {
+      const timeoutConfig: WechatPayConfig = { ...config, requestTimeoutMs: 50 }
+      const fetchImpl: typeof fetch = ((_url: string | URL, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(new DOMException('This operation was aborted', 'AbortError')))
+        })) as typeof fetch
+      const client = new WechatPayClient(timeoutConfig, fetchImpl)
+      await expect(client.get('/v3/pay/transactions/out-trade-no/XXX?mchid=1117333649')).rejects.toThrow(/超时/)
+    })
+  })
+
+  describe('复审 R11：证书刷新防护', () => {
+    function certificatesFetch(counter: { count: number }): typeof fetch {
+      return (async () => {
+        counter.count += 1
+        return jsonResponse({
+          data: [
+            {
+              serial_no: platformSerial,
+              effective_time: '2026-09-01T00:00:00+08:00',
+              expire_time: '2031-09-01T00:00:00+08:00',
+              encrypt_certificate: {
+                algorithm: 'AEAD_AES_256_GCM',
+                nonce: 'certnonce12',
+                associated_data: 'certificate',
+                ciphertext: encryptWithApiV3Key(platformPublicKeyPem, 'certnonce12', 'certificate'),
+              },
+            },
+          ],
+        })
+      }) as typeof fetch
+    }
+
+    function signedNotify(serial: string): { headers: { timestamp: string; nonce: string; signature: string; serial: string }; rawBody: string } {
+      const rawBody = JSON.stringify({ id: `notify-${serial}` })
+      const timestamp = Math.floor(Date.now() / 1000).toString()
+      const nonce = 'notifynonce'
+      return { headers: { timestamp, nonce, signature: signV3(platformPrivateKeyPem, buildV3Message([timestamp, nonce, rawBody])), serial }, rawBody }
+    }
+
+    it('并发回调触发证书刷新时 single-flight，只真实拉取一次', async () => {
+      const counter = { count: 0 }
+      const client = new WechatPayClient(config, certificatesFetch(counter))
+      const notify = signedNotify(platformSerial)
+
+      const results = await Promise.all([
+        client.verifyNotification(notify.headers, notify.rawBody),
+        client.verifyNotification(notify.headers, notify.rawBody),
+        client.verifyNotification(notify.headers, notify.rawBody),
+      ])
+
+      expect(results).toEqual([true, true, true])
+      expect(counter.count).toBe(1)
+    })
+
+    it('最小间隔内不重复刷新：未知序列号回调直接按验签失败处理', async () => {
+      const counter = { count: 0 }
+      const client = new WechatPayClient(config, certificatesFetch(counter))
+      const first = signedNotify(platformSerial)
+      await expect(client.verifyNotification(first.headers, first.rawBody)).resolves.toBe(true)
+      expect(counter.count).toBe(1)
+
+      // 紧接着来一个未知序列号的回调：刷新被限流跳过，不再次拉证书
+      const forged = signedNotify('FORGED_SERIAL')
+      await expect(client.verifyNotification(forged.headers, forged.rawBody)).resolves.toBe(false)
+      expect(counter.count).toBe(1)
+    })
+
+    it('刷新失败后进入退避窗口，窗口内不再调用微信接口', async () => {
+      const counter = { count: 0 }
+      const failingFetch: typeof fetch = (async () => {
+        counter.count += 1
+        return jsonResponse({ code: 'SYSTEM_ERROR', message: '系统错误' }, 500)
+      }) as typeof fetch
+      const client = new WechatPayClient(config, failingFetch)
+      const forged = signedNotify('FORGED_SERIAL')
+
+      await expect(client.verifyNotification(forged.headers, forged.rawBody)).resolves.toBe(false)
+      await expect(client.verifyNotification(forged.headers, forged.rawBody)).resolves.toBe(false)
+      expect(counter.count).toBe(1)
+    })
+
+    it('证书全部解密失败按刷新失败处理（进入退避），不误判成功', async () => {
+      const counter = { count: 0 }
+      const badCertFetch: typeof fetch = (async () => {
+        counter.count += 1
+        return jsonResponse({
+          data: [
+            {
+              serial_no: platformSerial,
+              effective_time: '2026-09-01T00:00:00+08:00',
+              expire_time: '2031-09-01T00:00:00+08:00',
+              encrypt_certificate: {
+                algorithm: 'AEAD_AES_256_GCM',
+                nonce: 'badnonce1234',
+                associated_data: 'certificate',
+                ciphertext: Buffer.from('garbage-cipher').toString('base64'),
+              },
+            },
+          ],
+        })
+      }) as typeof fetch
+      const client = new WechatPayClient(config, badCertFetch)
+      const notify = signedNotify(platformSerial)
+
+      await expect(client.verifyNotification(notify.headers, notify.rawBody)).resolves.toBe(false)
+      await expect(client.verifyNotification(notify.headers, notify.rawBody)).resolves.toBe(false)
+      expect(counter.count).toBe(1)
+    })
   })
 })
